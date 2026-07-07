@@ -1308,7 +1308,7 @@ function renderDocView(id){
       </div>` : ''}
       <div class="p2-section-title" style="background:${color}">1. D\u00c9SIGNATION DES PRESTATIONS</div>
       <table class="p2-table">
-        <tr><th>N\u00b0</th><th>R\u00e9f\u00e9rence</th><th>Description</th><th style="text-align:right">Qt\u00e9</th><th>Unit\u00e9</th><th style="text-align:right">PU HT (\u20ac)</th><th style="text-align:right">Total HT (\u20ac)</th><th class="wrap-th" style="text-align:right">Dont \u00e9co-contribution</th></tr>
+        <tr><th>N\u00b0</th><th>R\u00e9f\u00e9rence</th><th>Description</th><th style="text-align:right">Qt\u00e9</th><th>Unit\u00e9</th><th style="text-align:right">PU HT (\u20ac)</th><th style="text-align:right">Total HT (\u20ac)</th><th class="wrap-th" style="text-align:right">Dont \u00e9co-<br>contribution</th></tr>
         ${d.lignes.map((l,i)=>{
           const art = state.articles.find(a=>a.id===l.articleId);
           return `<tr>
