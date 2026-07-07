@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atelier Devis</title>
+<style>
+  :root{
+    --ink:#1B2A4A;
+    --ink-light:#2E4470;
+    --paper:#F7F5EF;
+    --card:#FFFFFF;
+    --line:#E3E0D5;
+    --line-strong:#C9C5B6;
+    --text:#22262B;
+    --muted:#6B6F76;
+    --brass:#A6772E;
+    --brass-light:#F1E6D2;
+    --danger:#B3433A;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font-body);background:var(--paper);color:var(--text);}
+  #app{min-height:100vh;}
+
+  .landing{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;}
+  .landing-card{max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:2.5rem 2rem;text-align:center;}
+  .landing-card h1{font-family:var(--font-display);font-size:28px;margin:0 0 .25rem;color:var(--ink);}
+  .landing-card p{color:var(--muted);font-size:14px;margin:0 0 1.75rem;}
+  .member-btn{display:block;width:100%;text-align:left;padding:.85rem 1rem;margin-bottom:.6rem;background:var(--paper);border:1px solid var(--line);border-radius:3px;font-size:15px;color:var(--text);cursor:pointer;font-family:var(--font-body);}
+  .member-btn:hover{border-color:var(--ink);}
+  .add-member-row{display:flex;gap:.5rem;margin-top:1rem;}
+  .add-member-row input{flex:1;}
+
+  .shell{display:flex;min-height:100vh;}
+  .sidebar{width:220px;background:var(--ink);color:#fff;flex-shrink:0;padding:1.5rem 0;position:relative;}
+  .brand{font-family:var(--font-display);font-size:20px;padding:0 1.5rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.15);margin-bottom:1rem;}
+  .brand small{display:block;font-family:var(--font-body);font-size:11px;color:#B9C2D6;font-weight:normal;letter-spacing:.04em;text-transform:uppercase;margin-top:2px;}
+  .nav-item{display:block;width:100%;text-align:left;background:none;border:none;color:#D7DCE8;font-size:14px;padding:.7rem 1.5rem;cursor:pointer;font-family:var(--font-body);border-left:3px solid transparent;}
+  .nav-item:hover{background:rgba(255,255,255,.06);}
+  .nav-item.active{background:rgba(255,255,255,.09);border-left-color:var(--brass);color:#fff;}
+  .sidebar-footer{margin-top:1.5rem;padding:0 1.5rem;font-size:12px;color:#9CA6BC;}
+  .sidebar-footer button{background:none;border:none;color:#D7DCE8;text-decoration:underline;cursor:pointer;font-size:12px;padding:0;font-family:var(--font-body);}
+
+  .main{flex:1;padding:2rem 2.5rem;max-width:1080px;}
+  .page-title{font-family:var(--font-display);font-size:24px;color:var(--ink);margin:0 0 .25rem;}
+  .page-sub{color:var(--muted);font-size:13px;margin:0 0 1.75rem;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;}
+  .row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.9rem;}
+  .field label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  input, select, textarea{font-family:var(--font-body);font-size:14px;padding:.55rem .65rem;border:1px solid var(--line-strong);border-radius:3px;background:#fff;color:var(--text);}
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--ink-light);outline-offset:1px;}
+  input[type=color]{padding:.2rem;height:38px;width:60px;}
+  button.btn{font-family:var(--font-body);font-size:13px;padding:.6rem 1.1rem;border-radius:3px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer;}
+  button.btn:hover{background:var(--ink-light);}
+  button.btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line-strong);}
+  button.btn.secondary:hover{border-color:var(--ink);}
+  button.btn.small{padding:.35rem .7rem;font-size:12px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);border-bottom:1px solid var(--line-strong);padding:.5rem .4rem;}
+  td{padding:.6rem .4rem;border-bottom:1px solid var(--line);}
+  .empty{color:var(--muted);font-size:13px;padding:1rem 0;text-align:center;}
+  .badge{display:inline-block;font-size:11px;padding:.15rem .5rem;border-radius:10px;background:var(--brass-light);color:var(--brass);font-weight:bold;}
+  .badge.facture{background:#E1EEE5;color:#2E7D4F;}
+  .num{font-family:var(--font-mono);}
+  .toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--ink);color:#fff;padding:.7rem 1.1rem;border-radius:4px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:999;}
+  .hint{font-size:12px;color:var(--muted);margin:.4rem 0 0;}
+  .divider{border:none;border-top:1px solid var(--line);margin:1.25rem 0;}
+  .subhead{font-size:13px;font-weight:bold;color:var(--ink);margin:0 0 .75rem;}
+  .company-pill{display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .8rem;border-radius:20px;border:1px solid var(--line-strong);background:#fff;cursor:pointer;font-size:13px;margin:0 .5rem .5rem 0;}
+  .company-pill.active{border-color:var(--ink);background:var(--paper);font-weight:bold;}
+  .company-pill .dot{width:12px;height:12px;border-radius:50%;display:inline-block;}
+
+  .line-row{display:grid;grid-template-columns:2fr 90px 90px 100px 100px 32px;gap:.6rem;align-items:center;margin-bottom:.5rem;}
+  .line-row .lt{font-family:var(--font-mono);text-align:right;font-size:13.5px;}
+  .totals-box{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--line-strong);}
+  .totals-row{display:flex;justify-content:space-between;padding:.35rem 0;font-size:15px;}
+  .totals-row.ttc{font-weight:bold;font-size:19px;border-top:1px solid var(--line-strong);margin-top:.3rem;padding-top:.7rem;}
+  .totals-row .num{font-family:var(--font-mono);}
+  .rm-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;line-height:1;}
+
+  /* ---- New devis paper (multi-company template) ---- */
+  .paper-wrap{background:#DCD9CE;padding:1.5rem;border-radius:4px;overflow-x:auto;}
+  .paper2{background:#fff;width:210mm;min-height:297mm;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,.15);display:flex;flex-direction:column;font-size:13.5px;}
+  .p2-banner{position:relative;padding:24px 32px;color:var(--text);display:flex;justify-content:space-between;align-items:center;overflow:hidden;min-height:110px;background:#fff;}
+  .p2-banner::after{content:'';position:absolute;top:0;right:0;width:42%;height:250%;background:var(--p2-color, #1B2A4A);transform:rotate(-10deg) translate(20%,-25%);z-index:0;}
+  .p2-logo-img{max-height:80px;max-width:210px;object-fit:contain;position:relative;z-index:1;}
+  .p2-logo-text{position:relative;z-index:1;color:var(--text);}
+  .p2-logo-text .nm{font-family:var(--font-display);font-size:26px;font-weight:bold;line-height:1;color:var(--ink);}
+  .p2-logo-text .tg{font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-top:4px;opacity:.8;}
+  .p2-devis-box{position:relative;z-index:1;text-align:right;color:#fff;}
+  .p2-devis-box .ttl{font-family:var(--font-display);font-size:26px;font-weight:bold;letter-spacing:.03em;}
+  .p2-devis-box .num{font-size:12px;opacity:.9;margin-top:2px;}
+  .p2-devis-box .dt{font-size:12px;opacity:.9;}
+
+  .p2-body{padding:26px 32px;flex:1;display:flex;flex-direction:column;}
+  .p2-parties{display:flex;gap:20px;margin-bottom:20px;}
+  .p2-party{flex:1;background:var(--paper);border-radius:4px;padding:14px 16px;font-size:12.5px;line-height:1.55;}
+  .p2-party .lbl{font-size:10.5px;font-weight:bold;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin-bottom:.4rem;}
+  .p2-party strong{font-size:14px;}
+
+  .p2-objet{border:1px solid var(--line-strong);border-radius:4px;margin-bottom:22px;overflow:hidden;}
+  .p2-objet .tag{display:inline-block;color:#fff;font-size:11px;font-weight:bold;letter-spacing:.05em;padding:.3rem 1rem;border-radius:3px;margin:10px 0 0 10px;}
+  .p2-objet .txt{padding:6px 16px 14px;font-size:13px;}
+
+  .p2-section-title{color:#fff;font-size:12.5px;font-weight:bold;letter-spacing:.04em;padding:.55rem 1rem;border-radius:3px 3px 0 0;margin-bottom:0;}
+  .p2-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:22px;}
+  .p2-table th{background:var(--paper);font-size:10.5px;text-transform:uppercase;color:var(--muted);padding:.6rem .5rem;text-align:left;border:none;}
+  .p2-table td{padding:.65rem .5rem;border-bottom:1px solid var(--line);}
+  .p2-table tr:last-child td{border-bottom:1px solid var(--line-strong);}
+
+  .p2-bottom-row{display:flex;gap:20px;margin-bottom:20px;align-items:flex-start;}
+  .p2-conditions{flex:1.3;border:1px solid var(--line-strong);border-radius:0 0 4px 4px;overflow:hidden;}
+  .p2-conditions ul{list-style:none;margin:0;padding:14px 16px;font-size:11.5px;line-height:1.65;}
+  .p2-conditions li{margin-bottom:.6rem;}
+  .p2-totals{flex:1;border:1px solid var(--line-strong);border-radius:4px;overflow:hidden;font-size:13px;}
+  .p2-totals .r{display:flex;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid var(--line);}
+  .p2-totals .r.ttc{color:#fff;font-weight:bold;font-size:15px;border-bottom:none;}
+  .p2-signbox{margin:10px 14px 14px;padding:10px;border:1px dashed var(--line-strong);border-radius:3px;text-align:center;font-size:12px;font-weight:bold;}
+
+  .p2-icons-row{display:flex;gap:16px;margin-top:auto;padding-top:6px;font-size:11px;line-height:1.5;}
+  .p2-icons-row > div{flex:1;padding:10px 4px;border-top:2px solid var(--line-strong);}
+  .p2-icons-row .ic-title{font-weight:bold;font-size:11px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;}
+  .p2-icons-row .ic-desc{color:var(--muted);}
+
+  .p2-tagline{color:#fff;text-align:center;padding:16px 20px;font-size:13px;}
+  .p2-tagline .q{font-family:var(--font-display);font-style:italic;font-size:14px;}
+  .p2-tagline .s{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin-top:4px;opacity:.9;}
+  .p2-legal-footer{text-align:center;font-size:9.5px;color:var(--muted);line-height:1.6;padding:10px 20px;border-top:1px solid var(--line);}
+
+  .cgv-page{margin-top:1.5rem;}
+  .cgv-sheet{padding:16mm;font-size:12px;line-height:1.55;color:var(--text);}
+  .cgv-header{display:flex;align-items:center;gap:.75rem;justify-content:space-between;border-bottom:1px solid var(--line-strong);padding-bottom:.75rem;margin-bottom:1.5rem;}
+  .cgv-logo{max-height:36px;max-width:100px;object-fit:contain;}
+  .cgv-header-title{font-size:11px;color:var(--muted);}
+  .cgv-title{font-family:var(--font-display);font-size:20px;text-align:center;margin:0 0 1rem;}
+  .cgv-meta{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.6;margin-bottom:1.25rem;}
+  .cgv-intro{font-size:12.5px;margin-bottom:1.5rem;}
+  .cgv-art-title{font-family:var(--font-display);font-size:14px;color:var(--ink);margin:1.25rem 0 .5rem;}
+  .cgv-par{margin:0 0 .6rem;white-space:pre-line;}
+  .cgv-footnote{font-size:11px;color:var(--muted);font-style:italic;margin-top:1.5rem;border-top:1px solid var(--line);padding-top:.75rem;}
+  @media print{
+    .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
+  }
+
+  .paper2, .p2-banner, .p2-section-title, .p2-totals .r.ttc, .p2-tagline, .p2-objet .tag{
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  @media print{
+    @page{ size:A4; margin:8mm; }
+    *{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body *{visibility:hidden;}
+    #print-area, #print-area *{visibility:visible;}
+    #print-area{position:absolute;top:0;left:0;width:100%;padding:0;margin:0;}
+    .paper-wrap{background:none;padding:0;}
+    .paper2{box-shadow:none;width:auto;min-height:281mm;margin:0;}
+    .p2-table{font-size:11.5px;}
+    .p2-table th, .p2-table td{padding:.45rem .4rem;}
+    tr{break-inside:avoid;page-break-inside:avoid;}
+  }
+  @media (max-width: 720px){
+    .shell{flex-direction:column;}
+    .sidebar{width:100%;padding:1rem;}
+    .main{padding:1.25rem;}
+    .line-row{grid-template-columns:1fr 70px 70px 80px 80px 28px;}
+    .paper2{width:auto;min-height:0;}
+    .p2-parties, .p2-bottom-row, .p2-icons-row{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="landing"><div class="landing-card"><h1>Atelier Devis</h1><p>Chargement en cours...</p></div></div></div>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+const DEFAULT_LOGO_BAWS = "data:image/webp;base64,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";
+const DEFAULT_LOGO_CVC = "data:image/webp;base64,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";
+
+const UNIT_OPTIONS = ['Forfait','Unit\u00e9','Heure','Ens.'];
+const CLIENT_CATS = ['PROFESSIONNEL','PARTICULIER','AMI'];
+
+const LS_PREFIX = 'atelier-devis:';
+
+// --- Configuration Firebase ---
+// Colle ici la config donnée par la console Firebase (Param\u00e8tres du projet > Vos applications > Web).
+// Tant que apiKey vaut "REMPLACE_MOI", l'appli utilise le stockage local du navigateur (non partag\u00e9).
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCFni0sGiwM3EpNyZdNYt3UQGw6_ef0nYk",
+  authDomain: "baws-db7ed.firebaseapp.com",
+  projectId: "baws-db7ed",
+  storageBucket: "baws-db7ed.firebasestorage.app",
+  messagingSenderId: "773489273833",
+  appId: "1:773489273833:web:209aedce3e83cadaf57978",
+};
+const FIREBASE_COLLECTION = 'atelier-devis-shared';
+let fbDb = null;
+function firebaseReady(){ return FIREBASE_CONFIG.apiKey !== "REMPLACE_MOI"; }
+function initFirebase(){
+  if(!firebaseReady()) return;
+  try{
+    if(typeof firebase === 'undefined'){ console.warn('SDK Firebase non charg\u00e9'); return; }
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbDb = firebase.firestore();
+  }catch(e){ console.error('Erreur init Firebase', e); fbDb = null; }
+}
+
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, reject)=> setTimeout(()=> reject(new Error('timeout')), ms))
+  ]);
+}
+async function sget(key, fallback){
+  if(fbDb){
+    try{
+      const doc = await withTimeout(fbDb.collection(FIREBASE_COLLECTION).doc(key).get(), 6000);
+      return doc.exists ? doc.data().value : fallback;
+    }catch(e){ console.error('Firestore get error (bascule sur stockage local)', e); }
+  }
+  try{
+    const r = await withTimeout(window.storage.get(key, true), 3000);
+    return r ? JSON.parse(r.value) : fallback;
+  }catch(e){
+    try{
+      const raw = localStorage.getItem(LS_PREFIX+key);
+      return raw !== null ? JSON.parse(raw) : fallback;
+    }catch(e2){ return fallback; }
+  }
+}
+async function sset(key, value){
+  if(fbDb){
+    try{
+      await withTimeout(fbDb.collection(FIREBASE_COLLECTION).doc(key).set({value: value}), 6000);
+      return;
+    }catch(e){ console.error('Firestore set error (bascule sur stockage local)', e); }
+  }
+  try{
+    const r = await withTimeout(window.storage.set(key, JSON.stringify(value), true), 3000);
+    if(r) return;
+  }catch(e){}
+  try{ localStorage.setItem(LS_PREFIX+key, JSON.stringify(value)); }catch(e2){ console.error(e2); }
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function clientFullName(c){ return c ? (c.nom + (c.prenom ? ' '+c.prenom : '')) : ''; }
+function eur(n){ return (Math.round((n||0)*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' \u20ac'; }
+function todayStr(){ const d=new Date(); return d.toLocaleDateString('fr-FR'); }
+function shadeColor(hex, percent){
+  try{
+    let f=parseInt(hex.slice(1),16), t=percent<0?0:255, p=Math.abs(percent);
+    let R=f>>16, G=(f>>8)&0x00FF, B=f&0x0000FF;
+    const nr = Math.round((t-R)*p)+R, ng = Math.round((t-G)*p)+G, nb = Math.round((t-B)*p)+B;
+    return '#'+(0x1000000+nr*0x10000+ng*0x100+nb).toString(16).slice(1);
+  }catch(e){ return hex; }
+}
+
+let state = {
+  currentUser: null,
+  authenticated: false,
+  team: [],
+  clients: [],
+  articles: [],
+  documents: [],
+  counters: {devis:0, facture:0},
+  companies: [],
+  editingCompanyId: null,
+  editingArticleId: null,
+  editingClientId: null,
+  tab: 'clients',
+  builder: { clientId:'', companyId:'', objet:'', lignes:[], tva:20, notes:'', editingDocId:null },
+  toast: null,
+  viewingDoc: null,
+};
+
+const DEFAULT_COMPANIES = [
+  {
+    id:'baws',
+    name:'BAWS',
+    tagline:'Business Aircon Web System',
+    subtagline:'Expertise \u2022 Performance \u2022 Fiabilit\u00e9',
+    color:'#8E1F3B',
+    logo: DEFAULT_LOGO_BAWS,
+    street:'231 Rue Saint Honor\u00e9',
+    cp:'75001', ville:'PARIS',
+    phone:'01 72 48 45 56',
+    email:'bawstoconsult@gmail.com',
+    capital:'1000', siret:'849 942 206 00012', rcs:'849 942 206', tva:'FR46 849 942 206',
+    conditions:[
+      'Offre valable 1 mois',
+      'Conditions de r\u00e8glement : 100% \u00e0 la commande',
+    ],
+    cgvIntro:"Les pr\u00e9sentes Conditions G\u00e9n\u00e9rales de Vente (CGV) r\u00e9gissent l\u2019ensemble des ventes de mat\u00e9riels de climatisation (notamment unit\u00e9s de climatisation TOSHIBA) et pi\u00e8ces d\u00e9tach\u00e9es r\u00e9alis\u00e9es par BAWS. Toute commande implique l\u2019acceptation pleine et enti\u00e8re des pr\u00e9sentes CGV.",
+    cgv:[{title:"ARTICLE 1 - OBJET",body:"Les pr\u00e9sentes CGV ont pour objet de d\u00e9finir les droits et obligations des parties dans le cadre de la vente par BAWS de mat\u00e9riels de climatisation, accessoires et pi\u00e8ces d\u00e9tach\u00e9es (ci-apr\u00e8s les \u00ab Produits \u00bb), au b\u00e9n\u00e9fice de tout acheteur (ci-apr\u00e8s le \u00ab CLIENT \u00bb)."},{title:"ARTICLE 2 - PRODUITS - INFORMATIONS",body:"Les Produits propos\u00e9s sont d\u00e9crits et pr\u00e9sent\u00e9s avec la plus grande exactitude possible. Toutefois, les photographies, sch\u00e9mas, notices, caract\u00e9ristiques et descriptions techniques sont communiqu\u00e9s \u00e0 titre indicatif et ne sauraient engager la responsabilit\u00e9 de BAWS.\nLe CLIENT est tenu de v\u00e9rifier l\u2019ad\u00e9quation du Produit \u00e0 ses besoins, notamment au regard des contraintes d\u2019installation, d\u2019utilisation, de maintenance, d\u2019environnement (local, puissance \u00e9lectrique, \u00e9vacuation, etc.) et de r\u00e9glementation applicable."},{title:"ARTICLE 3 - COMMANDE",body:"Toute commande devient ferme et d\u00e9finitive apr\u00e8s acceptation/validation par BAWS. BAWS se r\u00e9serve le droit de refuser une commande en cas de litige ant\u00e9rieur, d\u2019incident de paiement, ou si les informations communiqu\u00e9es par le CLIENT apparaissent incompl\u00e8tes ou incoh\u00e9rentes.\nToute demande de modification ou d\u2019annulation apr\u00e8s validation devra faire l\u2019objet d\u2019un accord pr\u00e9alable expr\u00e8s et \u00e9crit de BAWS. \u00c0 d\u00e9faut, la commande restera due dans son int\u00e9gralit\u00e9."},{title:"ARTICLE 4 - PRIX",body:"Les prix sont exprim\u00e9s en euros (EUR) et s\u2019entendent hors taxes (HT) ou toutes taxes comprises (TTC) selon le cas. Les frais de livraison, manutention, assurance transport, reprise et/ou mise en service (le cas \u00e9ch\u00e9ant) sont factur\u00e9s en sus, sauf mention contraire.\nBAWS se r\u00e9serve le droit de modifier ses tarifs \u00e0 tout moment. Les Produits sont factur\u00e9s sur la base des prix en vigueur au jour de la commande."},{title:"ARTICLE 5 - CONDITIONS DE PAIEMENT",body:"Le paiement du mat\u00e9riel est exigible en totalit\u00e9 par l\u2019acheteur, sauf stipulation contraire \u00e9crite et pr\u00e9alable de BAWS.\nSauf accord \u00e9crit, le r\u00e8glement est effectu\u00e9 comptant \u00e0 la commande. Aucun escompte n\u2019est accord\u00e9 pour paiement anticip\u00e9.\nLe recours \u00e0 la garantie contractuelle ou l\u00e9gale ne peut justifier aucun retard de paiement. Tout d\u00e9faut de paiement entra\u00eene de plein droit la cessation de la garantie contractuelle.\nEn cas de retard de paiement, BAWS pourra exiger le paiement imm\u00e9diat de toutes les sommes dues, appliquer les int\u00e9r\u00eats de retard pr\u00e9vus par la r\u00e9glementation applicable et, pour les clients professionnels, l\u2019indemnit\u00e9 forfaitaire de recouvrement pr\u00e9vue par l\u2019article L441-10 du Code de commerce, sans pr\u00e9judice de tous dommages et int\u00e9r\u00eats."},{title:"ARTICLE 6 - LIVRAISON - R\u00c9CEPTION - R\u00c9CLAMATIONS",body:"Les d\u00e9lais de livraison sont donn\u00e9s \u00e0 titre indicatif. Un retard ne peut justifier l\u2019annulation de la commande ni l\u2019octroi de dommages et int\u00e9r\u00eats, sauf disposition d\u2019ordre public applicable au consommateur.\nLes marchandises voyagent aux risques et p\u00e9rils du CLIENT, sauf stipulation contraire \u00e9crite. Le CLIENT doit contr\u00f4ler l\u2019\u00e9tat et la conformit\u00e9 des Produits au moment de la livraison (emballages, r\u00e9f\u00e9rences, quantit\u00e9s, avaries).\nLes r\u00e9clamations portant sur des vices apparents ou sur la non-conformit\u00e9 du mat\u00e9riel livr\u00e9 \u00e0 la commande doivent \u00eatre formul\u00e9es au plus tard dans un d\u00e9lai de sept (7) jours \u00e0 compter de la livraison. \u00c0 d\u00e9faut, le Produit livr\u00e9 sera consid\u00e9r\u00e9 comme conforme et la livraison d\u00e9finitive.\nToutes les r\u00e9clamations, demandes d\u2019\u00e9change ou de remboursement doivent s\u2019effectuer par voie postale \u00e0 l\u2019adresse suivante : BAWS - 231 Rue Saint Honor\u00e9 - 75001 PARIS, dans un d\u00e9lai de trente (30) jours apr\u00e8s livraison.\nAucun retour de mat\u00e9riel ne pourra \u00eatre effectu\u00e9 sans l\u2019accord pr\u00e9alable expr\u00e8s et \u00e9crit de BAWS. Les frais de transport et de remise en stock \u00e9ventuels sont en toute hypoth\u00e8se \u00e0 la charge du CLIENT."},{title:"ARTICLE 7 - GARANTIES L\u00c9GALES",body:"Tous les Produits fournis par BAWS b\u00e9n\u00e9ficient de la garantie l\u00e9gale contre les vices cach\u00e9s (articles 1641 et suivants du Code civil) et de la garantie l\u00e9gale de conformit\u00e9 (articles L217-1 et suivants du Code de la consommation).\nLe CLIENT dispose d\u2019un d\u00e9lai de deux (2) ans \u00e0 compter de la r\u00e9ception du bien pour agir. Il peut choisir entre la r\u00e9paration ou le remplacement du bien, sous r\u00e9serve des conditions de co\u00fbts pr\u00e9vues par la loi.\nLe CLIENT est dispens\u00e9 de rapporter la preuve de l\u2019existence du d\u00e9faut de conformit\u00e9 du bien durant les vingt-quatre (24) mois suivant la d\u00e9livrance du bien (hors biens d\u2019occasion).\nLa preuve du vice ou du d\u00e9faut all\u00e9gu\u00e9 incombe au CLIENT."},{title:"ARTICLE 8 - GARANTIE FABRICANT / GARANTIE CONTRACTUELLE TOSHIBA",body:"Certains Produits peuvent b\u00e9n\u00e9ficier d\u2019une \u00ab Garantie Fabricant \u00bb. BAWS n\u2019\u00e9tant pas partie \u00e0 cette garantie, BAWS ne saurait \u00eatre tenue responsable en cas de refus du fabricant d\u2019appliquer sa garantie.\nPour les mat\u00e9riels TOSHIBA, la garantie contractuelle constructeur ne pourra \u00eatre valid\u00e9e que sur pr\u00e9sentation d\u2019une facture de mise en service effectu\u00e9e par un professionnel agr\u00e9\u00e9 par le constructeur :\n\u2022 Garantie de 3 ans pour les pi\u00e8ces.\n\u2022 Garantie de 5 ans pour le compresseur.\nLa garantie s\u2019applique aux d\u00e9fauts de mati\u00e8res premi\u00e8res, vices de construction ou de fonctionnement non apparent. La r\u00e9paration et les remplacements effectu\u00e9s dans le cadre de la garantie ne font pas courir une nouvelle dur\u00e9e de garantie et ne prolongent pas la garantie initiale.\nLe CLIENT doit imp\u00e9rativement, pour b\u00e9n\u00e9ficier de la pr\u00e9sente garantie, signaler par \u00e9crit \u00e0 BAWS tout d\u00e9faut ou vice constat\u00e9 dans les huit (8) jours calendaires suivant sa constatation, en joignant la facture d\u2019achat.\nLa pr\u00e9sente garantie contractuelle est limit\u00e9e \u00e0 l\u2019\u00e9change des pi\u00e8ces d\u00e9tach\u00e9es reconnues d\u00e9fectueuses et \u00e0 la mise \u00e0 disposition de nouvelles pi\u00e8ces d\u00e9tach\u00e9es, gratuitement, pendant la p\u00e9riode susmentionn\u00e9e, \u00e0 l\u2019exclusion de toute autre garantie contractuelle ou l\u00e9gale.\nL\u2019envoi de mat\u00e9riel ou de pi\u00e8ces d\u00e9tach\u00e9es au titre de la garantie est effectu\u00e9 par un transport non express et au tarif normal, \u00e0 la discr\u00e9tion de BAWS.\nIl est express\u00e9ment stipul\u00e9 que la garantie du vendeur n\u2019est applicable que pour les mat\u00e9riels et pi\u00e8ces d\u00e9tach\u00e9es neufs vendus par BAWS au premier acqu\u00e9reur sur toute l\u2019\u00e9tendue du territoire m\u00e9tropolitain fran\u00e7ais.\nEn vue de satisfaire aux obligations d\u00e9coulant de cette garantie, BAWS se r\u00e9serve le droit de mettre \u00e0 disposition du CLIENT des pi\u00e8ces d\u00e9tach\u00e9es dont les fonctionnalit\u00e9s sont similaires. Les pi\u00e8ces remplac\u00e9es au titre de la garantie contractuelle reviendront \u00e0 BAWS en propri\u00e9t\u00e9. Les \u00e9changes de pi\u00e8ces faits au titre de la garantie contractuelle ne sauraient avoir pour effet de prolonger celle-ci."},{title:"ARTICLE 9 - EXCLUSIONS DE GARANTIE",body:"La garantie ne couvre pas :\n\u2022 Le remplacement des consommables.\n\u2022 La main d\u2019\u0153uvre, les d\u00e9placements, ni les communications vers la hotline d\u2019une marque.\n\u2022 L\u2019utilisation anormale ou non conforme des Produits.\n\u2022 Les pannes li\u00e9es aux accessoires.\n\u2022 Les d\u00e9fauts et cons\u00e9quences dus \u00e0 un r\u00e9parateur non agr\u00e9\u00e9 par BAWS ou le fabricant.\n\u2022 Les d\u00e9fauts et cons\u00e9quences dus \u00e0 une utilisation non conforme \u00e0 l\u2019usage auquel le Produit est destin\u00e9.\n\u2022 L\u2019absence de garantie lorsque les conditions normales de stockage, d\u2019installation, d\u2019utilisation et d\u2019entretien ne sont pas respect\u00e9es.\nLa garantie contractuelle ne saurait en aucun cas s\u2019\u00e9tendre, au seul jugement de BAWS, notamment :\n\u2022 Aux d\u00e9t\u00e9riorations et avaries r\u00e9sultant d\u2019une insuffisance d\u2019entretien, d\u2019une installation non conforme aux recommandations du fabricant et/ou aux r\u00e8gles de l\u2019art, d\u2019inobservation des consignes remises avec chaque appareil, d\u2019accident, d\u2019usage anormal ou abusif, d\u2019usure normale du mat\u00e9riel, ou d\u2019un stockage dans de mauvaises conditions.\n\u2022 Aux pi\u00e8ces d\u2019usure courante et aux fluides (tels que gaz r\u00e9frig\u00e9rants, huile, d\u00e9shydrateur, filtres, lampes de signalisation, courroies, etc.), aux d\u00e9t\u00e9riorations dues \u00e0 un sinistre ou \u00e0 un usage anormal du mat\u00e9riel, aux d\u00e9t\u00e9riorations caus\u00e9es par un mat\u00e9riel ou des pi\u00e8ces non fournis par BAWS, ou par un mat\u00e9riel de manutention pour le d\u00e9placement des grosses pi\u00e8ces.\n\u2022 En cas d\u2019absence de plaque signal\u00e9tique sur le mat\u00e9riel ne permettant pas son identification.\n\u2022 En cas d\u2019utilisation de fluides ne correspondant pas aux prescriptions du constructeur, d\u2019alimentations d\u00e9fectueuses en courant \u00e9lectrique ou en eau, de modifications ou transformations apport\u00e9es au mat\u00e9riel.\nLe recours \u00e0 la garantie contractuelle ne peut justifier aucun retard de paiement ; tout d\u00e9faut de paiement entra\u00eene de plein droit la cessation de la garantie. Aucun retour du mat\u00e9riel ne pourra \u00eatre effectu\u00e9 par le CLIENT sans l\u2019accord pr\u00e9alable expr\u00e8s et \u00e9crit de BAWS. Les frais de transport et de remise en stock \u00e9ventuels sont en toute hypoth\u00e8se \u00e0 la charge du CLIENT."},{title:"ARTICLE 10 - PI\u00c8CES D\u00c9TACH\u00c9ES",body:"La fourniture des pi\u00e8ces d\u00e9tach\u00e9es indispensables \u00e0 l\u2019utilisation des Produits de BAWS est assur\u00e9e pendant une dur\u00e9e de sept (7) ans \u00e0 compter de la date de fabrication des Produits."},{title:"ARTICLE 11 - LIMITATION DE RESPONSABILIT\u00c9",body:"BAWS ne pourra \u00eatre tenue responsable que des dommages directs et pr\u00e9visibles. La responsabilit\u00e9 de BAWS est, en tout \u00e9tat de cause, limit\u00e9e au montant HT du Produit concern\u00e9 tel que factur\u00e9.\nBAWS ne saurait \u00eatre tenue responsable des dommages indirects, pertes d\u2019exploitation, pertes de chiffre d\u2019affaires, pertes de donn\u00e9es, pr\u00e9judice commercial ou d\u2019image."},{title:"ARTICLE 12 - R\u00c9SERVE DE PROPRI\u00c9T\u00c9",body:"Les Produits demeurent la propri\u00e9t\u00e9 de BAWS jusqu\u2019au paiement int\u00e9gral du prix, en principal et accessoires. En cas de non-paiement, BAWS pourra revendiquer les Produits, sans pr\u00e9judice de toutes autres actions."},{title:"ARTICLE 13 - DONN\u00c9ES \u00c0 CARACT\u00c8RE PERSONNEL",body:"La soci\u00e9t\u00e9 BAWS s'engage \u00e0 pr\u00e9server la confidentialit\u00e9 des informations fournies par l\u2019acheteur, qu'il serait amen\u00e9 \u00e0 transmettre pour l'utilisation de certains services.\nToute information le concernant est soumise aux dispositions de la loi n\u00b0 78-17 du 6 janvier 1978. \u00c0 ce titre, l'internaute dispose d'un droit d'acc\u00e8s, de modification et de suppression des informations le concernant. Il peut en faire la demande \u00e0 tout moment par courrier \u00e0 l\u2019adresse suivante : BAWS - 231 Rue Saint Honor\u00e9 - 75001 PARIS."},{title:"ARTICLE 14 - DROIT APPLICABLE - JURIDICTION",body:"Les pr\u00e9sentes CGV sont soumises au droit fran\u00e7ais.\nTout litige relatif \u00e0 l\u2019interpr\u00e9tation, l\u2019ex\u00e9cution ou la validit\u00e9 des pr\u00e9sentes CGV sera soumis aux tribunaux comp\u00e9tents de PARIS, sauf disposition imp\u00e9rative contraire applicable aux consommateurs."}],
+    validityText:'Ce devis est valable 1 mois \u00e0 compter de la date d\'\u00e9mission.',
+    interventionText:'Sous 5 \u00e0 10 jours ouvr\u00e9s apr\u00e8s validation du devis.',
+    paymentText:'R\u00e8glement \u00e0 30 jours par virement bancaire.',
+    footerTagline:'L\'EXPERTISE AU SERVICE DE VOTRE CONFORT',
+    footerSub:'Expertise \u2022 Performance \u2022 Fiabilit\u00e9',
+    disclaimerText:'Cette offre de prix est \u00e9tablie \u00e0 titre informatif. Elle ne constitue pas une proposition technique susceptible d\'engager notre responsabilit\u00e9.',
+    showLegalInEmetteur: false,
+  },
+  {
+    id:'cvc',
+    name:'CVC M\u00c9THODES',
+    tagline:'\u00c9nergie \u2022 Optimisation \u2022 Conception',
+    subtagline:'',
+    color:'#1B3A5C',
+    logo: DEFAULT_LOGO_CVC,
+    street:'231 Rue Saint Honor\u00e9',
+    cp:'75001', ville:'PARIS',
+    phone:'01 72 48 45 56',
+    email:'bawstoconsult@gmail.com',
+    capital:'1000', siret:'849 942 206 00012', rcs:'849 942 206', tva:'FR46 849 942 206',
+    conditions:[
+      'Offre valable 1 mois',
+      'Conditions de r\u00e8glement : 100% \u00e0 la commande',
+      'Nous vous prions de bien vouloir v\u00e9rifier la parfaite ad\u00e9quation de cette offre avec vos besoins. Elle ne constitue qu\'une \u00e9tude de prix et non une \u00e9tude technique et il vous appartient donc de v\u00e9rifier l\'adaptation des mat\u00e9riels.',
+    ],
+    cgv:[],
+    validityText:'Ce devis est valable 1 mois \u00e0 compter de la date d\'\u00e9mission.',
+    interventionText:'Sous 5 \u00e0 10 jours ouvr\u00e9s apr\u00e8s validation du devis.',
+    paymentText:'R\u00e8glement \u00e0 30 jours par virement bancaire.',
+    footerTagline:'L\'ING\u00c9NIERIE AU SERVICE DE VOS \u00c9NERGIES',
+    footerSub:'Expertise \u2022 Performance \u2022 Fiabilit\u00e9',
+    disclaimerText:'Cette offre de prix est \u00e9tablie \u00e0 titre informatif. Elle ne constitue pas une proposition technique susceptible d\'engager notre responsabilit\u00e9.',
+  },
+];
+
+async function loadAll(){
+  state.team = await sget('team', []);
+  state.clients = await sget('clients', []);
+  state.articles = await sget('articles', []);
+  state.documents = await sget('documents', []);
+  state.counters = await sget('counters', {devis:0, facture:0});
+  const co = await sget('companies', null);
+  state.companies = (co && co.length) ? co : JSON.parse(JSON.stringify(DEFAULT_COMPANIES));
+}
+
+function showToast(msg){
+  state.toast = msg;
+  render();
+  setTimeout(()=>{ state.toast=null; render(); }, 2200);
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(!state.authenticated){
+    app.innerHTML = renderLogin();
+    bindLogin();
+    return;
+  }
+  if(!state.currentUser){
+    app.innerHTML = renderLanding();
+    bindLanding();
+    return;
+  }
+  app.innerHTML = renderShell();
+  bindShell();
+}
+
+const AUTH_USER = 'admin';
+const AUTH_PASS = 'Williammathis2004';
+const AUTH_KEY = 'atelier-devis-auth';
+
+function renderLogin(){
+  return `
+  <div class="landing">
+    <div class="landing-card">
+      <h1>Atelier Devis</h1>
+      <p>Connexion \u00e0 l'espace de l'\u00e9quipe.</p>
+      <div class="field" style="text-align:left">
+        <label>Identifiant</label>
+        <input type="text" id="login-user" autocomplete="username">
+      </div>
+      <div class="field" style="text-align:left">
+        <label>Mot de passe</label>
+        <input type="password" id="login-pass" autocomplete="current-password">
+      </div>
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:13px;margin:.5rem 0 1rem;cursor:pointer;text-align:left">
+        <input type="checkbox" id="login-remember" checked style="width:auto">
+        Se souvenir de moi sur cet appareil
+      </label>
+      <p id="login-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:.75rem">Identifiant ou mot de passe incorrect.</p>
+      <button class="btn" id="login-btn" style="width:100%">Se connecter</button>
+    </div>
+  </div>`;
+}
+function bindLogin(){
+  const doLogin = async ()=>{
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    if(u === AUTH_USER && p === AUTH_PASS){
+      state.authenticated = true;
+      if(document.getElementById('login-remember').checked){
+        try{ localStorage.setItem(AUTH_KEY, '1'); }catch(e){}
+      }
+      render();
+    }else{
+      document.getElementById('login-error').style.display = 'block';
+    }
+  };
+  document.getElementById('login-btn').onclick = doLogin;
+  document.getElementById('login-pass').onkeydown = (e)=>{ if(e.key==='Enter') doLogin(); };
+}
+
+function renderLanding(){
+  return `
+  <div class="landing">
+    <div class="landing-card">
+      <h1>Atelier Devis</h1>
+      <p>Choisissez votre nom pour acc\u00e9der \u00e0 l'espace de l'\u00e9quipe.</p>
+      ${state.team.length ? state.team.map(m=>`<button class="member-btn" data-pick="${m}">${m}</button>`).join('') : `<p class="empty">Personne pour l'instant, ajoutez-vous ci-dessous.</p>`}
+      <div class="add-member-row">
+        <input type="text" id="new-member" placeholder="Votre pr\u00e9nom">
+        <button class="btn" id="add-member-btn">Ajouter</button>
+      </div>
+    </div>
+  </div>`;
+}
+function bindLanding(){
+  document.querySelectorAll('[data-pick]').forEach(b=>{
+    b.onclick = ()=>{ state.currentUser = b.dataset.pick; render(); };
+  });
+  document.getElementById('add-member-btn').onclick = async ()=>{
+    const inp = document.getElementById('new-member');
+    const name = inp.value.trim();
+    if(!name) return;
+    if(!state.team.includes(name)) state.team.push(name);
+    await sset('team', state.team);
+    state.currentUser = name;
+    render();
+  };
+}
+
+function renderShell(){
+  const tabs = [
+    ['clients','Clients'],
+    ['articles','Articles'],
+    ['nouveau','Nouveau devis'],
+    ['historique','Historique'],
+    ['entreprise','Entreprises'],
+  ];
+  return `
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">Atelier Devis<small>Espace \u00e9quipe</small></div>
+      ${tabs.map(([k,l])=>`<button class="nav-item ${state.tab===k?'active':''}" data-tab="${k}">${l}</button>`).join('')}
+      <div class="sidebar-footer">
+        Connect\u00e9 en tant que <strong style="color:#fff">${state.currentUser}</strong><br>
+        <button id="switch-user">Changer d'utilisateur</button>
+      </div>
+    </div>
+    <div class="main">
+      ${renderTab()}
+    </div>
+  </div>
+  ${state.toast? `<div class="toast">${state.toast}</div>`:''}
+  `;
+}
+function bindShell(){
+  document.querySelectorAll('[data-tab]').forEach(b=>{
+    b.onclick = ()=>{
+      if(b.dataset.tab==='nouveau' && state.builder.editingDocId){
+        state.builder = { clientId:'', companyId: state.builder.companyId, objet:'', lignes:[], tva:20, notes:'', editingDocId:null };
+      }
+      state.tab=b.dataset.tab; state.viewingDoc=null; render();
+    };
+  });
+  document.getElementById('switch-user').onclick = ()=>{ state.currentUser=null; render(); };
+  bindTab();
+}
+
+function renderTab(){
+  if(state.viewingDoc) return renderDocView(state.viewingDoc);
+  if(state.tab==='clients') return renderClients();
+  if(state.tab==='articles') return renderArticles();
+  if(state.tab==='nouveau') return renderBuilder();
+  if(state.tab==='historique') return renderHistorique();
+  if(state.tab==='entreprise') return renderEntreprise();
+  return '';
+}
+function bindTab(){
+  if(state.viewingDoc){ bindDocView(); return; }
+  if(state.tab==='clients') return bindClients();
+  if(state.tab==='articles') return bindArticles();
+  if(state.tab==='nouveau') return bindBuilder();
+  if(state.tab==='historique') return bindHistorique();
+  if(state.tab==='entreprise') return bindEntreprise();
+}
+
+function renderClients(){
+  return `
+  <h1 class="page-title">Clients</h1>
+  <p class="page-sub">Base client partag\u00e9e avec toute l'\u00e9quipe.</p>
+  <div class="card">
+    <div class="row">
+      <div class="field" style="flex:2;min-width:160px"><label>Nom</label><input id="c-nom" placeholder="Nom du client"></div>
+      <div class="field" style="flex:2;min-width:160px"><label>Pr\u00e9nom</label><input id="c-prenom" placeholder="Pr\u00e9nom (optionnel)"></div>
+      <div class="field" style="flex:2;min-width:180px"><label>Email</label><input id="c-email" type="email" placeholder="client@exemple.com"></div>
+      <div class="field" style="flex:2;min-width:180px"><label>Adresse</label><input id="c-adresse" placeholder="N\u00b0, rue"></div>
+      <div class="field" style="flex:2;min-width:180px"><label>Compl\u00e9ment d'adresse</label><input id="c-comp" placeholder="Optionnel"></div>
+      <div class="field" style="width:110px"><label>Code postal</label><input id="c-cp" placeholder="00000"></div>
+      <div class="field" style="flex:1;min-width:140px"><label>Ville</label><input id="c-ville" placeholder="Ville"></div>
+      <div class="field" style="width:160px"><label>Cat\u00e9gorie</label>
+        <select id="c-cat">${CLIENT_CATS.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
+      </div>
+    </div>
+    <button class="btn" id="add-client">Ajouter le client</button>
+    <hr class="divider">
+    <p class="subhead">Import / export Excel</p>
+    <div class="row">
+      <div class="field"><label>Importer un fichier (.xlsx)</label><input type="file" id="c-import" accept=".xlsx,.xls,.xlsm"></div>
+      <button class="btn secondary small" id="c-export">Exporter les clients (Excel)</button>
+    </div>
+    <p class="hint">Colonnes attendues \u00e0 l'import : Nom, Prenom, Email, Adresse, Complement, CP, Ville, Categorie.</p>
+  </div>
+  <table>
+    <tr><th>Nom</th><th>Pr\u00e9nom</th><th>Email</th><th>Adresse</th><th>CP / Ville</th><th>Cat\u00e9gorie</th><th></th></tr>
+    ${state.clients.length ? state.clients.map(c=>{
+      if(state.editingClientId === c.id){
+        return `<tr>
+          <td><input value="${c.nom}" data-edit-c-nom="${c.id}" style="width:100%;min-width:110px"></td>
+          <td><input value="${c.prenom||''}" data-edit-c-prenom="${c.id}" style="width:100%;min-width:100px"></td>
+          <td><input type="email" value="${c.email||''}" data-edit-c-email="${c.id}" style="width:100%;min-width:140px"></td>
+          <td><input value="${c.adresse||''}" data-edit-c-adresse="${c.id}" placeholder="Adresse" style="width:100%;min-width:120px;margin-bottom:.3rem"><input value="${c.comp||''}" data-edit-c-comp="${c.id}" placeholder="Compl\u00e9ment" style="width:100%;min-width:120px"></td>
+          <td><input value="${c.cp||''}" data-edit-c-cp="${c.id}" placeholder="CP" style="width:70px;margin-bottom:.3rem"><input value="${c.ville||''}" data-edit-c-ville="${c.id}" placeholder="Ville" style="width:100%;min-width:100px"></td>
+          <td><select data-edit-c-cat="${c.id}">${CLIENT_CATS.map(cc=>`<option value="${cc}" ${((c.categorie||'PROFESSIONNEL')===cc)?'selected':''}>${cc}</option>`).join('')}</select></td>
+          <td style="white-space:nowrap">
+            <button class="btn small" data-save-client="${c.id}">Enregistrer</button>
+            <button class="btn secondary small" data-cancel-client="${c.id}">Annuler</button>
+          </td>
+        </tr>`;
+      }
+      return `
+      <tr>
+        <td>${c.nom}</td>
+        <td>${c.prenom||''}</td>
+        <td>${c.email||''}</td>
+        <td>${c.adresse||''}${c.comp?', '+c.comp:''}</td>
+        <td>${c.cp||''} ${c.ville||''}</td>
+        <td>${c.categorie||'PROFESSIONNEL'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-edit-client="${c.id}">Modifier</button>
+          <button class="rm-btn" data-del-client="${c.id}" aria-label="Supprimer">&times;</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty">Aucun client pour l'instant.</td></tr>`}
+  </table>`;
+}
+function bindClients(){
+  document.getElementById('add-client').onclick = async ()=>{
+    const nom = document.getElementById('c-nom').value.trim();
+    if(!nom){ showToast('Le nom du client est requis'); return; }
+    state.clients.push({
+      id: uid(), nom,
+      prenom: document.getElementById('c-prenom').value.trim(),
+      email: document.getElementById('c-email').value.trim(),
+      adresse: document.getElementById('c-adresse').value.trim(),
+      comp: document.getElementById('c-comp').value.trim(),
+      cp: document.getElementById('c-cp').value.trim(),
+      ville: document.getElementById('c-ville').value.trim(),
+      categorie: document.getElementById('c-cat').value,
+    });
+    await sset('clients', state.clients);
+    showToast('Client ajout\u00e9');
+    render();
+  };
+  document.querySelectorAll('[data-del-client]').forEach(b=>{
+    b.onclick = async ()=>{
+      state.clients = state.clients.filter(c=>c.id!==b.dataset.delClient);
+      await sset('clients', state.clients);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-edit-client]').forEach(b=>{
+    b.onclick = ()=>{ state.editingClientId = b.dataset.editClient; render(); };
+  });
+  document.querySelectorAll('[data-cancel-client]').forEach(b=>{
+    b.onclick = ()=>{ state.editingClientId = null; render(); };
+  });
+  document.querySelectorAll('[data-save-client]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = b.dataset.saveClient;
+      const c = state.clients.find(x=>x.id===id);
+      if(!c) return;
+      const nom = document.querySelector(`[data-edit-c-nom="${id}"]`).value.trim();
+      if(!nom){ showToast('Le nom du client est requis'); return; }
+      c.nom = nom;
+      c.prenom = document.querySelector(`[data-edit-c-prenom="${id}"]`).value.trim();
+      c.email = document.querySelector(`[data-edit-c-email="${id}"]`).value.trim();
+      c.adresse = document.querySelector(`[data-edit-c-adresse="${id}"]`).value.trim();
+      c.comp = document.querySelector(`[data-edit-c-comp="${id}"]`).value.trim();
+      c.cp = document.querySelector(`[data-edit-c-cp="${id}"]`).value.trim();
+      c.ville = document.querySelector(`[data-edit-c-ville="${id}"]`).value.trim();
+      c.categorie = document.querySelector(`[data-edit-c-cat="${id}"]`).value;
+      await sset('clients', state.clients);
+      state.editingClientId = null;
+      showToast('Client mis \u00e0 jour');
+      render();
+    };
+  });
+  document.getElementById('c-export').onclick = ()=>{
+    const rows = state.clients.map(c=>({Nom:c.nom, Prenom:c.prenom||'', Email:c.email||'', Adresse:c.adresse||'', Complement:c.comp||'', CP:c.cp||'', Ville:c.ville||'', Categorie:c.categorie||''}));
+    exportToExcel(rows, 'clients.xlsx', 'Clients');
+  };
+  document.getElementById('c-import').onchange = (e)=>{
+    importFromExcel(e.target.files[0], async (rows)=>{
+      let n=0;
+      rows.forEach(r=>{
+        const get = (keys)=> findVal(r, keys);
+        const nom = get(['nom','client','name']);
+        if(!nom) return;
+        state.clients.push({
+          id: uid(), nom,
+          prenom: get(['prenom','pr\u00e9nom','firstname'])||'',
+          email: get(['email','mail','e-mail'])||'',
+          adresse: get(['adresse','address'])||'',
+          comp: get(['complement',"complement d'adresse",'comp'])||'',
+          cp: get(['cp','code postal','codepostal'])||'',
+          ville: get(['ville','city'])||'',
+          categorie: (get(['categorie','categorie clt','category'])||'PROFESSIONNEL').toString().toUpperCase(),
+        });
+        n++;
+      });
+      await sset('clients', state.clients);
+      showToast(n + ' client(s) import\u00e9(s)');
+      render();
+    });
+  };
+}
+
+function renderArticles(){
+  return `
+  <h1 class="page-title">Articles</h1>
+  <p class="page-sub">Catalogue produits, partag\u00e9 avec toute l'\u00e9quipe.</p>
+  <div class="card">
+    <div class="row">
+      <div class="field" style="width:110px"><label>Code</label><input id="a-code" placeholder="REF-001"></div>
+      <div class="field" style="flex:2;min-width:180px"><label>Libell\u00e9</label><input id="a-nom" placeholder="Nom de l'article"></div>
+      <div class="field" style="width:120px"><label>Prix d'achat (\u20ac)</label><input id="a-achat" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="field" style="width:120px"><label>Prix de vente HT (\u20ac)</label><input id="a-vente" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="field" style="width:130px"><label>Dont \u00e9co-part. (\u20ac)</label><input id="a-eco" type="number" step="0.01" placeholder="0.00"></div>
+    </div>
+    <button class="btn" id="add-article">Ajouter l'article</button>
+    <hr class="divider">
+    <p class="subhead">Import / export Excel</p>
+    <div class="row">
+      <div class="field"><label>Importer un fichier (.xlsx / .xlsm)</label><input type="file" id="a-import" accept=".xlsx,.xls,.xlsm"></div>
+      <button class="btn secondary small" id="a-export">Exporter les articles (Excel)</button>
+    </div>
+    <p class="hint">Colonnes attendues \u00e0 l'import : Code, Libell\u00e9, Prix achat, Prix vente (ou PU HT), Eco participation.</p>
+  </div>
+  <table>
+    <tr><th>Code</th><th>Libell\u00e9</th><th>Achat</th><th>Vente HT</th><th>Eco-part.</th><th>Marge</th><th></th></tr>
+    ${state.articles.length ? state.articles.map(a=>{
+      if(state.editingArticleId === a.id){
+        return `<tr>
+          <td><input class="num" style="width:100px" value="${a.code}" data-edit-code="${a.id}"></td>
+          <td><input style="width:100%;min-width:140px" value="${a.nom}" data-edit-nom="${a.id}"></td>
+          <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.achat}" data-edit-achat="${a.id}"></td>
+          <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.vente}" data-edit-vente="${a.id}"></td>
+          <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.eco}" data-edit-eco="${a.id}"></td>
+          <td class="num">${eur(a.vente - a.achat)}</td>
+          <td style="white-space:nowrap">
+            <button class="btn small" data-save-article="${a.id}">Enregistrer</button>
+            <button class="btn secondary small" data-cancel-article="${a.id}">Annuler</button>
+          </td>
+        </tr>`;
+      }
+      return `
+      <tr>
+        <td class="num">${a.code}</td>
+        <td>${a.nom}</td>
+        <td class="num">${eur(a.achat)}</td>
+        <td class="num">${eur(a.vente)}</td>
+        <td class="num">${eur(a.eco)}</td>
+        <td class="num">${eur(a.vente - a.achat)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-edit-article="${a.id}">Modifier</button>
+          <button class="rm-btn" data-del-article="${a.id}" aria-label="Supprimer">&times;</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty">Aucun article pour l'instant.</td></tr>`}
+  </table>`;
+}
+function bindArticles(){
+  document.getElementById('add-article').onclick = async ()=>{
+    const nom = document.getElementById('a-nom').value.trim();
+    if(!nom){ showToast("Le nom de l'article est requis"); return; }
+    state.articles.push({
+      id: uid(),
+      code: document.getElementById('a-code').value.trim() || ('ART-'+(state.articles.length+1)),
+      nom,
+      achat: parseFloat(document.getElementById('a-achat').value)||0,
+      vente: parseFloat(document.getElementById('a-vente').value)||0,
+      eco: parseFloat(document.getElementById('a-eco').value)||0,
+    });
+    await sset('articles', state.articles);
+    showToast('Article ajout\u00e9');
+    render();
+  };
+  document.querySelectorAll('[data-del-article]').forEach(b=>{
+    b.onclick = async ()=>{
+      state.articles = state.articles.filter(a=>a.id!==b.dataset.delArticle);
+      await sset('articles', state.articles);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-edit-article]').forEach(b=>{
+    b.onclick = ()=>{ state.editingArticleId = b.dataset.editArticle; render(); };
+  });
+  document.querySelectorAll('[data-cancel-article]').forEach(b=>{
+    b.onclick = ()=>{ state.editingArticleId = null; render(); };
+  });
+  document.querySelectorAll('[data-save-article]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = b.dataset.saveArticle;
+      const a = state.articles.find(x=>x.id===id);
+      if(!a) return;
+      const nom = document.querySelector(`[data-edit-nom="${id}"]`).value.trim();
+      if(!nom){ showToast("Le nom de l'article est requis"); return; }
+      a.code = document.querySelector(`[data-edit-code="${id}"]`).value.trim() || a.code;
+      a.nom = nom;
+      a.achat = parseFloat(document.querySelector(`[data-edit-achat="${id}"]`).value)||0;
+      a.vente = parseFloat(document.querySelector(`[data-edit-vente="${id}"]`).value)||0;
+      a.eco = parseFloat(document.querySelector(`[data-edit-eco="${id}"]`).value)||0;
+      await sset('articles', state.articles);
+      state.editingArticleId = null;
+      showToast('Article mis \u00e0 jour');
+      render();
+    };
+  });
+  document.getElementById('a-export').onclick = ()=>{
+    const rows = state.articles.map(a=>({Code:a.code, Libelle:a.nom, 'Prix achat':a.achat, 'Prix vente':a.vente, 'Eco participation':a.eco||0}));
+    exportToExcel(rows, 'articles.xlsx', 'Articles');
+  };
+  document.getElementById('a-import').onchange = (e)=>{
+    importFromExcel(e.target.files[0], async (rows)=>{
+      let n=0;
+      rows.forEach(r=>{
+        const get = (keys)=> findVal(r, keys);
+        const nom = get(['libelle','nom','name','designation']);
+        if(!nom) return;
+        state.articles.push({
+          id: uid(),
+          code: get(['code'])||('ART-'+(state.articles.length+1)),
+          nom,
+          achat: parseFloat(get(['prix achat','achat','prixachat']))||0,
+          vente: parseFloat(get(['prix vente','vente','pu ht','prixvente']))||0,
+          eco: parseFloat(get(['eco participation',"dont eco participation",'eco']))||0,
+        });
+        n++;
+      });
+      await sset('articles', state.articles);
+      showToast(n + ' article(s) import\u00e9(s)');
+      render();
+    });
+  };
+}
+
+function calcTotals(b){
+  const ht = b.lignes.reduce((s,l)=> s + l.qty*l.pu, 0);
+  const tva = ht * (b.tva/100);
+  const ttc = ht + tva;
+  const eco = b.lignes.reduce((s,l)=>{
+    const art = state.articles.find(a=>a.id===l.articleId);
+    return s + (art && art.eco ? art.eco : 0);
+  }, 0);
+  return {ht,tva,ttc,eco};
+}
+function renderBuilder(){
+  const b = state.builder;
+  const t = calcTotals(b);
+  if(!b.companyId && state.companies.length) b.companyId = state.companies[0].id;
+  const editingDoc = b.editingDocId ? state.documents.find(d=>d.id===b.editingDocId) : null;
+  return `
+  <h1 class="page-title">${editingDoc ? 'Modifier le devis '+editingDoc.numero : 'Nouveau devis'}</h1>
+  <p class="page-sub">S\u00e9lectionnez l'entreprise \u00e9mettrice, un client, ajoutez des articles.</p>
+  <div class="card">
+    <p class="subhead" style="margin-bottom:.6rem">Entreprise \u00e9mettrice</p>
+    <div>
+      ${state.companies.map(co=>`<button class="company-pill ${b.companyId===co.id?'active':''}" data-pick-company="${co.id}"><span class="dot" style="background:${co.color}"></span>${co.name}</button>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="field" style="max-width:320px">
+      <label>Client</label>
+      <input type="text" id="b-client-search" list="clients-datalist" placeholder="Taper pour rechercher un client..." value="${clientFullName(state.clients.find(c=>c.id===b.clientId))}" autocomplete="off">
+      <datalist id="clients-datalist">
+        ${state.clients.map(c=>`<option value="${clientFullName(c)}" label="${c.cp||''} ${c.ville||''}">`).join('')}
+      </datalist>
+    </div>
+    ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
+    <div class="field">
+      <label>Objet du devis</label>
+      <input id="b-objet" placeholder="Ex : Devis pour prestations de maintenance CVC" value="${b.objet}">
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="subhead" style="margin-bottom:.3rem">Destinataire des travaux</p>
+    <p class="hint" style="margin:0 0 .75rem">Si le lieu d'intervention est diff\u00e9rent du client factur\u00e9 (ex : bailleur / locataire, chantier \u00e0 une autre adresse).</p>
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:13px;margin-bottom:.75rem;cursor:pointer">
+      <input type="checkbox" id="b-travaux-same" ${b.travauxSameAsClient!==false?'checked':''} style="width:auto">
+      Identique au client
+    </label>
+    ${b.travauxSameAsClient===false ? `
+    <div class="row">
+      <div class="field" style="flex:2;min-width:180px"><label>Nom</label><input id="b-travaux-nom" value="${b.travauxNom||''}" placeholder="Nom du destinataire des travaux"></div>
+      <div class="field" style="flex:2;min-width:180px"><label>Adresse</label><input id="b-travaux-adresse" value="${b.travauxAdresse||''}" placeholder="N\u00b0, rue"></div>
+      <div class="field" style="width:110px"><label>Code postal</label><input id="b-travaux-cp" value="${b.travauxCp||''}" placeholder="00000"></div>
+      <div class="field" style="flex:1;min-width:140px"><label>Ville</label><input id="b-travaux-ville" value="${b.travauxVille||''}" placeholder="Ville"></div>
+    </div>` : ''}
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:.4rem;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.03em">
+      <div style="width:120px">R\u00e9f\u00e9rence</div><div style="flex:2;min-width:150px">Article</div><div style="width:90px">Qt\u00e9</div><div style="width:90px">Unit\u00e9</div><div style="width:100px">PU HT</div><div style="width:100px">Total HT</div><div style="width:32px"></div>
+    </div>
+    <datalist id="articles-datalist-ref">
+      ${state.articles.map(a=>`<option value="${a.code}" label="${a.nom}">`).join('')}
+    </datalist>
+    <datalist id="articles-datalist-nom">
+      ${state.articles.map(a=>`<option value="${a.nom}" label="${a.code}">`).join('')}
+    </datalist>
+    ${b.lignes.map((l,i)=>{
+      const art = state.articles.find(a=>a.id===l.articleId);
+      return `
+      <div class="line-row" style="grid-template-columns:120px 2fr 90px 90px 100px 100px 32px">
+        <input type="text" list="articles-datalist-ref" data-line-ref="${i}" value="${art?art.code:''}" placeholder="R\u00e9f." autocomplete="off">
+        <input type="text" list="articles-datalist-nom" data-line-name="${i}" value="${art?art.nom:''}" placeholder="Nom de l'article" autocomplete="off">
+        <input type="number" min="0" step="1" value="${l.qty}" data-line-qty="${i}">
+        <select data-line-unite="${i}">${UNIT_OPTIONS.map(u=>`<option value="${u}" ${l.unite===u?'selected':''}>${u}</option>`).join('')}</select>
+        <input type="number" min="0" step="0.01" value="${l.pu}" data-line-pu="${i}">
+        <div class="lt">${eur(l.qty*l.pu)}</div>
+        <button class="rm-btn" data-line-del="${i}" aria-label="Retirer la ligne">&times;</button>
+      </div>`;
+    }).join('')}
+    <button class="btn secondary small" id="add-line" style="margin-top:.5rem">+ Ajouter une ligne</button>
+
+    <div class="totals-box">
+      <div class="field" style="max-width:160px;margin-bottom:.75rem">
+        <label>Taux de TVA (%)</label>
+        <input type="number" id="b-tva" value="${b.tva}" step="0.1">
+      </div>
+      <div class="totals-row"><span>Total HT</span><span class="num">${eur(t.ht)}</span></div>
+      <div class="totals-row"><span>TVA (${b.tva}%)</span><span class="num">${eur(t.tva)}</span></div>
+      <div class="totals-row ttc"><span>Total TTC</span><span class="num">${eur(t.ttc)}</span></div>
+    </div>
+    <button class="btn" id="save-devis" style="margin-top:.5rem">${editingDoc ? 'Enregistrer les modifications' : 'Enregistrer le devis'}</button>
+    ${editingDoc ? `<button class="btn secondary" id="cancel-edit-devis" style="margin-top:.5rem">Annuler la modification</button>` : ''}
+  </div>`;
+}
+function bindBuilder(){
+  const b = state.builder;
+  document.querySelectorAll('[data-pick-company]').forEach(btn=>{
+    btn.onclick = ()=>{ b.companyId = btn.dataset.pickCompany; render(); };
+  });
+  const clientSearch = document.getElementById('b-client-search');
+  clientSearch.oninput = (e)=>{
+    const val = e.target.value.trim().toLowerCase();
+    const match = state.clients.find(c=>clientFullName(c).toLowerCase()===val);
+    b.clientId = match ? match.id : '';
+  };
+  document.getElementById('b-objet').oninput = (e)=>{ b.objet = e.target.value; };
+  document.getElementById('b-travaux-same').onchange = (e)=>{ b.travauxSameAsClient = e.target.checked; render(); };
+  const tNom = document.getElementById('b-travaux-nom');
+  if(tNom) tNom.oninput = (e)=>{ b.travauxNom = e.target.value; };
+  const tAdr = document.getElementById('b-travaux-adresse');
+  if(tAdr) tAdr.oninput = (e)=>{ b.travauxAdresse = e.target.value; };
+  const tCp = document.getElementById('b-travaux-cp');
+  if(tCp) tCp.oninput = (e)=>{ b.travauxCp = e.target.value; };
+  const tVille = document.getElementById('b-travaux-ville');
+  if(tVille) tVille.oninput = (e)=>{ b.travauxVille = e.target.value; };
+  document.getElementById('add-line').onclick = ()=>{ b.lignes.push({articleId:'',qty:1,pu:0,unite:'Forfait'}); render(); };
+  document.getElementById('b-tva').oninput = (e)=>{ b.tva = parseFloat(e.target.value)||0; render(); };
+  document.querySelectorAll('[data-line-ref]').forEach(inp=>{
+    inp.oninput = (e)=>{
+      const i = +inp.dataset.lineRef;
+      const val = e.target.value.trim().toLowerCase();
+      const art = state.articles.find(a=>a.code.toLowerCase()===val);
+      if(art){ b.lignes[i].articleId = art.id; b.lignes[i].pu = art.vente; render(); }
+    };
+  });
+  document.querySelectorAll('[data-line-name]').forEach(inp=>{
+    inp.oninput = (e)=>{
+      const i = +inp.dataset.lineName;
+      const val = e.target.value.trim().toLowerCase();
+      const art = state.articles.find(a=>a.nom.toLowerCase()===val);
+      if(art){ b.lignes[i].articleId = art.id; b.lignes[i].pu = art.vente; render(); }
+    };
+  });
+  document.querySelectorAll('[data-line-qty]').forEach(inp=>{
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.lineQty].qty = parseFloat(e.target.value)||0; render(); };
+  });
+  document.querySelectorAll('[data-line-unite]').forEach(sel=>{
+    sel.onchange = (e)=>{ b.lignes[+sel.dataset.lineUnite].unite = e.target.value; };
+  });
+  document.querySelectorAll('[data-line-pu]').forEach(inp=>{
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.linePu].pu = parseFloat(e.target.value)||0; render(); };
+  });
+  document.querySelectorAll('[data-line-del]').forEach(btn=>{
+    btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.lineDel,1); render(); };
+  });
+  document.getElementById('save-devis').onclick = async ()=>{
+    if(!b.clientId){ showToast('Choisissez un client'); return; }
+    if(!b.companyId){ showToast('Choisissez une entreprise \u00e9mettrice'); return; }
+    if(!b.lignes.length || b.lignes.some(l=>!l.articleId)){ showToast('Ajoutez au moins une ligne compl\u00e8te'); return; }
+    if(b.editingDocId){
+      const existing = state.documents.find(d=>d.id===b.editingDocId);
+      if(existing){
+        existing.clientId = b.clientId;
+        existing.companyId = b.companyId;
+        existing.objet = b.objet;
+        existing.travauxSameAsClient = b.travauxSameAsClient!==false;
+        existing.travauxNom = b.travauxNom||'';
+        existing.travauxAdresse = b.travauxAdresse||'';
+        existing.travauxCp = b.travauxCp||'';
+        existing.travauxVille = b.travauxVille||'';
+        existing.lignes = JSON.parse(JSON.stringify(b.lignes));
+        existing.tva = b.tva;
+        await sset('documents', state.documents);
+        showToast(existing.numero + ' mis \u00e0 jour');
+        state.viewingDoc = existing.id;
+        state.builder = { clientId:'', companyId: b.companyId, objet:'', lignes:[], tva:20, notes:'', editingDocId:null };
+        render();
+      }
+      return;
+    }
+    state.counters.devis += 1;
+    const numero = 'D-' + new Date().getFullYear() + '-' + String(state.counters.devis).padStart(4,'0');
+    const doc = {
+      id: uid(), type:'devis', numero,
+      date: todayStr(), clientId: b.clientId, companyId: b.companyId, objet: b.objet, auteur: state.currentUser,
+      travauxSameAsClient: b.travauxSameAsClient!==false,
+      travauxNom: b.travauxNom||'', travauxAdresse: b.travauxAdresse||'', travauxCp: b.travauxCp||'', travauxVille: b.travauxVille||'',
+      lignes: JSON.parse(JSON.stringify(b.lignes)), tva: b.tva, notes: '',
+    };
+    state.documents.push(doc);
+    await sset('documents', state.documents);
+    await sset('counters', state.counters);
+    showToast('Devis ' + numero + ' enregistr\u00e9');
+    state.builder = { clientId:'', companyId: b.companyId, objet:'', lignes:[], tva: b.tva, notes:'' };
+    state.viewingDoc = doc.id;
+    render();
+  };
+  const cancelEditBtn = document.getElementById('cancel-edit-devis');
+  if(cancelEditBtn) cancelEditBtn.onclick = ()=>{
+    const backId = b.editingDocId;
+    state.builder = { clientId:'', companyId: b.companyId, objet:'', lignes:[], tva:20, notes:'', editingDocId:null };
+    state.viewingDoc = backId;
+    render();
+  };
+}
+
+function renderHistorique(){
+  const docs = [...state.documents].reverse();
+  return `
+  <h1 class="page-title">Historique</h1>
+  <p class="page-sub">Tous les devis et factures cr\u00e9\u00e9s par l'\u00e9quipe.</p>
+  <table>
+    <tr><th>N\u00b0</th><th>Type</th><th>Entreprise</th><th>Client</th><th>Date</th><th>Total TTC</th><th>Auteur</th><th></th></tr>
+    ${docs.length ? docs.map(d=>{
+      const c = state.clients.find(c=>c.id===d.clientId);
+      const co = state.companies.find(co=>co.id===d.companyId);
+      const t = calcTotals(d);
+      return `<tr>
+        <td class="num">${d.numero}</td>
+        <td><span class="badge ${d.type==='facture'?'facture':''}">${d.type}</span></td>
+        <td>${co? co.name : ''}</td>
+        <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
+        <td>${d.date}</td>
+        <td class="num">${eur(t.ttc)}</td>
+        <td>${d.auteur}</td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-view="${d.id}">Voir</button>
+          <button class="rm-btn" data-del-doc="${d.id}" aria-label="Supprimer">&times;</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="8" class="empty">Aucun document pour l'instant.</td></tr>`}
+  </table>
+
+  <hr class="divider">
+  <h1 class="page-title" style="font-size:20px">Vue d'ensemble (style INFO DEVIS)</h1>
+  <p class="page-sub">Reprend la structure de ton fichier Excel. Le bouton export g\u00e9n\u00e8re un .xlsx \u00e0 jour \u00e0 chaque clic \u2014 la source reste ce site, l'Excel est une photo prise \u00e0 la demande.</p>
+  <button class="btn secondary small" id="export-overview" style="margin-bottom:1rem">Exporter la vue d'ensemble (Excel)</button>
+  <table>
+    <tr><th>Devis</th><th>Entreprise</th><th>Nom</th><th>Adresse</th><th>Cplt</th><th>Code postal</th><th>Ville</th><th>Categorie clt</th><th>N\u00b0 client</th><th>Lien</th></tr>
+    ${docs.length ? docs.map(d=>{
+      const c = state.clients.find(c=>c.id===d.clientId);
+      const co = state.companies.find(co=>co.id===d.companyId);
+      const idx = c ? state.clients.indexOf(c)+1 : '';
+      return `<tr>
+        <td class="num">${d.numero}</td>
+        <td>${co? co.name : ''}</td>
+        <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
+        <td>${c? (c.adresse||'') : ''}</td>
+        <td>${c? (c.comp||'') : ''}</td>
+        <td>${c? (c.cp||'') : ''}</td>
+        <td>${c? (c.ville||'') : ''}</td>
+        <td>${c? (c.categorie||'') : ''}</td>
+        <td class="num">${idx}</td>
+        <td><button class="btn secondary small" data-view="${d.id}">Ouvrir</button></td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="10" class="empty">Aucun document pour l'instant.</td></tr>`}
+  </table>
+
+  <hr class="divider">
+  <h1 class="page-title" style="font-size:20px">Tableau de synth\u00e8se (Vente / Achat / Marge)</h1>
+  <p class="page-sub">D\u00e9tail par devis et par article de la marge r\u00e9alis\u00e9e.</p>
+  <button class="btn secondary small" id="export-synthese" style="margin-bottom:1rem">Exporter la synth\u00e8se (Excel)</button>
+  <table>
+    <tr><th>Devis</th><th>Client</th><th>Article</th><th>Qt\u00e9</th><th>Vente HT</th><th>Achat</th><th>Marge</th></tr>
+    ${(()=>{
+      let rows = [];
+      docs.forEach(d=>{
+        const c = state.clients.find(c=>c.id===d.clientId);
+        d.lignes.forEach(l=>{
+          const art = state.articles.find(a=>a.id===l.articleId);
+          const vente = l.qty*l.pu;
+          const achat = art? l.qty*(art.achat||0) : 0;
+          rows.push({numero:d.numero, client: c? clientFullName(c):'', article: art? art.nom : '(article supprim\u00e9)', qty:l.qty, vente, achat, marge: vente-achat});
+        });
+      });
+      if(!rows.length) return `<tr><td colspan="7" class="empty">Aucune ligne pour l'instant.</td></tr>`;
+      const totVente = rows.reduce((s,r)=>s+r.vente,0);
+      const totAchat = rows.reduce((s,r)=>s+r.achat,0);
+      return rows.map(r=>`<tr>
+        <td class="num">${r.numero}</td>
+        <td>${r.client}</td>
+        <td>${r.article}</td>
+        <td class="num">${r.qty}</td>
+        <td class="num">${eur(r.vente)}</td>
+        <td class="num">${eur(r.achat)}</td>
+        <td class="num">${eur(r.marge)}</td>
+      </tr>`).join('') + `<tr><td colspan="4" style="font-weight:bold">Total</td><td class="num" style="font-weight:bold">${eur(totVente)}</td><td class="num" style="font-weight:bold">${eur(totAchat)}</td><td class="num" style="font-weight:bold">${eur(totVente-totAchat)}</td></tr>`;
+    })()}
+  </table>`;
+}
+function bindHistorique(){
+  document.querySelectorAll('[data-view]').forEach(b=>{
+    b.onclick = ()=>{ state.viewingDoc = b.dataset.view; render(); };
+  });
+  document.querySelectorAll('[data-del-doc]').forEach(b=>{
+    b.onclick = async ()=>{
+      const d = state.documents.find(x=>x.id===b.dataset.delDoc);
+      if(!d) return;
+      if(!confirm(`Supprimer d\u00e9finitivement le ${d.type} ${d.numero} ? Cette action est irr\u00e9versible.`)) return;
+      state.documents = state.documents.filter(x=>x.id!==d.id);
+      await sset('documents', state.documents);
+      showToast(d.numero + ' supprim\u00e9');
+      render();
+    };
+  });
+  const exp = document.getElementById('export-overview');
+  if(exp) exp.onclick = ()=>{
+    const docs = [...state.documents].reverse();
+    const rows = docs.map(d=>{
+      const c = state.clients.find(c=>c.id===d.clientId);
+      const co = state.companies.find(co=>co.id===d.companyId);
+      const idx = c ? state.clients.indexOf(c)+1 : '';
+      const t = calcTotals(d);
+      return {
+        'DEVIS': d.numero,
+        'ENTREPRISE': co? co.name : '',
+        'NOM': c? c.nom : '',
+        'ADRESSE': c? (c.adresse||'') : '',
+        'CPLT': c? (c.comp||'') : '',
+        'CODE POSTAL': c? (c.cp||'') : '',
+        'VILLE': c? (c.ville||'') : '',
+        'CATEGORIE CLT': c? (c.categorie||'') : '',
+        'N\u00b0 client': idx,
+        'Type de devis': d.type,
+        'Total TTC': Math.round(t.ttc*100)/100,
+        'Auteur': d.auteur,
+        'Date': d.date,
+      };
+    });
+    exportToExcel(rows, 'info-devis.xlsx', 'INFO DEVIS');
+  };
+  const expSynth = document.getElementById('export-synthese');
+  if(expSynth) expSynth.onclick = ()=>{
+    const docs2 = [...state.documents].reverse();
+    let rows = [];
+    docs2.forEach(d=>{
+      const c = state.clients.find(c=>c.id===d.clientId);
+      d.lignes.forEach(l=>{
+        const art = state.articles.find(a=>a.id===l.articleId);
+        const vente = l.qty*l.pu;
+        const achat = art? l.qty*(art.achat||0) : 0;
+        rows.push({
+          'Devis': d.numero,
+          'Client': c? clientFullName(c):'',
+          'Article': art? art.nom : '(article supprim\u00e9)',
+          'Qt\u00e9': l.qty,
+          'Vente HT': Math.round(vente*100)/100,
+          'Achat': Math.round(achat*100)/100,
+          'Marge': Math.round((vente-achat)*100)/100,
+        });
+      });
+    });
+    exportToExcel(rows, 'synthese-marge.xlsx', 'Synthese');
+  };
+}
+
+function renderEntreprise(){
+  if(!state.editingCompanyId && state.companies.length) state.editingCompanyId = state.companies[0].id;
+  const co = state.companies.find(c=>c.id===state.editingCompanyId) || state.companies[0];
+  return `
+  <h1 class="page-title">Entreprises</h1>
+  <p class="page-sub">G\u00e8re les diff\u00e9rentes soci\u00e9t\u00e9s pour lesquelles tu \u00e9mets des devis. M\u00eame mod\u00e8le, couleurs et coordonn\u00e9es propres \u00e0 chacune.</p>
+  <div style="margin-bottom:1rem">
+    ${state.companies.map(c=>`<button class="company-pill ${co && co.id===c.id?'active':''}" data-edit-company="${c.id}"><span class="dot" style="background:${c.color}"></span>${c.name}</button>`).join('')}
+    <button class="btn secondary small" id="add-company">+ Nouvelle entreprise</button>
+  </div>
+  ${co ? `
+  <div class="card">
+    <div class="row">
+      <div class="field">
+        <label>Logo</label>
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="max-width:160px;max-height:90px;object-fit:contain;border:1px solid var(--line);border-radius:3px;padding:4px;background:#fff">` : `<div style="font-family:Georgia,serif;font-weight:bold;font-size:20px;color:${co.color}">${co.name}</div>`}
+      </div>
+      <div class="field">
+        <label>Changer le logo</label>
+        <input type="file" id="co-logo" accept="image/*">
+      </div>
+      <div class="field">
+        <label>Couleur de marque</label>
+        <input type="color" id="co-color" value="${co.color}">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:200px"><label>Nom de l'entreprise</label><input id="co-name" value="${co.name}"></div>
+      <div class="field" style="flex:1;min-width:200px"><label>Slogan / activit\u00e9</label><input id="co-tagline" value="${co.tagline}"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:2;min-width:220px"><label>Adresse</label><input id="co-street" value="${co.street}"></div>
+      <div class="field" style="width:110px"><label>Code postal</label><input id="co-cp" value="${co.cp}"></div>
+      <div class="field" style="flex:1;min-width:140px"><label>Ville</label><input id="co-ville" value="${co.ville}"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>T\u00e9l\u00e9phone</label><input id="co-phone" value="${co.phone}"></div>
+      <div class="field" style="flex:1;min-width:200px"><label>Email</label><input id="co-email" value="${co.email}"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Capital (\u20ac)</label><input id="co-capital" value="${co.capital}"></div>
+      <div class="field"><label>Siret</label><input id="co-siret" value="${co.siret}"></div>
+      <div class="field"><label>RCS</label><input id="co-rcs" value="${co.rcs}"></div>
+      <div class="field"><label>TVA</label><input id="co-tva" value="${co.tva}"></div>
+    </div>
+    <div class="field">
+      <label>Conditions (une par ligne, section "2. CONDITIONS" du devis)</label>
+      <textarea id="co-conditions" rows="5">${co.conditions.join('\n')}</textarea>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:220px"><label>Dur\u00e9e de validit\u00e9 (texte)</label><input id="co-validity" value="${co.validityText}"></div>
+      <div class="field" style="flex:1;min-width:220px"><label>D\u00e9lai d'intervention (texte)</label><input id="co-intervention" value="${co.interventionText}"></div>
+      <div class="field" style="flex:1;min-width:220px"><label>Conditions de r\u00e8glement (texte)</label><input id="co-payment" value="${co.paymentText}"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:220px"><label>Bandeau de bas de page \u2013 accroche</label><input id="co-footer-tagline" value="${co.footerTagline}"></div>
+      <div class="field" style="flex:1;min-width:220px"><label>Bandeau de bas de page \u2013 sous-titre</label><input id="co-footer-sub" value="${co.footerSub}"></div>
+    </div>
+    <div class="field">
+      <label>Mention légale finale (avertissement)</label>
+      <input id="co-disclaimer" value="${co.disclaimerText||''}">
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <button class="btn" id="co-save">Enregistrer</button>
+      <button class="btn danger" id="co-delete" style="border-color:var(--danger);color:var(--danger)">Supprimer cette entreprise</button>
+    </div>
+  </div>` : `<p class="empty">Aucune entreprise. Cliquez sur "+ Nouvelle entreprise".</p>`}
+  `;
+}
+function bindEntreprise(){
+  document.querySelectorAll('[data-edit-company]').forEach(b=>{
+    b.onclick = ()=>{ state.editingCompanyId = b.dataset.editCompany; render(); };
+  });
+  document.getElementById('add-company').onclick = async ()=>{
+    const nc = {
+      id: uid(), name:'Nouvelle entreprise', tagline:'', subtagline:'', color:'#1B2A4A', logo:'',
+      street:'', cp:'', ville:'', phone:'', email:'',
+      capital:'', siret:'', rcs:'', tva:'',
+      conditions:['Prix valables pour la dur\u00e9e de validit\u00e9 du devis'],
+      validityText:'Ce devis est valable 1 mois \u00e0 compter de la date d\'\u00e9mission.',
+      interventionText:'', paymentText:'',
+      footerTagline:'', footerSub:'', disclaimerText:'Cette offre de prix est \u00e9tablie \u00e0 titre informatif. Elle ne constitue pas une proposition technique susceptible d\'engager notre responsabilit\u00e9.',
+    };
+    state.companies.push(nc);
+    await sset('companies', state.companies);
+    state.editingCompanyId = nc.id;
+    render();
+  };
+  const co = state.companies.find(c=>c.id===state.editingCompanyId);
+  if(!co) return;
+  const logoInput = document.getElementById('co-logo');
+  if(logoInput) logoInput.onchange = (e)=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ co.logo = reader.result; render(); };
+    reader.readAsDataURL(f);
+  };
+  const saveBtn = document.getElementById('co-save');
+  if(saveBtn) saveBtn.onclick = async ()=>{
+    co.name = document.getElementById('co-name').value;
+    co.tagline = document.getElementById('co-tagline').value;
+    co.color = document.getElementById('co-color').value;
+    co.street = document.getElementById('co-street').value;
+    co.cp = document.getElementById('co-cp').value;
+    co.ville = document.getElementById('co-ville').value;
+    co.phone = document.getElementById('co-phone').value;
+    co.email = document.getElementById('co-email').value;
+    co.capital = document.getElementById('co-capital').value;
+    co.siret = document.getElementById('co-siret').value;
+    co.rcs = document.getElementById('co-rcs').value;
+    co.tva = document.getElementById('co-tva').value;
+    co.conditions = document.getElementById('co-conditions').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    co.validityText = document.getElementById('co-validity').value;
+    co.interventionText = document.getElementById('co-intervention').value;
+    co.paymentText = document.getElementById('co-payment').value;
+    co.footerTagline = document.getElementById('co-footer-tagline').value;
+    co.footerSub = document.getElementById('co-footer-sub').value;
+    co.disclaimerText = document.getElementById('co-disclaimer').value;
+    await sset('companies', state.companies);
+    showToast('Entreprise enregistr\u00e9e');
+    render();
+  };
+  const delBtn = document.getElementById('co-delete');
+  if(delBtn) delBtn.onclick = async ()=>{
+    state.companies = state.companies.filter(c=>c.id!==co.id);
+    state.editingCompanyId = state.companies.length? state.companies[0].id : null;
+    await sset('companies', state.companies);
+    render();
+  };
+}
+
+function renderDocView(id){
+  const d = state.documents.find(x=>x.id===id);
+  if(!d) return `<p class="empty">Document introuvable.</p>`;
+  const c = state.clients.find(c=>c.id===d.clientId);
+  const co = state.companies.find(co=>co.id===d.companyId) || state.companies[0] || {};
+  const t = calcTotals(d);
+  const title = d.type==='facture' ? 'FACTURE' : 'DEVIS';
+  const color = co.color || '#1B2A4A';
+  const colorDark = shadeColor(color, -0.25);
+  return `
+  <button class="btn secondary small" id="back-btn" style="margin-bottom:1rem">&larr; Retour</button>
+  <div id="print-area">
+  <div class="paper-wrap"><div class="paper2">
+    <div class="p2-banner" style="--p2-color:${color};border-bottom:3px solid ${color}">
+      ${co.logo ? `<img class="p2-logo-img" src="${co.logo}" alt="${co.name}">` : `<div class="p2-logo-text"><div class="nm">${co.name}</div><div class="tg">${co.tagline||''}</div></div>`}
+      <div class="p2-devis-box">
+        <div class="ttl">${title}</div>
+        <div class="num">N\u00b0 ${d.numero}</div>
+        <div class="dt">Date : ${d.date}</div>
+      </div>
+    </div>
+    <div class="p2-body">
+      <div class="p2-parties">
+        <div class="p2-party">
+          <div class="lbl">\u00c9metteur</div>
+          <strong>${co.name}</strong><br>${co.tagline||''}<br><br>
+          ${co.street||''}<br>${co.cp||''} ${co.ville||''}<br>
+          ${co.phone||''}<br>${co.email||''}
+          ${co.showLegalInEmetteur!==false ? `<br><br>SAS au capital de ${co.capital||''} \u20ac<br>Siret : ${co.siret||''}<br>RCS Paris ${co.rcs||''}<br>TVA ${co.tva||''}` : ''}
+        </div>
+        <div class="p2-party">
+          <div class="lbl">Destinataire</div>
+          ${c? `<strong>${clientFullName(c)}</strong><br>${c.adresse||''}${c.comp? ', '+c.comp:''}<br>${c.cp||''} ${c.ville||''}` : '(client supprim\u00e9)'}
+          <br><br>
+          <span class="lbl">Adresse des travaux</span><br>
+          ${d.travauxSameAsClient!==false
+            ? (c? `${c.adresse||''}${c.comp? ', '+c.comp:''}<br>${c.cp||''} ${c.ville||''}` : '(client supprim\u00e9)')
+            : `${d.travauxNom? d.travauxNom+'<br>':''}${d.travauxAdresse||''}<br>${d.travauxCp||''} ${d.travauxVille||''}`}
+        </div>
+      </div>
+      ${d.objet ? `<div class="p2-objet">
+        <span class="tag" style="background:${color}">OBJET</span>
+        <div class="txt">${d.objet}</div>
+      </div>` : ''}
+      <div class="p2-section-title" style="background:${color}">1. D\u00c9SIGNATION DES PRESTATIONS</div>
+      <table class="p2-table">
+        <tr><th>N\u00b0</th><th>R\u00e9f\u00e9rence</th><th>Description</th><th style="text-align:right">Qt\u00e9</th><th>Unit\u00e9</th><th style="text-align:right">PU HT (\u20ac)</th><th style="text-align:right">Total HT (\u20ac)</th><th style="text-align:right">Dont \u00e9co-contribution</th></tr>
+        ${d.lignes.map((l,i)=>{
+          const art = state.articles.find(a=>a.id===l.articleId);
+          return `<tr>
+            <td>${i+1}</td>
+            <td class="num">${art? art.code : ''}</td>
+            <td>${art? art.nom : '(article supprim\u00e9)'}</td>
+            <td style="text-align:right" class="num">${l.qty}</td>
+            <td>${l.unite||'Forfait'}</td>
+            <td style="text-align:right" class="num">${eur(l.pu)}</td>
+            <td style="text-align:right" class="num">${eur(l.qty*l.pu)}</td>
+            <td style="text-align:right" class="num">${art&&art.eco? eur(art.eco):'\u2013'}</td>
+          </tr>`;
+        }).join('')}
+      </table>
+      <div class="p2-bottom-row">
+        ${co.conditions && co.conditions.length ? `<div class="p2-conditions">
+          <div class="p2-section-title" style="background:${color};border-radius:3px 3px 0 0">2. CONDITIONS</div>
+          <ul>${co.conditions.map(c=>`<li>${c}</li>`).join('')}</ul>
+        </div>` : ''}
+        <div class="p2-totals" style="${co.conditions && co.conditions.length ? '' : 'max-width:320px;margin-left:auto'}">
+          <div class="r"><span>Total HT</span><span class="num">${eur(t.ht)}</span></div>
+          ${t.eco ? `<div class="r"><span>Total \u00e9co-contribution</span><span class="num">${eur(t.eco)}</span></div>` : ''}
+          <div class="r"><span>TVA (${d.tva}%)</span><span class="num">${eur(t.tva)}</span></div>
+          <div class="r ttc" style="background:${color}"><span>Total TTC</span><span class="num">${eur(t.ttc)}</span></div>
+          <div class="p2-signbox">Bon pour accord<br><span style="font-weight:normal">Date et signature</span></div>
+        </div>
+      </div>
+      <div class="p2-icons-row">
+        <div><div class="ic-title">Dur\u00e9e de validit\u00e9 du devis</div><div class="ic-desc">${co.validityText||''}</div></div>
+        <div><div class="ic-title">D\u00e9lai d'intervention</div><div class="ic-desc">${co.interventionText||''}</div></div>
+        <div><div class="ic-title">Conditions de r\u00e8glement</div><div class="ic-desc">${co.paymentText||''}</div></div>
+      </div>
+    </div>
+    <div class="p2-tagline" style="background:${colorDark}">
+      <div class="q">\u00ab ${co.footerTagline||''} \u00bb</div>
+      <div class="s">${co.footerSub||''}</div>
+    </div>
+    <div class="p2-legal-footer">
+      Si\u00e8ge Administratif et Commercial : ${co.street||''}, ${co.cp||''} ${co.ville||''} - T\u00e9l : ${co.phone||''} - ${co.name}<br>
+      SAS au capital de ${co.capital||''} \u20ac - Siret : ${co.siret||''} - RCS Paris ${co.rcs||''} - N.TVA : ${co.tva||''}<br>
+      ${co.disclaimerText||''}
+    </div>
+  </div></div>
+  ${co.cgv && co.cgv.length ? `
+  <div class="paper-wrap cgv-page"><div class="paper2 cgv-sheet">
+    <div class="cgv-header">
+      ${co.logo ? `<img class="cgv-logo" src="${co.logo}" alt="${co.name}">` : ''}
+      <div class="cgv-header-title">${co.name} - Conditions G\u00e9n\u00e9rales de Vente</div>
+    </div>
+    <h1 class="cgv-title">CONDITIONS G\u00c9N\u00c9RALES DE VENTE</h1>
+    <p class="cgv-meta">${co.name} - ${co.tagline||''}<br>Si\u00e8ge social : ${co.street||''} - ${co.cp||''} ${co.ville||''}<br>Immatricul\u00e9e au Registre du Commerce et des Soci\u00e9t\u00e9s sous le num\u00e9ro ${co.siret||''}</p>
+    <p class="cgv-intro">${co.cgvIntro||''}</p>
+    ${co.cgv.map(a=>`<h2 class="cgv-art-title">${a.title}</h2>${a.body.split('\n').map(par=>`<p class="cgv-par">${par}</p>`).join('')}`).join('')}
+    <p class="cgv-footnote">Document fourni par ${co.name} - Version client.</p>
+    <div class="p2-legal-footer">
+      ${co.name} - ${co.street||''} - ${co.cp||''} ${co.ville||''} - RCS Paris ${co.rcs||''}
+    </div>
+  </div></div>` : ''}
+  </div>
+  <div class="row" style="margin-top:1.25rem">
+    <button class="btn" id="pdf-btn">Imprimer / Enregistrer en PDF</button>
+    <button class="btn secondary" id="email-btn">Envoyer par email</button>
+    ${d.type==='devis' ? `<button class="btn secondary" id="edit-devis-btn">Modifier ce devis</button>` : ''}
+    ${d.type==='devis' ? `<button class="btn secondary" id="to-facture-btn">Transformer en facture</button>` : ''}
+    <button class="btn secondary" id="delete-doc-btn" style="border-color:var(--danger);color:var(--danger)">Supprimer</button>
+  </div>`;
+}
+function bindDocView(){
+  document.getElementById('back-btn').onclick = ()=>{ state.viewingDoc=null; render(); };
+  document.getElementById('pdf-btn').onclick = ()=>{
+    showToast("Choisis \u00ab Enregistrer en PDF \u00bb comme destination dans la fen\u00eatre qui s'ouvre");
+    window.print();
+  };
+  document.getElementById('email-btn').onclick = ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    const c = state.clients.find(c=>c.id===d.clientId);
+    const title = d.type==='facture' ? 'Facture' : 'Devis';
+    const body = `Bonjour,\n\nSuite \u00e0 votre demande, vous trouverez ci-joint notre devis relatif \u00e0 la fourniture d'unit\u00e9s de climatisation.\n\nNous esp\u00e9rons que cette proposition r\u00e9pondra \u00e0 vos attentes. Nous restons \u00e0 votre enti\u00e8re disposition pour toute pr\u00e9cision ou pour \u00e9changer sur votre projet et adapter notre offre si n\u00e9cessaire.\n\nDans l'attente de votre retour, nous vous remercions de votre confiance et vous prions d'agr\u00e9er, Madame, Monsieur, l'expression de nos salutations distingu\u00e9es.\n\nCordialement,\n${d.auteur}`;
+    const subject = `${title} ${d.numero}`;
+    const to = (c && c.email) ? c.email : '';
+    showToast("N'oublie pas de joindre le PDF t\u00e9l\u00e9charg\u00e9 \u00e0 l'email !");
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+  const editBtn = document.getElementById('edit-devis-btn');
+  if(editBtn) editBtn.onclick = ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    state.builder = {
+      clientId: d.clientId, companyId: d.companyId, objet: d.objet||'',
+      travauxSameAsClient: d.travauxSameAsClient!==false,
+      travauxNom: d.travauxNom||'', travauxAdresse: d.travauxAdresse||'', travauxCp: d.travauxCp||'', travauxVille: d.travauxVille||'',
+      lignes: JSON.parse(JSON.stringify(d.lignes)), tva: d.tva, notes: '',
+      editingDocId: d.id,
+    };
+    state.viewingDoc = null;
+    state.tab = 'nouveau';
+    render();
+  };
+  const deleteBtn = document.getElementById('delete-doc-btn');
+  if(deleteBtn) deleteBtn.onclick = async ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    if(!d) return;
+    if(!confirm(`Supprimer d\u00e9finitivement le ${d.type} ${d.numero} ? Cette action est irr\u00e9versible.`)) return;
+    state.documents = state.documents.filter(x=>x.id!==d.id);
+    await sset('documents', state.documents);
+    showToast(d.numero + ' supprim\u00e9');
+    state.viewingDoc = null;
+    render();
+  };
+  const tfb = document.getElementById('to-facture-btn');
+  if(tfb) tfb.onclick = async ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    state.counters.facture += 1;
+    const numero = 'F-' + new Date().getFullYear() + '-' + String(state.counters.facture).padStart(4,'0');
+    const facture = Object.assign(JSON.parse(JSON.stringify(d)), { id: uid(), type:'facture', numero, date: todayStr(), parentDevisId: d.id });
+    state.documents.push(facture);
+    await sset('documents', state.documents);
+    await sset('counters', state.counters);
+    showToast('Facture ' + numero + ' cr\u00e9\u00e9e');
+    state.viewingDoc = facture.id;
+    render();
+  };
+}
+
+function findVal(row, keys){
+  const normalized = {};
+  Object.keys(row).forEach(k=>{ normalized[k.toString().trim().toLowerCase()] = row[k]; });
+  for(const k of keys){
+    if(normalized[k] !== undefined && normalized[k] !== null && normalized[k] !== '') return normalized[k];
+  }
+  return '';
+}
+function exportToExcel(rows, filename, sheetName){
+  if(typeof XLSX === 'undefined'){ showToast("Biblioth\u00e8que Excel non charg\u00e9e (v\u00e9rifiez la connexion internet)"); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, filename);
+}
+function importFromExcel(file, cb){
+  if(!file) return;
+  if(typeof XLSX === 'undefined'){ showToast("Biblioth\u00e8que Excel non charg\u00e9e (v\u00e9rifiez la connexion internet)"); return; }
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      cb(rows);
+    }catch(err){ showToast("Impossible de lire ce fichier"); console.error(err); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+(async function init(){
+  try{ if(localStorage.getItem(AUTH_KEY) === '1') state.authenticated = true; }catch(e){}
+  initFirebase();
+  try{
+    await withTimeout(loadAll(), 10000);
+  }catch(e){
+    console.error('Chargement trop long, d\u00e9marrage avec les donn\u00e9es disponibles', e);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
