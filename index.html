@@ -293,14 +293,44 @@ let state = {
   documents: [],
   counters: {devis:0, facture:0},
   companies: [],
+  accounts: [],
+  journals: [],
+  entries: [],
   editingCompanyId: null,
   editingArticleId: null,
   editingClientId: null,
+  editingAccountId: null,
+  editingJournalId: null,
   tab: 'clients',
+  comptaTab: 'plan',
+  entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}] },
   builder: { clientId:'', companyId:'', objet:'', lignes:[], tva:20, notes:'', editingDocId:null },
   toast: null,
   viewingDoc: null,
 };
+
+const DEFAULT_ACCOUNTS = [
+  ['101000','Capital'],['119000','Report \u00e0 nouveau'],['120000','R\u00e9sultat'],
+  ['205100','Site internet'],['271000','Parts sociales'],['275100','D\u00e9p\u00f4t Kandbaz'],
+  ['280510','Amortissement site internet'],['401000','Fournisseurs'],['411000','Clients'],
+  ['418000','FAE'],['445510','TVA \u00e0 payer'],['445660','TVA d\u00e9ductible sur les d\u00e9bits'],
+  ['445665','TVA d\u00e9ductible sur les encaissements'],['445710','TVA collect\u00e9e'],
+  ['451200','Compte courant Jessy Carderot'],['512100','Cr\u00e9dit Mutuel'],
+  ['606400','Fournitures bureau'],['607100','Achat climatisation'],['611100','Abonnement Oxatis'],
+  ['611200','Prestations diverses'],['613100','Redevance loyer Kandbaz'],['616100','Assurance'],
+  ['622700','Frais actes'],['622800','Honoraires'],['623400','Cadeau client'],
+  ['625100','Frais de d\u00e9placement'],['625600','Frais de mission'],['626100','Frais postaux'],
+  ['626200','Frais t\u00e9l\u00e9phone'],['627100','Frais bancaires'],['628100','Prestations diverses'],
+  ['633500','CFE'],['681100','Amortissement site internet'],['704100','Ventes'],['708000','TNF'],
+].map(([code,label])=>({id: uid(), code, label}));
+
+const DEFAULT_JOURNALS = [
+  {id: uid(), code:'AC', name:'Achat', nextPiece:100001},
+  {id: uid(), code:'CM', name:'Banque Cr\u00e9dit Mutuel', nextPiece:200001},
+  {id: uid(), code:'OD', name:'OD', nextPiece:300001},
+  {id: uid(), code:'VE', name:'Ventes', nextPiece:400001},
+  {id: uid(), code:'AN', name:'A Nouveau', nextPiece:900001},
+];
 
 const DEFAULT_COMPANIES = [
   {
@@ -373,6 +403,11 @@ async function loadAll(){
   }else{
     state.companies = JSON.parse(JSON.stringify(DEFAULT_COMPANIES));
   }
+  const acc = await sget('accounts', null);
+  state.accounts = (acc && acc.length) ? acc : JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
+  const jr = await sget('journals', null);
+  state.journals = (jr && jr.length) ? jr : JSON.parse(JSON.stringify(DEFAULT_JOURNALS));
+  state.entries = await sget('entries', []);
 }
 
 function showToast(msg){
@@ -478,6 +513,7 @@ function renderShell(){
     ['nouveau','Nouveau devis'],
     ['historique','Historique'],
     ['entreprise','Entreprises'],
+    ['compta','Comptabilit\u00e9'],
   ];
   return `
   <div class="shell">
@@ -516,6 +552,7 @@ function renderTab(){
   if(state.tab==='nouveau') return renderBuilder();
   if(state.tab==='historique') return renderHistorique();
   if(state.tab==='entreprise') return renderEntreprise();
+  if(state.tab==='compta') return renderCompta();
   return '';
 }
 function bindTab(){
@@ -525,6 +562,7 @@ function bindTab(){
   if(state.tab==='nouveau') return bindBuilder();
   if(state.tab==='historique') return bindHistorique();
   if(state.tab==='entreprise') return bindEntreprise();
+  if(state.tab==='compta') return bindCompta();
 }
 
 function renderClients(){
@@ -1051,28 +1089,32 @@ function renderHistorique(){
   <table>
     <tr><th>Devis</th><th>Client</th><th>Article</th><th>Qt\u00e9</th><th>Vente HT</th><th>Achat</th><th>Marge</th></tr>
     ${(()=>{
-      let rows = [];
+      if(!docs.length) return `<tr><td colspan="7" class="empty">Aucune ligne pour l'instant.</td></tr>`;
+      let out = '';
+      let totVenteAll = 0, totAchatAll = 0;
       docs.forEach(d=>{
         const c = state.clients.find(c=>c.id===d.clientId);
+        let subVente = 0, subAchat = 0;
         d.lignes.forEach(l=>{
           const art = state.articles.find(a=>a.id===l.articleId);
           const vente = l.qty*l.pu;
           const achat = art? l.qty*(art.achat||0) : 0;
-          rows.push({numero:d.numero, client: c? clientFullName(c):'', article: art? art.nom : '(article supprim\u00e9)', qty:l.qty, vente, achat, marge: vente-achat});
+          subVente += vente; subAchat += achat;
+          out += `<tr>
+            <td class="num">${d.numero}</td>
+            <td>${c? clientFullName(c):''}</td>
+            <td>${art? art.nom : '(article supprim\u00e9)'}</td>
+            <td class="num">${l.qty}</td>
+            <td class="num">${eur(vente)}</td>
+            <td class="num">${eur(achat)}</td>
+            <td class="num">${eur(vente-achat)}</td>
+          </tr>`;
         });
+        out += `<tr style="background:var(--paper)"><td colspan="4" style="font-weight:bold">Sous-total ${d.numero}</td><td class="num" style="font-weight:bold">${eur(subVente)}</td><td class="num" style="font-weight:bold">${eur(subAchat)}</td><td class="num" style="font-weight:bold">${eur(subVente-subAchat)}</td></tr>`;
+        totVenteAll += subVente; totAchatAll += subAchat;
       });
-      if(!rows.length) return `<tr><td colspan="7" class="empty">Aucune ligne pour l'instant.</td></tr>`;
-      const totVente = rows.reduce((s,r)=>s+r.vente,0);
-      const totAchat = rows.reduce((s,r)=>s+r.achat,0);
-      return rows.map(r=>`<tr>
-        <td class="num">${r.numero}</td>
-        <td>${r.client}</td>
-        <td>${r.article}</td>
-        <td class="num">${r.qty}</td>
-        <td class="num">${eur(r.vente)}</td>
-        <td class="num">${eur(r.achat)}</td>
-        <td class="num">${eur(r.marge)}</td>
-      </tr>`).join('') + `<tr><td colspan="4" style="font-weight:bold">Total</td><td class="num" style="font-weight:bold">${eur(totVente)}</td><td class="num" style="font-weight:bold">${eur(totAchat)}</td><td class="num" style="font-weight:bold">${eur(totVente-totAchat)}</td></tr>`;
+      out += `<tr><td colspan="4" style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totVenteAll)}</td><td class="num" style="font-weight:bold">${eur(totAchatAll)}</td><td class="num" style="font-weight:bold">${eur(totVenteAll-totAchatAll)}</td></tr>`;
+      return out;
     })()}
   </table>`;
 }
@@ -1277,6 +1319,357 @@ function bindEntreprise(){
     await sset('companies', state.companies);
     render();
   };
+}
+
+function renderCompta(){
+  const subtabs = [
+    ['plan','Plan comptable'],
+    ['journaux','Journaux'],
+    ['saisie','Nouvelle \u00e9criture'],
+    ['ecritures','\u00c9critures'],
+    ['balance','Balance des comptes'],
+  ];
+  return `
+  <h1 class="page-title">Comptabilit\u00e9</h1>
+  <p class="page-sub">Plan comptable, journaux et saisie des \u00e9critures, partag\u00e9s avec toute l'\u00e9quipe.</p>
+  <div style="margin-bottom:1.25rem">
+    ${subtabs.map(([k,l])=>`<button class="btn ${state.comptaTab===k?'':'secondary'} small" data-compta-tab="${k}" style="margin-right:.4rem">${l}</button>`).join('')}
+  </div>
+  ${state.comptaTab==='plan' ? renderPlanComptable() : ''}
+  ${state.comptaTab==='journaux' ? renderJournaux() : ''}
+  ${state.comptaTab==='saisie' ? renderSaisieEcriture() : ''}
+  ${state.comptaTab==='ecritures' ? renderEcritures() : ''}
+  ${state.comptaTab==='balance' ? renderBalance() : ''}
+  `;
+}
+function bindCompta(){
+  document.querySelectorAll('[data-compta-tab]').forEach(b=>{
+    b.onclick = ()=>{ state.comptaTab = b.dataset.comptaTab; render(); };
+  });
+  if(state.comptaTab==='plan') return bindPlanComptable();
+  if(state.comptaTab==='journaux') return bindJournaux();
+  if(state.comptaTab==='saisie') return bindSaisieEcriture();
+  if(state.comptaTab==='ecritures') return bindEcritures();
+}
+
+function renderPlanComptable(){
+  return `
+  <div class="card">
+    <div class="row">
+      <div class="field" style="width:140px"><label>Code compte</label><input id="acc-code" placeholder="101000"></div>
+      <div class="field" style="flex:2;min-width:220px"><label>Libell\u00e9</label><input id="acc-label" placeholder="Nom du compte"></div>
+    </div>
+    <button class="btn" id="add-account">Ajouter le compte</button>
+  </div>
+  <table>
+    <tr><th>Code</th><th>Libell\u00e9</th><th></th></tr>
+    ${state.accounts.slice().sort((a,b)=>a.code.localeCompare(b.code)).map(a=>{
+      if(state.editingAccountId===a.id){
+        return `<tr>
+          <td><input class="num" style="width:110px" value="${a.code}" data-edit-acc-code="${a.id}"></td>
+          <td><input style="width:100%;min-width:200px" value="${a.label}" data-edit-acc-label="${a.id}"></td>
+          <td style="white-space:nowrap"><button class="btn small" data-save-account="${a.id}">Enregistrer</button> <button class="btn secondary small" data-cancel-account="${a.id}">Annuler</button></td>
+        </tr>`;
+      }
+      return `<tr>
+        <td class="num">${a.code}</td>
+        <td>${a.label}</td>
+        <td style="white-space:nowrap"><button class="btn secondary small" data-edit-account="${a.id}">Modifier</button> <button class="rm-btn" data-del-account="${a.id}">&times;</button></td>
+      </tr>`;
+    }).join('')}
+  </table>`;
+}
+function bindPlanComptable(){
+  document.getElementById('add-account').onclick = async ()=>{
+    const code = document.getElementById('acc-code').value.trim();
+    const label = document.getElementById('acc-label').value.trim();
+    if(!code || !label){ showToast('Code et libell\u00e9 requis'); return; }
+    state.accounts.push({id: uid(), code, label});
+    await sset('accounts', state.accounts);
+    showToast('Compte ajout\u00e9');
+    render();
+  };
+  document.querySelectorAll('[data-del-account]').forEach(b=>{
+    b.onclick = async ()=>{
+      state.accounts = state.accounts.filter(a=>a.id!==b.dataset.delAccount);
+      await sset('accounts', state.accounts);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-edit-account]').forEach(b=>{
+    b.onclick = ()=>{ state.editingAccountId = b.dataset.editAccount; render(); };
+  });
+  document.querySelectorAll('[data-cancel-account]').forEach(b=>{
+    b.onclick = ()=>{ state.editingAccountId = null; render(); };
+  });
+  document.querySelectorAll('[data-save-account]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = b.dataset.saveAccount;
+      const a = state.accounts.find(x=>x.id===id);
+      if(!a) return;
+      a.code = document.querySelector(`[data-edit-acc-code="${id}"]`).value.trim();
+      a.label = document.querySelector(`[data-edit-acc-label="${id}"]`).value.trim();
+      await sset('accounts', state.accounts);
+      state.editingAccountId = null;
+      showToast('Compte mis \u00e0 jour');
+      render();
+    };
+  });
+}
+
+function renderJournaux(){
+  return `
+  <div class="card">
+    <div class="row">
+      <div class="field" style="width:100px"><label>Code</label><input id="jr-code" placeholder="AC"></div>
+      <div class="field" style="flex:2;min-width:200px"><label>Nom du journal</label><input id="jr-name" placeholder="Achat"></div>
+      <div class="field" style="width:140px"><label>1er n\u00b0 de pi\u00e8ce</label><input id="jr-next" type="number" placeholder="100001"></div>
+    </div>
+    <button class="btn" id="add-journal">Ajouter le journal</button>
+  </div>
+  <table>
+    <tr><th>Code journal</th><th>Nom journal</th><th>Prochaine pi\u00e8ce</th><th></th></tr>
+    ${state.journals.map(j=>{
+      if(state.editingJournalId===j.id){
+        return `<tr>
+          <td><input class="num" style="width:80px" value="${j.code}" data-edit-jr-code="${j.id}"></td>
+          <td><input style="width:100%;min-width:160px" value="${j.name}" data-edit-jr-name="${j.id}"></td>
+          <td><input class="num" type="number" style="width:120px" value="${j.nextPiece}" data-edit-jr-next="${j.id}"></td>
+          <td style="white-space:nowrap"><button class="btn small" data-save-journal="${j.id}">Enregistrer</button> <button class="btn secondary small" data-cancel-journal="${j.id}">Annuler</button></td>
+        </tr>`;
+      }
+      return `<tr>
+        <td class="num">${j.code}</td>
+        <td>${j.name}</td>
+        <td class="num">${j.nextPiece}</td>
+        <td style="white-space:nowrap"><button class="btn secondary small" data-edit-journal="${j.id}">Modifier</button> <button class="rm-btn" data-del-journal="${j.id}">&times;</button></td>
+      </tr>`;
+    }).join('')}
+  </table>`;
+}
+function bindJournaux(){
+  document.getElementById('add-journal').onclick = async ()=>{
+    const code = document.getElementById('jr-code').value.trim().toUpperCase();
+    const name = document.getElementById('jr-name').value.trim();
+    const next = parseInt(document.getElementById('jr-next').value)||100001;
+    if(!code || !name){ showToast('Code et nom requis'); return; }
+    state.journals.push({id: uid(), code, name, nextPiece: next});
+    await sset('journals', state.journals);
+    showToast('Journal ajout\u00e9');
+    render();
+  };
+  document.querySelectorAll('[data-del-journal]').forEach(b=>{
+    b.onclick = async ()=>{
+      state.journals = state.journals.filter(j=>j.id!==b.dataset.delJournal);
+      await sset('journals', state.journals);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-edit-journal]').forEach(b=>{
+    b.onclick = ()=>{ state.editingJournalId = b.dataset.editJournal; render(); };
+  });
+  document.querySelectorAll('[data-cancel-journal]').forEach(b=>{
+    b.onclick = ()=>{ state.editingJournalId = null; render(); };
+  });
+  document.querySelectorAll('[data-save-journal]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = b.dataset.saveJournal;
+      const j = state.journals.find(x=>x.id===id);
+      if(!j) return;
+      j.code = document.querySelector(`[data-edit-jr-code="${id}"]`).value.trim().toUpperCase();
+      j.name = document.querySelector(`[data-edit-jr-name="${id}"]`).value.trim();
+      j.nextPiece = parseInt(document.querySelector(`[data-edit-jr-next="${id}"]`).value)||j.nextPiece;
+      await sset('journals', state.journals);
+      state.editingJournalId = null;
+      showToast('Journal mis \u00e0 jour');
+      render();
+    };
+  });
+}
+
+function renderSaisieEcriture(){
+  const b = state.entryBuilder;
+  const totDebit = b.lignes.reduce((s,l)=>s+(parseFloat(l.debit)||0),0);
+  const totCredit = b.lignes.reduce((s,l)=>s+(parseFloat(l.credit)||0),0);
+  const equilibre = Math.abs(totDebit-totCredit) < 0.005;
+  const journal = state.journals.find(j=>j.id===b.journal);
+  return `
+  <div class="card">
+    <div class="row">
+      <div class="field" style="width:200px">
+        <label>Journal</label>
+        <select id="ec-journal">
+          <option value="">\u2014 Choisir \u2014</option>
+          ${state.journals.map(j=>`<option value="${j.id}" ${b.journal===j.id?'selected':''}>${j.code} \u2014 ${j.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="width:160px"><label>Date</label><input type="date" id="ec-date" value="${b.date}"></div>
+      <div class="field" style="width:160px"><label>N\u00b0 facture</label><input id="ec-facture" value="${b.factureNum}" placeholder="Optionnel"></div>
+      <div class="field" style="width:160px"><label>N\u00b0 pi\u00e8ce (auto)</label><input value="${journal? journal.nextPiece : '\u2014'}" disabled></div>
+    </div>
+    <hr class="divider">
+    <div class="row" style="margin-bottom:.4rem;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.03em">
+      <div style="width:180px">Compte</div><div style="flex:1;min-width:150px">Libell\u00e9</div><div style="width:110px">D\u00e9bit</div><div style="width:110px">Cr\u00e9dit</div><div style="width:32px"></div>
+    </div>
+    ${b.lignes.map((l,i)=>`
+      <div class="line-row" style="grid-template-columns:180px 1fr 110px 110px 32px">
+        <select data-ec-compte="${i}">
+          <option value="">\u2014 Compte \u2014</option>
+          ${state.accounts.slice().sort((a,c)=>a.code.localeCompare(c.code)).map(a=>`<option value="${a.id}" ${l.compte===a.id?'selected':''}>${a.code} \u2014 ${a.label}</option>`).join('')}
+        </select>
+        <input type="text" data-ec-libelle="${i}" value="${l.libelle}" placeholder="Libell\u00e9">
+        <input type="number" step="0.01" data-ec-debit="${i}" value="${l.debit}">
+        <input type="number" step="0.01" data-ec-credit="${i}" value="${l.credit}">
+        <button class="rm-btn" data-ec-del="${i}">&times;</button>
+      </div>`).join('')}
+    <button class="btn secondary small" id="add-ec-line" style="margin-top:.5rem">+ Ajouter une ligne</button>
+    <div class="totals-box">
+      <div class="totals-row"><span>Total d\u00e9bit</span><span class="num">${eur(totDebit)}</span></div>
+      <div class="totals-row"><span>Total cr\u00e9dit</span><span class="num">${eur(totCredit)}</span></div>
+      <div class="totals-row ttc" style="color:${equilibre?'#2E7D4F':'var(--danger)'}"><span>${equilibre? '\u2713 \u00c9quilibr\u00e9' : '\u26a0 D\u00e9s\u00e9quilibr\u00e9'}</span><span class="num">${eur(totDebit-totCredit)}</span></div>
+    </div>
+    <button class="btn" id="save-ecriture" style="margin-top:.5rem" ${equilibre && b.lignes.length? '' : 'disabled'}>Enregistrer l'\u00e9criture</button>
+    <p class="hint">Le d\u00e9bit doit \u00eatre \u00e9gal au cr\u00e9dit pour pouvoir enregistrer.</p>
+  </div>`;
+}
+function bindSaisieEcriture(){
+  const b = state.entryBuilder;
+  document.getElementById('ec-journal').onchange = (e)=>{ b.journal = e.target.value; render(); };
+  document.getElementById('ec-date').oninput = (e)=>{ b.date = e.target.value; };
+  document.getElementById('ec-facture').oninput = (e)=>{ b.factureNum = e.target.value; };
+  document.getElementById('add-ec-line').onclick = ()=>{ b.lignes.push({compte:'',libelle:'',debit:'',credit:''}); render(); };
+  document.querySelectorAll('[data-ec-compte]').forEach(sel=>{
+    sel.onchange = (e)=>{
+      const i = +sel.dataset.ecCompte;
+      b.lignes[i].compte = e.target.value;
+      const acc = state.accounts.find(a=>a.id===e.target.value);
+      if(acc && !b.lignes[i].libelle) b.lignes[i].libelle = acc.label;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-ec-libelle]').forEach(inp=>{
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.ecLibelle].libelle = e.target.value; };
+  });
+  document.querySelectorAll('[data-ec-debit]').forEach(inp=>{
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.ecDebit].debit = e.target.value; render(); };
+  });
+  document.querySelectorAll('[data-ec-credit]').forEach(inp=>{
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.ecCredit].credit = e.target.value; render(); };
+  });
+  document.querySelectorAll('[data-ec-del]').forEach(btn=>{
+    btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.ecDel,1); render(); };
+  });
+  const saveBtn = document.getElementById('save-ecriture');
+  if(saveBtn) saveBtn.onclick = async ()=>{
+    if(!b.journal){ showToast('Choisissez un journal'); return; }
+    if(!b.date){ showToast('Choisissez une date'); return; }
+    const journal = state.journals.find(j=>j.id===b.journal);
+    if(!journal) return;
+    const totDebit = b.lignes.reduce((s,l)=>s+(parseFloat(l.debit)||0),0);
+    const totCredit = b.lignes.reduce((s,l)=>s+(parseFloat(l.credit)||0),0);
+    if(Math.abs(totDebit-totCredit) >= 0.005){ showToast('D\u00e9bit et cr\u00e9dit doivent \u00eatre \u00e9gaux'); return; }
+    if(b.lignes.some(l=>!l.compte)){ showToast('Chaque ligne doit avoir un compte'); return; }
+    const pieceNum = journal.nextPiece;
+    const entry = {
+      id: uid(), journalId: journal.id, date: b.date, factureNum: b.factureNum, pieceNum,
+      lignes: JSON.parse(JSON.stringify(b.lignes)), auteur: state.currentUser,
+    };
+    state.entries.push(entry);
+    journal.nextPiece += 1;
+    await sset('entries', state.entries);
+    await sset('journals', state.journals);
+    showToast('\u00c9criture n\u00b0 ' + pieceNum + ' enregistr\u00e9e');
+    state.entryBuilder = { journal: b.journal, date: b.date, factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}] };
+    render();
+  };
+}
+
+function renderEcritures(){
+  const rows = [...state.entries].reverse();
+  return `
+  <button class="btn secondary small" id="export-ecritures" style="margin-bottom:1rem">Exporter les \u00e9critures (Excel)</button>
+  <table>
+    <tr><th>Journal</th><th>Compte</th><th>Libell\u00e9</th><th>Date</th><th>N\u00b0 facture</th><th>N\u00b0 pi\u00e8ce</th><th>D\u00e9bit</th><th>Cr\u00e9dit</th><th></th></tr>
+    ${rows.length ? rows.map(en=>{
+      const journal = state.journals.find(j=>j.id===en.journalId);
+      return en.lignes.map((l,i)=>{
+        const acc = state.accounts.find(a=>a.id===l.compte);
+        return `<tr>
+          <td class="num">${journal? journal.code : ''}</td>
+          <td class="num">${acc? acc.code : ''}</td>
+          <td>${l.libelle || (acc? acc.label : '')}</td>
+          <td>${i===0? en.date : ''}</td>
+          <td>${i===0? (en.factureNum||'') : ''}</td>
+          <td class="num">${i===0? en.pieceNum : ''}</td>
+          <td class="num">${l.debit? eur(parseFloat(l.debit)) : ''}</td>
+          <td class="num">${l.credit? eur(parseFloat(l.credit)) : ''}</td>
+          <td>${i===0? `<button class="rm-btn" data-del-entry="${en.id}">&times;</button>` : ''}</td>
+        </tr>`;
+      }).join('');
+    }).join('') : `<tr><td colspan="9" class="empty">Aucune \u00e9criture pour l'instant.</td></tr>`}
+  </table>`;
+}
+function bindEcritures(){
+  document.querySelectorAll('[data-del-entry]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!confirm('Supprimer cette \u00e9criture ?')) return;
+      state.entries = state.entries.filter(en=>en.id!==b.dataset.delEntry);
+      await sset('entries', state.entries);
+      render();
+    };
+  });
+  const exp = document.getElementById('export-ecritures');
+  if(exp) exp.onclick = ()=>{
+    const rows = [];
+    [...state.entries].reverse().forEach(en=>{
+      const journal = state.journals.find(j=>j.id===en.journalId);
+      en.lignes.forEach((l,i)=>{
+        const acc = state.accounts.find(a=>a.id===l.compte);
+        rows.push({
+          'Journal': journal? journal.code : '',
+          'Compte': acc? acc.code : '',
+          'Libell\u00e9 compte': l.libelle || (acc? acc.label : ''),
+          'Date': i===0? en.date : '',
+          'N\u00b0 facture': i===0? (en.factureNum||'') : '',
+          'N\u00b0 pi\u00e8ce': i===0? en.pieceNum : '',
+          'D\u00e9bit': l.debit? parseFloat(l.debit) : '',
+          'Cr\u00e9dit': l.credit? parseFloat(l.credit) : '',
+        });
+      });
+    });
+    exportToExcel(rows, 'ecritures.xlsx', 'Ecritures');
+  };
+}
+
+function renderBalance(){
+  const totals = {};
+  state.entries.forEach(en=>{
+    en.lignes.forEach(l=>{
+      if(!l.compte) return;
+      if(!totals[l.compte]) totals[l.compte] = {debit:0, credit:0};
+      totals[l.compte].debit += parseFloat(l.debit)||0;
+      totals[l.compte].credit += parseFloat(l.credit)||0;
+    });
+  });
+  const rows = Object.keys(totals).map(accId=>{
+    const acc = state.accounts.find(a=>a.id===accId);
+    return { code: acc? acc.code : '?', label: acc? acc.label : '(compte supprim\u00e9)', debit: totals[accId].debit, credit: totals[accId].credit };
+  }).sort((a,b)=>a.code.localeCompare(b.code));
+  const totDebit = rows.reduce((s,r)=>s+r.debit,0);
+  const totCredit = rows.reduce((s,r)=>s+r.credit,0);
+  return `
+  <p class="page-sub">Cumul des montants par compte, toutes \u00e9critures confondues.</p>
+  <table>
+    <tr><th>Code</th><th>Libell\u00e9</th><th>D\u00e9bit cumul\u00e9</th><th>Cr\u00e9dit cumul\u00e9</th><th>Solde</th></tr>
+    ${rows.length ? rows.map(r=>`<tr>
+      <td class="num">${r.code}</td>
+      <td>${r.label}</td>
+      <td class="num">${eur(r.debit)}</td>
+      <td class="num">${eur(r.credit)}</td>
+      <td class="num">${eur(r.debit-r.credit)}</td>
+    </tr>`).join('') + `<tr><td colspan="2" style="font-weight:bold">Total</td><td class="num" style="font-weight:bold">${eur(totDebit)}</td><td class="num" style="font-weight:bold">${eur(totCredit)}</td><td class="num" style="font-weight:bold">${eur(totDebit-totCredit)}</td></tr>`
+    : `<tr><td colspan="5" class="empty">Aucune \u00e9criture pour l'instant.</td></tr>`}
+  </table>`;
 }
 
 function renderDocView(id){
