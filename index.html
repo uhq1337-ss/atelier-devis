@@ -274,6 +274,12 @@ async function sset(key, value){
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function clientFullName(c){ return c ? (c.nom + (c.prenom ? ' '+c.prenom : '')) : ''; }
 function eur(n){ return (Math.round((n||0)*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' \u20ac'; }
+function parseNum(v){
+  if(v===null || v===undefined || v==='') return 0;
+  const s = String(v).trim().replace(/\s/g,'').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
 function todayStr(){ const d=new Date(); return d.toLocaleDateString('fr-FR'); }
 function shadeColor(hex, percent){
   try{
@@ -303,7 +309,7 @@ let state = {
   editingJournalId: null,
   tab: 'clients',
   comptaTab: 'plan',
-  entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}] },
+  entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
   builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null },
   toast: null,
   viewingDoc: null,
@@ -811,9 +817,9 @@ function bindArticles(){
       id: uid(),
       code: document.getElementById('a-code').value.trim() || ('ART-'+(state.articles.length+1)),
       nom,
-      achat: parseFloat(document.getElementById('a-achat').value)||0,
-      vente: parseFloat(document.getElementById('a-vente').value)||0,
-      eco: parseFloat(document.getElementById('a-eco').value)||0,
+      achat: parseNum(document.getElementById('a-achat').value)||0,
+      vente: parseNum(document.getElementById('a-vente').value)||0,
+      eco: parseNum(document.getElementById('a-eco').value)||0,
     });
     await sset('articles', state.articles);
     showToast('Article ajout\u00e9');
@@ -841,9 +847,9 @@ function bindArticles(){
       if(!nom){ showToast("Le nom de l'article est requis"); return; }
       a.code = document.querySelector(`[data-edit-code="${id}"]`).value.trim() || a.code;
       a.nom = nom;
-      a.achat = parseFloat(document.querySelector(`[data-edit-achat="${id}"]`).value)||0;
-      a.vente = parseFloat(document.querySelector(`[data-edit-vente="${id}"]`).value)||0;
-      a.eco = parseFloat(document.querySelector(`[data-edit-eco="${id}"]`).value)||0;
+      a.achat = parseNum(document.querySelector(`[data-edit-achat="${id}"]`).value)||0;
+      a.vente = parseNum(document.querySelector(`[data-edit-vente="${id}"]`).value)||0;
+      a.eco = parseNum(document.querySelector(`[data-edit-eco="${id}"]`).value)||0;
       await sset('articles', state.articles);
       state.editingArticleId = null;
       showToast('Article mis \u00e0 jour');
@@ -865,9 +871,9 @@ function bindArticles(){
           id: uid(),
           code: get(['code'])||('ART-'+(state.articles.length+1)),
           nom,
-          achat: parseFloat(get(['prix achat','achat','prixachat']))||0,
-          vente: parseFloat(get(['prix vente','vente','pu ht','prixvente']))||0,
-          eco: parseFloat(get(['eco participation',"dont eco participation",'eco']))||0,
+          achat: parseNum(get(['prix achat','achat','prixachat']))||0,
+          vente: parseNum(get(['prix vente','vente','pu ht','prixvente']))||0,
+          eco: parseNum(get(['eco participation',"dont eco participation",'eco']))||0,
         });
         n++;
       });
@@ -998,7 +1004,7 @@ function bindBuilder(){
   const tVille = document.getElementById('b-travaux-ville');
   if(tVille) tVille.oninput = (e)=>{ b.travauxVille = e.target.value; };
   document.getElementById('add-line').onclick = ()=>{ b.lignes.push({articleId:'',qty:1,pu:0,unite:'Forfait'}); render(); };
-  document.getElementById('b-tva').oninput = (e)=>{ b.tva = parseFloat(e.target.value)||0; render(); };
+  document.getElementById('b-tva').oninput = (e)=>{ b.tva = parseNum(e.target.value)||0; render(); };
   document.querySelectorAll('[data-line-ref]').forEach(inp=>{
     inp.oninput = (e)=>{
       const i = +inp.dataset.lineRef;
@@ -1016,13 +1022,13 @@ function bindBuilder(){
     };
   });
   document.querySelectorAll('[data-line-qty]').forEach(inp=>{
-    inp.oninput = (e)=>{ b.lignes[+inp.dataset.lineQty].qty = parseFloat(e.target.value)||0; render(); };
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.lineQty].qty = parseNum(e.target.value)||0; render(); };
   });
   document.querySelectorAll('[data-line-unite]').forEach(sel=>{
     sel.onchange = (e)=>{ b.lignes[+sel.dataset.lineUnite].unite = e.target.value; };
   });
   document.querySelectorAll('[data-line-pu]').forEach(inp=>{
-    inp.oninput = (e)=>{ b.lignes[+inp.dataset.linePu].pu = parseFloat(e.target.value)||0; render(); };
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.linePu].pu = parseNum(e.target.value)||0; render(); };
   });
   document.querySelectorAll('[data-line-del]').forEach(btn=>{
     btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.lineDel,1); render(); };
@@ -1542,12 +1548,13 @@ function bindJournaux(){
 
 function renderSaisieEcriture(){
   const b = state.entryBuilder;
-  const totDebit = b.lignes.reduce((s,l)=>s+(parseFloat(l.debit)||0),0);
-  const totCredit = b.lignes.reduce((s,l)=>s+(parseFloat(l.credit)||0),0);
+  const totDebit = b.lignes.reduce((s,l)=>s+(parseNum(l.debit)||0),0);
+  const totCredit = b.lignes.reduce((s,l)=>s+(parseNum(l.credit)||0),0);
   const equilibre = Math.abs(totDebit-totCredit) < 0.005;
   const journal = state.journals.find(j=>j.id===b.journal);
   return `
   <div class="card">
+    ${b.editingId ? `<div class="hint" style="background:#FFF3CD;border-radius:8px;padding:.6rem .9rem;margin-bottom:1rem;color:#7A5A00">\u270f\ufe0f Modification de l'\u00e9criture n\u00b0 ${b.editingPieceNum} \u2014 <a href="#" id="cancel-edit-ecriture" style="color:#7A5A00;text-decoration:underline">annuler la modification</a></div>` : ''}
     <div class="row">
       <div class="field" style="width:200px">
         <label>Journal</label>
@@ -1558,7 +1565,7 @@ function renderSaisieEcriture(){
       </div>
       <div class="field" style="width:160px"><label>Date</label><input type="date" id="ec-date" value="${b.date}"></div>
       <div class="field" style="width:160px"><label>N\u00b0 facture</label><input id="ec-facture" value="${b.factureNum}" placeholder="Optionnel"></div>
-      <div class="field" style="width:160px"><label>N\u00b0 pi\u00e8ce (auto)</label><input value="${journal? journal.nextPiece : '\u2014'}" disabled></div>
+      <div class="field" style="width:160px"><label>N\u00b0 pi\u00e8ce${b.editingId? '' : ' (auto)'}</label><input value="${b.editingId? b.editingPieceNum : (journal? journal.nextPiece : '\u2014')}" disabled></div>
     </div>
     <hr class="divider">
     <div class="row" style="margin-bottom:.4rem;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.03em">
@@ -1581,7 +1588,7 @@ function renderSaisieEcriture(){
       <div class="totals-row"><span>Total cr\u00e9dit</span><span class="num">${eur(totCredit)}</span></div>
       <div class="totals-row ttc" style="color:${equilibre?'#2E7D4F':'var(--danger)'}"><span>${equilibre? '\u2713 \u00c9quilibr\u00e9' : '\u26a0 D\u00e9s\u00e9quilibr\u00e9'}</span><span class="num">${eur(totDebit-totCredit)}</span></div>
     </div>
-    <button class="btn" id="save-ecriture" style="margin-top:.5rem" ${equilibre && b.lignes.length? '' : 'disabled'}>Enregistrer l'\u00e9criture</button>
+    <button class="btn" id="save-ecriture" style="margin-top:.5rem" ${equilibre && b.lignes.length? '' : 'disabled'}>${b.editingId? 'Mettre \u00e0 jour l\'\u00e9criture' : "Enregistrer l'\u00e9criture"}</button>
     <p class="hint">Le d\u00e9bit doit \u00eatre \u00e9gal au cr\u00e9dit pour pouvoir enregistrer.</p>
   </div>`;
 }
@@ -1612,16 +1619,37 @@ function bindSaisieEcriture(){
   document.querySelectorAll('[data-ec-del]').forEach(btn=>{
     btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.ecDel,1); render(); };
   });
+  const cancelBtn = document.getElementById('cancel-edit-ecriture');
+  if(cancelBtn) cancelBtn.onclick = (e)=>{
+    e.preventDefault();
+    state.entryBuilder = { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null };
+    render();
+  };
   const saveBtn = document.getElementById('save-ecriture');
   if(saveBtn) saveBtn.onclick = async ()=>{
     if(!b.journal){ showToast('Choisissez un journal'); return; }
     if(!b.date){ showToast('Choisissez une date'); return; }
     const journal = state.journals.find(j=>j.id===b.journal);
     if(!journal) return;
-    const totDebit = b.lignes.reduce((s,l)=>s+(parseFloat(l.debit)||0),0);
-    const totCredit = b.lignes.reduce((s,l)=>s+(parseFloat(l.credit)||0),0);
+    const totDebit = b.lignes.reduce((s,l)=>s+(parseNum(l.debit)||0),0);
+    const totCredit = b.lignes.reduce((s,l)=>s+(parseNum(l.credit)||0),0);
     if(Math.abs(totDebit-totCredit) >= 0.005){ showToast('D\u00e9bit et cr\u00e9dit doivent \u00eatre \u00e9gaux'); return; }
     if(b.lignes.some(l=>!l.compte)){ showToast('Chaque ligne doit avoir un compte'); return; }
+    if(b.editingId){
+      const idx = state.entries.findIndex(en=>en.id===b.editingId);
+      if(idx>-1){
+        state.entries[idx] = {
+          ...state.entries[idx],
+          journalId: journal.id, date: b.date, factureNum: b.factureNum,
+          lignes: JSON.parse(JSON.stringify(b.lignes)),
+        };
+      }
+      await sset('entries', state.entries);
+      showToast('\u00c9criture n\u00b0 ' + b.editingPieceNum + ' mise \u00e0 jour');
+      state.entryBuilder = { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null };
+      render();
+      return;
+    }
     const pieceNum = journal.nextPiece;
     const entry = {
       id: uid(), journalId: journal.id, date: b.date, factureNum: b.factureNum, pieceNum,
@@ -1632,7 +1660,7 @@ function bindSaisieEcriture(){
     await sset('entries', state.entries);
     await sset('journals', state.journals);
     showToast('\u00c9criture n\u00b0 ' + pieceNum + ' enregistr\u00e9e');
-    state.entryBuilder = { journal: b.journal, date: b.date, factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}] };
+    state.entryBuilder = { journal: b.journal, date: b.date, factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null };
     render();
   };
 }
@@ -1654,15 +1682,41 @@ function renderEcritures(){
           <td>${i===0? en.date : ''}</td>
           <td>${i===0? (en.factureNum||'') : ''}</td>
           <td class="num">${i===0? en.pieceNum : ''}</td>
-          <td class="num">${l.debit? eur(parseFloat(l.debit)) : ''}</td>
-          <td class="num">${l.credit? eur(parseFloat(l.credit)) : ''}</td>
-          <td>${i===0? `<button class="rm-btn" data-del-entry="${en.id}">&times;</button>` : ''}</td>
+          <td class="num">${l.debit? eur(parseNum(l.debit)) : ''}</td>
+          <td class="num">${l.credit? eur(parseNum(l.credit)) : ''}</td>
+          <td>${i===0? `<button class="rm-btn" data-edit-entry="${en.id}" title="Modifier" style="color:var(--brass);margin-right:.3rem">&#9998;</button><button class="rm-btn" data-copy-entry="${en.id}" title="Dupliquer" style="color:var(--brass);margin-right:.3rem">&#10697;</button><button class="rm-btn" data-del-entry="${en.id}" title="Supprimer">&times;</button>` : ''}</td>
         </tr>`;
       }).join('');
     }).join('') : `<tr><td colspan="9" class="empty">Aucune \u00e9criture pour l'instant.</td></tr>`}
   </table>`;
 }
 function bindEcritures(){
+  document.querySelectorAll('[data-edit-entry]').forEach(b=>{
+    b.onclick = ()=>{
+      const en = state.entries.find(e=>e.id===b.dataset.editEntry);
+      if(!en) return;
+      state.entryBuilder = {
+        journal: en.journalId, date: en.date, factureNum: en.factureNum||'',
+        lignes: JSON.parse(JSON.stringify(en.lignes)),
+        editingId: en.id, editingPieceNum: en.pieceNum,
+      };
+      state.comptaTab = 'saisie';
+      render();
+    };
+  });
+  document.querySelectorAll('[data-copy-entry]').forEach(b=>{
+    b.onclick = ()=>{
+      const en = state.entries.find(e=>e.id===b.dataset.copyEntry);
+      if(!en) return;
+      state.entryBuilder = {
+        journal: en.journalId, date: new Date().toISOString().slice(0,10), factureNum: en.factureNum||'',
+        lignes: JSON.parse(JSON.stringify(en.lignes)),
+        editingId: null,
+      };
+      state.comptaTab = 'saisie';
+      showToast('\u00c9criture copi\u00e9e \u2014 v\u00e9rifiez la date puis enregistrez');
+    };
+  });
   document.querySelectorAll('[data-del-entry]').forEach(b=>{
     b.onclick = async ()=>{
       if(!confirm('Supprimer cette \u00e9criture ?')) return;
@@ -1685,8 +1739,8 @@ function bindEcritures(){
           'Date': i===0? en.date : '',
           'N\u00b0 facture': i===0? (en.factureNum||'') : '',
           'N\u00b0 pi\u00e8ce': i===0? en.pieceNum : '',
-          'D\u00e9bit': l.debit? parseFloat(l.debit) : '',
-          'Cr\u00e9dit': l.credit? parseFloat(l.credit) : '',
+          'D\u00e9bit': l.debit? parseNum(l.debit) : '',
+          'Cr\u00e9dit': l.credit? parseNum(l.credit) : '',
         });
       });
     });
@@ -1700,8 +1754,8 @@ function renderBalance(){
     en.lignes.forEach(l=>{
       if(!l.compte) return;
       if(!totals[l.compte]) totals[l.compte] = {debit:0, credit:0};
-      totals[l.compte].debit += parseFloat(l.debit)||0;
-      totals[l.compte].credit += parseFloat(l.credit)||0;
+      totals[l.compte].debit += parseNum(l.debit)||0;
+      totals[l.compte].credit += parseNum(l.credit)||0;
     });
   });
   const rows = Object.keys(totals).map(accId=>{
@@ -1731,8 +1785,8 @@ function computeAccountBalances(){
     en.lignes.forEach(l=>{
       if(!l.compte) return;
       if(!totals[l.compte]) totals[l.compte] = {debit:0, credit:0};
-      totals[l.compte].debit += parseFloat(l.debit)||0;
-      totals[l.compte].credit += parseFloat(l.credit)||0;
+      totals[l.compte].debit += parseNum(l.debit)||0;
+      totals[l.compte].credit += parseNum(l.credit)||0;
     });
   });
   return Object.keys(totals).map(accId=>{
@@ -1785,50 +1839,213 @@ function renderCompteResultat(){
   </div>`;
 }
 
+function classifyBilanAccount(code){
+  if(code.startsWith('6') || code.startsWith('7')) return null;
+  if(code.startsWith('12')) return {group:'passif', section:'capitaux', sub:'resultatCompte', label:"R\u00e9sultat report\u00e9 (compte 12x)"};
+  if(code.startsWith('201')) return {group:'actif', section:'immoIncorp', sub:'frais_etab', label:"Frais d'\u00e9tablissement"};
+  if(code.startsWith('203')) return {group:'actif', section:'immoIncorp', sub:'frais_rd', label:'Frais de recherche et d\u00e9veloppement'};
+  if(code.startsWith('205') || code.startsWith('206')) return {group:'actif', section:'immoIncorp', sub:'concessions', label:'Concessions, brevets, licences'};
+  if(code.startsWith('207')) return {group:'actif', section:'immoIncorp', sub:'fonds_commercial', label:'Fonds commercial'};
+  if(code.startsWith('232')) return {group:'actif', section:'immoIncorpEnCours', sub:'en_cours', label:'Immobilisations incorporelles en cours'};
+  if(code.startsWith('237')) return {group:'actif', section:'immoIncorpAvances', sub:'avances', label:'Avances et acomptes'};
+  if(code.startsWith('20')) return {group:'actif', section:'immoIncorp', sub:'autres', label:'Autres'};
+  if(code.startsWith('211') || code.startsWith('212')) return {group:'actif', section:'immoCorp', sub:'terrains', label:'Terrain'};
+  if(code.startsWith('213') || code.startsWith('214')) return {group:'actif', section:'immoCorp', sub:'constructions', label:'Constructions'};
+  if(code.startsWith('215') || code.startsWith('216') || code.startsWith('217')) return {group:'actif', section:'immoCorp', sub:'installations', label:'Installations techniques, mat\u00e9riels et outillages industriels'};
+  if(code.startsWith('231')) return {group:'actif', section:'immoCorpEnCours', sub:'en_cours', label:'Immobilisations corporelles en cours'};
+  if(code.startsWith('238')) return {group:'actif', section:'immoCorpAvances', sub:'avances', label:'Avances et acomptes'};
+  if(code.startsWith('21')) return {group:'actif', section:'immoCorp', sub:'autres', label:'Autres'};
+  if(code.startsWith('261') || code.startsWith('266')) return {group:'actif', section:'immoFin', sub:'participations', label:'Participations'};
+  if(code.startsWith('267')) return {group:'actif', section:'immoFin', sub:'creances_part', label:'Cr\u00e9ances rattach\u00e9es \u00e0 des participations'};
+  if(code.startsWith('273')) return {group:'actif', section:'immoFin', sub:'titres', label:'Autres titres immobilis\u00e9s'};
+  if(code.startsWith('274')) return {group:'actif', section:'immoFin', sub:'prets', label:'Pr\u00eats'};
+  if(code.startsWith('26') || code.startsWith('27')) return {group:'actif', section:'immoFin', sub:'autres', label:'Autres'};
+  if(code.startsWith('280')) return {group:'amort', section:'immoIncorp'};
+  if(code.startsWith('281')) return {group:'amort', section:'immoCorp'};
+  if(code.startsWith('28')) return {group:'amort', section:'immoCorp'};
+  if(code.startsWith('29')) return {group:'amort', section:'immoFin'};
+  if(code.startsWith('3')) return {group:'actif', section:'circulant', sub:'stocks', label:'Stocks'};
+  if(code.startsWith('411') || code.startsWith('413') || code.startsWith('416') || code.startsWith('417')) return {group:'actif', section:'circulant', sub:'clients', label:'Cr\u00e9ances clients'};
+  if(code.startsWith('50')) return {group:'actif', section:'circulant', sub:'vmp', label:'VMP'};
+  if(code.startsWith('51') || code.startsWith('53') || code.startsWith('54')) return {group:'tresorerie', section:'circulant', sub:'dispo', label:'Disponibilit\u00e9s'};
+  if(code.startsWith('486')) return {group:'actif', section:'circulant', sub:'charges_av', label:"Charges constat\u00e9es d'avance"};
+  if(code.startsWith('481')) return {group:'actif', section:'chargesRepartir', sub:'charges_rep', label:'Charges \u00e0 r\u00e9partir'};
+  if(code.startsWith('101') || code.startsWith('108') || code.startsWith('109')) return {group:'passif', section:'capitaux', sub:'capital', label:'Capital'};
+  if(code.startsWith('106')) return {group:'passif', section:'capitaux', sub:'reserve', label:'R\u00e9serve l\u00e9gale'};
+  if(code.startsWith('110') || code.startsWith('119')) return {group:'passif', section:'capitaux', sub:'report', label:'Report \u00e0 nouveau'};
+  if(code.startsWith('13')) return {group:'passif', section:'capitaux', sub:'subvention', label:"Subvention d'investissement"};
+  if(code.startsWith('14')) return {group:'passif', section:'capitaux', sub:'prov_reglement', label:'Provisions r\u00e9glement\u00e9es'};
+  if(code.startsWith('1')) return {group:'passif', section:'capitaux', sub:'autres_capitaux', label:'Autres fonds propres'};
+  if(code.startsWith('151')) return {group:'passif', section:'provisions', sub:'risques', label:'Provision pour risques'};
+  if(code.startsWith('15')) return {group:'passif', section:'provisions', sub:'charges', label:'Provision pour charges'};
+  if(code.startsWith('164') || code.startsWith('519')) return {group:'passif', section:'dettes', sub:'etablissements', label:"Emprunts et dettes aupr\u00e8s des \u00e9tablissements de cr\u00e9dit"};
+  if(code.startsWith('455') || code.startsWith('16')) return {group:'passif', section:'dettes', sub:'divers', label:'Emprunts et dettes financi\u00e8res diverses'};
+  if(code.startsWith('4191')) return {group:'passif', section:'dettes', sub:'avances_recues', label:'Avances et acomptes re\u00e7us sur commandes'};
+  if(code.startsWith('401') || code.startsWith('403') || code.startsWith('408')) return {group:'tiersFournisseurs', section:'dettes', sub:'fournisseurs', label:'Dettes fournisseurs et comptes rattach\u00e9s'};
+  if(code.startsWith('404') || code.startsWith('405')) return {group:'passif', section:'dettes', sub:'sur_immo', label:'Dettes sur immobilisations'};
+  if(code.startsWith('4456')) return {group:'actif', section:'circulant', sub:'autres_creances', label:'Autres cr\u00e9ances'};
+  if(code.startsWith('421') || code.startsWith('422') || code.startsWith('43') || code.startsWith('442') || code.startsWith('444') || code.startsWith('4455') || code.startsWith('4457') || code.startsWith('447')) return {group:'passif', section:'dettes', sub:'fiscal_social', label:'Dettes fiscales et sociales'};
+  if(code.startsWith('487')) return {group:'passif', section:'dettes', sub:'produits_av', label:"Produits constat\u00e9s d'avance"};
+  if(code.startsWith('4')) return {group:'tiersDivers', section:'dettes', sub:'autres', label:'Autres'};
+  return {group:'passif', section:'dettes', sub:'autres', label:'Autres dettes'};
+}
+
 function renderBilan(){
   const rows = computeAccountBalances();
   const { net } = computeResultatNet(rows);
-  const bilanRows = rows.filter(r=>!r.code.startsWith('6') && !r.code.startsWith('7'));
-  const actif = bilanRows.filter(r=>r.solde>0);
-  const passif = bilanRows.filter(r=>r.solde<0).map(r=>({...r, montant: -r.solde}));
-  const totActif = actif.reduce((s,r)=>s+r.solde,0);
-  const totPassifComptes = passif.reduce((s,r)=>s+r.montant,0);
-  const totPassif = totPassifComptes + net;
+
+  const A = { // actif : brut par sous-poste
+    immoIncorp:{frais_etab:0,frais_rd:0,concessions:0,fonds_commercial:0,autres:0},
+    immoIncorpEnCours:{en_cours:0}, immoIncorpAvances:{avances:0},
+    immoCorp:{terrains:0,constructions:0,installations:0,autres:0},
+    immoCorpEnCours:{en_cours:0}, immoCorpAvances:{avances:0},
+    immoFin:{participations:0,creances_part:0,titres:0,prets:0,autres:0},
+    circulant:{stocks:0,clients:0,autres_creances:0,vmp:0,dispo:0,charges_av:0},
+    chargesRepartir:{charges_rep:0},
+  };
+  const amort = { immoIncorp:0, immoCorp:0, immoFin:0 };
+  const P = { // passif : montant par sous-poste
+    capitaux:{capital:0,reserve:0,report:0,resultatCompte:0,subvention:0,prov_reglement:0,autres_capitaux:0},
+    provisions:{risques:0,charges:0},
+    dettes:{etablissements:0,divers:0,avances_recues:0,fournisseurs:0,sur_immo:0,fiscal_social:0,autres:0,produits_av:0},
+  };
+  let nonClassees = [];
+
+  rows.forEach(r=>{
+    if(!r.code || r.code==='?') { if(r.solde!==0) nonClassees.push(r); return; }
+    const c = classifyBilanAccount(r.code);
+    if(!c) return;
+    if(c.group==='amort'){ amort[c.section] += (r.credit - r.debit); return; }
+    if(c.group==='actif'){ A[c.section][c.sub] += r.solde; return; }
+    if(c.group==='passif'){ P[c.section][c.sub] += -r.solde; return; }
+    if(c.group==='tresorerie'){
+      if(r.solde>=0) A.circulant.dispo += r.solde;
+      else P.dettes.etablissements += -r.solde;
+      return;
+    }
+    if(c.group==='tiersFournisseurs'){
+      if(r.solde<0) P.dettes.fournisseurs += -r.solde;
+      else A.circulant.autres_creances += r.solde;
+      return;
+    }
+    if(c.group==='tiersDivers'){
+      if(r.solde>0) A.circulant.autres_creances += r.solde;
+      else P.dettes.autres += -r.solde;
+      return;
+    }
+  });
+
+  const sum = obj => Object.values(obj).reduce((s,v)=>s+v,0);
+  const brutIncorp = sum(A.immoIncorp) + sum(A.immoIncorpEnCours) + sum(A.immoIncorpAvances);
+  const brutCorp = sum(A.immoCorp) + sum(A.immoCorpEnCours) + sum(A.immoCorpAvances);
+  const brutFin = sum(A.immoFin);
+  const netIncorp = brutIncorp - amort.immoIncorp;
+  const netCorp = brutCorp - amort.immoCorp;
+  const netFin = brutFin - amort.immoFin;
+  const totalAmort = amort.immoIncorp + amort.immoCorp + amort.immoFin;
+  const brutImmo = brutIncorp + brutCorp + brutFin;
+  const netImmo = netIncorp + netCorp + netFin;
+
+  const totalCirculant = sum(A.circulant);
+  const totalChargesRepartir = sum(A.chargesRepartir);
+  const totalActifGeneral = netImmo + totalCirculant + totalChargesRepartir;
+
+  const resultatExercice = net + P.capitaux.resultatCompte;
+  const totalCapitaux = P.capitaux.capital + P.capitaux.reserve + P.capitaux.report + resultatExercice + P.capitaux.subvention + P.capitaux.prov_reglement + P.capitaux.autres_capitaux;
+  const totalProvisions = P.provisions.risques + P.provisions.charges;
+  const totalDettes = P.dettes.etablissements + P.dettes.divers + P.dettes.avances_recues + P.dettes.fournisseurs + P.dettes.sur_immo + P.dettes.fiscal_social + P.dettes.autres + P.dettes.produits_av;
+  const totalPassifGeneral = totalCapitaux + totalProvisions + totalDettes;
+
+  const v = n => Math.abs(n) < 0.005 ? '' : eur(n);
+  const rowA = (label, brut, amt, indent)=> `<tr><td style="${indent?'padding-left:1.25rem':''}">${label}</td><td class="num" style="text-align:right">${v(brut)}</td><td class="num" style="text-align:right">${amt!=null?v(amt):''}</td><td class="num" style="text-align:right;font-weight:${amt!=null?'bold':'normal'}">${v(amt!=null?brut-amt:brut)}</td></tr>`;
+  const rowP = (label, montant, indent)=> `<tr><td style="${indent?'padding-left:1.25rem':''}">${label}</td><td class="num" style="text-align:right">${v(montant)}</td></tr>`;
+  const totRowA = (label, brut, amt, net)=> `<tr><td style="font-weight:bold">${label}</td><td class="num" style="text-align:right;font-weight:bold">${eur(brut)}</td><td class="num" style="text-align:right;font-weight:bold">${eur(amt)}</td><td class="num" style="text-align:right;font-weight:bold">${eur(net)}</td></tr>`;
+  const totRowP = (label, montant)=> `<tr><td style="font-weight:bold">${label}</td><td class="num" style="text-align:right;font-weight:bold">${eur(montant)}</td></tr>`;
+  const sectionRow = (label, span)=> `<tr><td colspan="${span}" style="font-weight:bold;background:var(--paper);padding-top:.8rem">${label}</td></tr>`;
+
   return `
-  <p class="page-sub">Actif (soldes d\u00e9biteurs) et passif (soldes cr\u00e9diteurs), classes 1 \u00e0 5, avec int\u00e9gration du r\u00e9sultat de l'exercice.</p>
+  <p class="page-sub">Bilan calcul\u00e9 automatiquement \u00e0 partir des comptes utilis\u00e9s dans vos \u00e9critures, class\u00e9s selon le plan comptable g\u00e9n\u00e9ral.</p>
   <div class="row" style="align-items:flex-start;gap:1.25rem">
-    <div class="card" style="flex:1;min-width:280px">
-      <div class="subhead">Actif</div>
-      <table>
-        <tr><th>Code</th><th>Libell\u00e9</th><th style="text-align:right">Montant</th></tr>
-        ${actif.length ? actif.map(r=>`<tr>
-          <td class="num">${r.code}</td>
-          <td>${r.label}</td>
-          <td class="num" style="text-align:right">${eur(r.solde)}</td>
-        </tr>`).join('') : `<tr><td colspan="3" class="empty">Aucun compte d'actif.</td></tr>`}
-        <tr><td colspan="2" style="font-weight:bold">Total actif</td><td class="num" style="text-align:right;font-weight:bold">${eur(totActif)}</td></tr>
+    <div class="card" style="flex:1.3;min-width:340px">
+      <div class="subhead">Bilan actif</div>
+      <table style="font-size:12.5px">
+        <tr><th></th><th style="text-align:right">Brut</th><th style="text-align:right">Amort.</th><th style="text-align:right">Net</th></tr>
+        ${sectionRow('ACTIF IMMOBILIS\u00c9',4)}
+        <tr><td style="font-style:italic;color:var(--muted)">Immobilisations incorporelles</td><td></td><td></td><td></td></tr>
+        ${rowA("Frais d'\u00e9tablissement", A.immoIncorp.frais_etab, null, true)}
+        ${rowA('Frais de recherche et d\u00e9veloppement', A.immoIncorp.frais_rd, null, true)}
+        ${rowA('Concessions, brevets, licences', A.immoIncorp.concessions, null, true)}
+        ${rowA('Fonds commercial', A.immoIncorp.fonds_commercial, null, true)}
+        ${rowA('Autres', A.immoIncorp.autres, null, true)}
+        ${rowA('Immobilisations incorporelles en cours', sum(A.immoIncorpEnCours), null, true)}
+        ${rowA('Avances et acomptes', sum(A.immoIncorpAvances), null, true)}
+        ${totRowA('Sous-total incorporelles', brutIncorp, amort.immoIncorp, netIncorp)}
+        <tr><td style="font-style:italic;color:var(--muted)">Immobilisations corporelles</td><td></td><td></td><td></td></tr>
+        ${rowA('Terrain', A.immoCorp.terrains, null, true)}
+        ${rowA('Constructions', A.immoCorp.constructions, null, true)}
+        ${rowA('Installations techniques, mat\u00e9riels et outillages industriels', A.immoCorp.installations, null, true)}
+        ${rowA('Autres', A.immoCorp.autres, null, true)}
+        ${rowA('Immobilisations corporelles en cours', sum(A.immoCorpEnCours), null, true)}
+        ${rowA('Avances et acomptes', sum(A.immoCorpAvances), null, true)}
+        ${totRowA('Sous-total corporelles', brutCorp, amort.immoCorp, netCorp)}
+        <tr><td style="font-style:italic;color:var(--muted)">Immobilisations financi\u00e8res</td><td></td><td></td><td></td></tr>
+        ${rowA('Participations', A.immoFin.participations, null, true)}
+        ${rowA('Cr\u00e9ances rattach\u00e9es \u00e0 des participations', A.immoFin.creances_part, null, true)}
+        ${rowA('Autres titres immobilis\u00e9s', A.immoFin.titres, null, true)}
+        ${rowA('Pr\u00eats', A.immoFin.prets, null, true)}
+        ${rowA('Autres', A.immoFin.autres, null, true)}
+        ${totRowA('Sous-total financi\u00e8res', brutFin, amort.immoFin, netFin)}
+        ${totRowA('TOTAL I \u2014 Actif immobilis\u00e9', brutImmo, totalAmort, netImmo)}
+        ${sectionRow('ACTIF CIRCULANT',4)}
+        ${rowA('Stocks', A.circulant.stocks, null, true)}
+        ${rowA('Cr\u00e9ances clients', A.circulant.clients, null, true)}
+        ${rowA('Autres cr\u00e9ances', A.circulant.autres_creances, null, true)}
+        ${rowA('VMP', A.circulant.vmp, null, true)}
+        ${rowA('Disponibilit\u00e9s', A.circulant.dispo, null, true)}
+        ${rowA("Charges constat\u00e9es d'avance", A.circulant.charges_av, null, true)}
+        ${totRowA('TOTAL II \u2014 Actif circulant', totalCirculant, 0, totalCirculant)}
+        ${totalChargesRepartir ? rowA('Charges \u00e0 r\u00e9partir', totalChargesRepartir, null, false) : ''}
+        ${nonClassees.length ? sectionRow('COMPTES NON IDENTIFI\u00c9S',4) : ''}
+        ${nonClassees.map(r=>rowA(`${r.label} (${r.code})`, r.solde, null, true)).join('')}
+        ${totRowA('TOTAL G\u00c9N\u00c9RAL ACTIF', brutImmo+totalCirculant+totalChargesRepartir+nonClassees.filter(r=>r.solde>0).reduce((s,r)=>s+r.solde,0), totalAmort, totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))}
       </table>
     </div>
-    <div class="card" style="flex:1;min-width:280px">
-      <div class="subhead">Passif</div>
-      <table>
-        <tr><th>Code</th><th>Libell\u00e9</th><th style="text-align:right">Montant</th></tr>
-        ${passif.length ? passif.map(r=>`<tr>
-          <td class="num">${r.code}</td>
-          <td>${r.label}</td>
-          <td class="num" style="text-align:right">${eur(r.montant)}</td>
-        </tr>`).join('') : `<tr><td colspan="3" class="empty">Aucun compte de passif.</td></tr>`}
-        <tr>
-          <td class="num">120000</td>
-          <td>R\u00e9sultat de l'exercice ${net<0 ? '(perte)' : ''}</td>
-          <td class="num" style="text-align:right">${eur(net)}</td>
-        </tr>
-        <tr><td colspan="2" style="font-weight:bold">Total passif</td><td class="num" style="text-align:right;font-weight:bold">${eur(totPassif)}</td></tr>
+    <div class="card" style="flex:1;min-width:300px">
+      <div class="subhead">Bilan passif</div>
+      <table style="font-size:12.5px">
+        <tr><th></th><th style="text-align:right">Montant</th></tr>
+        ${sectionRow('CAPITAUX PROPRES',2)}
+        ${rowP('Capital', P.capitaux.capital, true)}
+        ${rowP('R\u00e9serve l\u00e9gale', P.capitaux.reserve, true)}
+        ${rowP('Report \u00e0 nouveau', P.capitaux.report, true)}
+        ${rowP(`R\u00e9sultat de l'exercice${resultatExercice<0?' (perte)':''}`, resultatExercice, true)}
+        ${rowP("Subvention d'investissement", P.capitaux.subvention, true)}
+        ${rowP('Provisions r\u00e9glement\u00e9es', P.capitaux.prov_reglement, true)}
+        ${P.capitaux.autres_capitaux ? rowP('Autres fonds propres', P.capitaux.autres_capitaux, true) : ''}
+        ${totRowP('TOTAL I \u2014 Capitaux propres', totalCapitaux)}
+        ${sectionRow('PROVISIONS POUR RISQUES ET CHARGES',2)}
+        ${rowP('Provision pour risques', P.provisions.risques, true)}
+        ${rowP('Provision pour charges', P.provisions.charges, true)}
+        ${totRowP('TOTAL II \u2014 Provisions', totalProvisions)}
+        ${sectionRow('DETTES',2)}
+        ${rowP("Emprunts et dettes aupr\u00e8s des \u00e9tablissements de cr\u00e9dit", P.dettes.etablissements, true)}
+        ${rowP('Emprunts et dettes financi\u00e8res diverses', P.dettes.divers, true)}
+        ${rowP('Avances et acomptes re\u00e7us sur commandes', P.dettes.avances_recues, true)}
+        ${rowP('Dettes fournisseurs et comptes rattach\u00e9s', P.dettes.fournisseurs, true)}
+        ${rowP('Dettes sur immobilisations', P.dettes.sur_immo, true)}
+        ${rowP('Dettes fiscales et sociales', P.dettes.fiscal_social, true)}
+        ${rowP('Autres dettes', P.dettes.autres, true)}
+        ${rowP("Produits constat\u00e9s d'avance", P.dettes.produits_av, true)}
+        ${totRowP('TOTAL III \u2014 Dettes', totalDettes)}
+        ${totRowP('TOTAL G\u00c9N\u00c9RAL PASSIF', totalPassifGeneral)}
       </table>
     </div>
   </div>
-  ${Math.abs(totActif-totPassif) > 0.01 ? `<p class="hint" style="color:var(--danger)">\u00c9cart Actif / Passif : ${eur(totActif-totPassif)} \u2014 v\u00e9rifiez que chaque \u00e9criture est bien \u00e9quilibr\u00e9e (d\u00e9bit = cr\u00e9dit).</p>` : `<p class="hint">Bilan \u00e9quilibr\u00e9 : Actif = Passif.</p>`}`;
+  ${Math.abs((totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))-totalPassifGeneral) > 0.01
+    ? `<p class="hint" style="color:var(--danger)">\u00c9cart Actif / Passif : ${eur((totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))-totalPassifGeneral)} \u2014 v\u00e9rifiez que chaque \u00e9criture est bien \u00e9quilibr\u00e9e (d\u00e9bit = cr\u00e9dit).</p>`
+    : `<p class="hint">Bilan \u00e9quilibr\u00e9 : Actif = Passif.</p>`}`;
 }
+
 
 function renderDocView(id){
   const d = state.documents.find(x=>x.id===id);
