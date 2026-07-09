@@ -304,7 +304,7 @@ let state = {
   tab: 'clients',
   comptaTab: 'plan',
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}] },
-  builder: { clientId:'', companyId:'', objet:'', lignes:[], tva:20, notes:'', editingDocId:null },
+  builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null },
   toast: null,
   viewingDoc: null,
 };
@@ -872,6 +872,10 @@ function renderBuilder(){
       <label>Objet du devis</label>
       <input id="b-objet" placeholder="Ex : Devis pour prestations de maintenance CVC" value="${b.objet}">
     </div>
+    <div class="field">
+      <label>Informations compl\u00e9mentaires (optionnel)</label>
+      <textarea id="b-infocomp" rows="3" placeholder="Ne s'affiche sur le devis que si tu \u00e9cris quelque chose ici">${b.infoComp||''}</textarea>
+    </div>
   </div>
 
   <div class="card">
@@ -940,6 +944,7 @@ function bindBuilder(){
     b.clientId = match ? match.id : '';
   };
   document.getElementById('b-objet').oninput = (e)=>{ b.objet = e.target.value; };
+  document.getElementById('b-infocomp').oninput = (e)=>{ b.infoComp = e.target.value; };
   document.getElementById('b-travaux-same').onchange = (e)=>{ b.travauxSameAsClient = e.target.checked; render(); };
   const tNom = document.getElementById('b-travaux-nom');
   if(tNom) tNom.oninput = (e)=>{ b.travauxNom = e.target.value; };
@@ -989,6 +994,7 @@ function bindBuilder(){
         existing.clientId = b.clientId;
         existing.companyId = b.companyId;
         existing.objet = b.objet;
+        existing.infoComp = b.infoComp||'';
         existing.travauxSameAsClient = b.travauxSameAsClient!==false;
         existing.travauxNom = b.travauxNom||'';
         existing.travauxAdresse = b.travauxAdresse||'';
@@ -996,11 +1002,11 @@ function bindBuilder(){
         existing.travauxVille = b.travauxVille||'';
         existing.lignes = JSON.parse(JSON.stringify(b.lignes));
         existing.tva = b.tva;
-        await sset('documents', state.documents);
         showToast(existing.numero + ' mis \u00e0 jour');
         state.viewingDoc = existing.id;
-        state.builder = { clientId:'', companyId: b.companyId, objet:'', lignes:[], tva:20, notes:'', editingDocId:null };
+        state.builder = { clientId:'', companyId: b.companyId, objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null };
         render();
+        sset('documents', state.documents).catch(()=>{});
       }
       return;
     }
@@ -1008,18 +1014,18 @@ function bindBuilder(){
     const numero = 'D-' + new Date().getFullYear() + '-' + String(state.counters.devis).padStart(4,'0');
     const doc = {
       id: uid(), type:'devis', numero,
-      date: todayStr(), clientId: b.clientId, companyId: b.companyId, objet: b.objet, auteur: state.currentUser,
+      date: todayStr(), clientId: b.clientId, companyId: b.companyId, objet: b.objet, infoComp: b.infoComp||'', auteur: state.currentUser,
       travauxSameAsClient: b.travauxSameAsClient!==false,
       travauxNom: b.travauxNom||'', travauxAdresse: b.travauxAdresse||'', travauxCp: b.travauxCp||'', travauxVille: b.travauxVille||'',
       lignes: JSON.parse(JSON.stringify(b.lignes)), tva: b.tva, notes: '',
     };
     state.documents.push(doc);
-    await sset('documents', state.documents);
-    await sset('counters', state.counters);
     showToast('Devis ' + numero + ' enregistr\u00e9');
-    state.builder = { clientId:'', companyId: b.companyId, objet:'', lignes:[], tva: b.tva, notes:'' };
+    state.builder = { clientId:'', companyId: b.companyId, objet:'', infoComp:'', lignes:[], tva: b.tva, notes:'' };
     state.viewingDoc = doc.id;
     render();
+    sset('documents', state.documents).catch(()=>{});
+    sset('counters', state.counters).catch(()=>{});
   };
   const cancelEditBtn = document.getElementById('cancel-edit-devis');
   if(cancelEditBtn) cancelEditBtn.onclick = ()=>{
@@ -1734,6 +1740,10 @@ function renderDocView(id){
           </tr>`;
         }).join('')}
       </table>
+      ${d.infoComp && d.infoComp.trim() ? `<div class="p2-objet" style="margin-bottom:16px">
+        <span class="tag">INFORMATIONS COMPL\u00c9MENTAIRES :</span>
+        <div class="txt" style="white-space:pre-line">${d.infoComp}</div>
+      </div>` : ''}
       <div class="p2-bottom-row">
         ${co.conditions && co.conditions.length ? `<div class="p2-conditions">
           <div class="lbl" style="color:${color}">Conditions</div>
@@ -1749,7 +1759,6 @@ function renderDocView(id){
       </div>
       <div class="p2-icons-row">
         <div><div class="ic-title">Dur\u00e9e de validit\u00e9 du devis</div><div class="ic-desc">${co.validityText||''}</div></div>
-        <div><div class="ic-title">D\u00e9lai d'intervention</div><div class="ic-desc">${co.interventionText||''}</div></div>
         <div><div class="ic-title">Conditions de r\u00e8glement</div><div class="ic-desc">${co.paymentText||''}</div></div>
       </div>
     </div>
@@ -1807,7 +1816,7 @@ function bindDocView(){
   if(editBtn) editBtn.onclick = ()=>{
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     state.builder = {
-      clientId: d.clientId, companyId: d.companyId, objet: d.objet||'',
+      clientId: d.clientId, companyId: d.companyId, objet: d.objet||'', infoComp: d.infoComp||'',
       travauxSameAsClient: d.travauxSameAsClient!==false,
       travauxNom: d.travauxNom||'', travauxAdresse: d.travauxAdresse||'', travauxCp: d.travauxCp||'', travauxVille: d.travauxVille||'',
       lignes: JSON.parse(JSON.stringify(d.lignes)), tva: d.tva, notes: '',
