@@ -187,7 +187,7 @@
     .p2-legal-footer{padding:6px 20px;font-size:8.5px;}
     tr{break-inside:avoid;page-break-inside:avoid;}
   }
-  @media (max-width: 720px){
+  @media screen and (max-width: 720px){
     .shell{flex-direction:column;}
     .sidebar{width:100%;padding:1rem;}
     .main{padding:1.25rem;}
@@ -404,9 +404,19 @@ async function loadAll(){
     state.companies = JSON.parse(JSON.stringify(DEFAULT_COMPANIES));
   }
   const acc = await sget('accounts', null);
-  state.accounts = (acc && acc.length) ? acc : JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
+  if(acc && acc.length){
+    state.accounts = acc;
+  } else {
+    state.accounts = JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
+    await sset('accounts', state.accounts);
+  }
   const jr = await sget('journals', null);
-  state.journals = (jr && jr.length) ? jr : JSON.parse(JSON.stringify(DEFAULT_JOURNALS));
+  if(jr && jr.length){
+    state.journals = jr;
+  } else {
+    state.journals = JSON.parse(JSON.stringify(DEFAULT_JOURNALS));
+    await sset('journals', state.journals);
+  }
   state.entries = await sget('entries', []);
 }
 
@@ -416,20 +426,53 @@ function showToast(msg){
   setTimeout(()=>{ state.toast=null; render(); }, 2200);
 }
 
+function captureFocus(){
+  const el = document.activeElement;
+  if(!el || el === document.body || !el.tagName) return null;
+  const tag = el.tagName.toLowerCase();
+  if(tag !== 'input' && tag !== 'select' && tag !== 'textarea') return null;
+  let selector = null;
+  if(el.id){
+    selector = '#'+CSS.escape(el.id);
+  } else {
+    const dataAttrs = Array.prototype.filter.call(el.attributes, a=>a.name.indexOf('data-')===0);
+    if(dataAttrs.length){
+      selector = tag + dataAttrs.map(a=>`[${a.name}="${a.value.replace(/"/g,'\\"')}"]`).join('');
+    }
+  }
+  if(!selector) return null;
+  let start=null, end=null;
+  try{ start = el.selectionStart; end = el.selectionEnd; }catch(e){}
+  return { selector, start, end };
+}
+function restoreFocus(info){
+  if(!info) return;
+  let el;
+  try{ el = document.querySelector(info.selector); }catch(e){ return; }
+  if(!el) return;
+  el.focus();
+  if(info.start!=null && info.end!=null && el.setSelectionRange){
+    try{ el.setSelectionRange(info.start, info.end); }catch(e){}
+  }
+}
 function render(){
+  const focusInfo = captureFocus();
   const app = document.getElementById('app');
   if(!state.authenticated){
     app.innerHTML = renderLogin();
     bindLogin();
+    restoreFocus(focusInfo);
     return;
   }
   if(!state.currentUser){
     app.innerHTML = renderLanding();
     bindLanding();
+    restoreFocus(focusInfo);
     return;
   }
   app.innerHTML = renderShell();
   bindShell();
+  restoreFocus(focusInfo);
 }
 
 const AUTH_USER = 'admin';
@@ -910,9 +953,9 @@ function renderBuilder(){
       <div class="line-row" style="grid-template-columns:120px 2fr 90px 90px 100px 100px 32px">
         <input type="text" list="articles-datalist-ref" data-line-ref="${i}" value="${art?art.code:''}" placeholder="R\u00e9f." autocomplete="off">
         <input type="text" list="articles-datalist-nom" data-line-name="${i}" value="${art?art.nom:''}" placeholder="Nom de l'article" autocomplete="off">
-        <input type="number" min="0" step="1" value="${l.qty}" data-line-qty="${i}">
+        <input type="text" inputmode="decimal" value="${l.qty}" data-line-qty="${i}">
         <select data-line-unite="${i}">${UNIT_OPTIONS.map(u=>`<option value="${u}" ${l.unite===u?'selected':''}>${u}</option>`).join('')}</select>
-        <input type="number" min="0" step="0.01" value="${l.pu}" data-line-pu="${i}">
+        <input type="text" inputmode="decimal" value="${l.pu}" data-line-pu="${i}">
         <div class="lt">${eur(l.qty*l.pu)}</div>
         <button class="rm-btn" data-line-del="${i}" aria-label="Retirer la ligne">&times;</button>
       </div>`;
@@ -922,7 +965,7 @@ function renderBuilder(){
     <div class="totals-box">
       <div class="field" style="max-width:160px;margin-bottom:.75rem">
         <label>Taux de TVA (%)</label>
-        <input type="number" id="b-tva" value="${b.tva}" step="0.1">
+        <input type="text" inputmode="decimal" id="b-tva" value="${b.tva}">
       </div>
       <div class="totals-row"><span>Total HT</span><span class="num">${eur(t.ht)}</span></div>
       <div class="totals-row"><span>TVA (${b.tva}%)</span><span class="num">${eur(t.tva)}</span></div>
@@ -1334,8 +1377,8 @@ function renderCompta(){
     ['saisie','Nouvelle \u00e9criture'],
     ['ecritures','\u00c9critures'],
     ['balance','Balance des comptes'],
-    ['Bilan','bilan'],
-    ['Compte','Compte de Résultat'],
+    ['bilan','Bilan'],
+    ['resultat','Compte de r\u00e9sultat'],
   ];
   return `
   <h1 class="page-title">Comptabilit\u00e9</h1>
@@ -1348,6 +1391,8 @@ function renderCompta(){
   ${state.comptaTab==='saisie' ? renderSaisieEcriture() : ''}
   ${state.comptaTab==='ecritures' ? renderEcritures() : ''}
   ${state.comptaTab==='balance' ? renderBalance() : ''}
+  ${state.comptaTab==='bilan' ? renderBilan() : ''}
+  ${state.comptaTab==='resultat' ? renderCompteResultat() : ''}
   `;
 }
 function bindCompta(){
@@ -1526,8 +1571,8 @@ function renderSaisieEcriture(){
           ${state.accounts.slice().sort((a,c)=>a.code.localeCompare(c.code)).map(a=>`<option value="${a.id}" ${l.compte===a.id?'selected':''}>${a.code} \u2014 ${a.label}</option>`).join('')}
         </select>
         <input type="text" data-ec-libelle="${i}" value="${l.libelle}" placeholder="Libell\u00e9">
-        <input type="number" step="0.01" data-ec-debit="${i}" value="${l.debit}">
-        <input type="number" step="0.01" data-ec-credit="${i}" value="${l.credit}">
+        <input type="text" inputmode="decimal" data-ec-debit="${i}" value="${l.debit}">
+        <input type="text" inputmode="decimal" data-ec-credit="${i}" value="${l.credit}">
         <button class="rm-btn" data-ec-del="${i}">&times;</button>
       </div>`).join('')}
     <button class="btn secondary small" id="add-ec-line" style="margin-top:.5rem">+ Ajouter une ligne</button>
@@ -1678,6 +1723,111 @@ function renderBalance(){
     </tr>`).join('') + `<tr><td colspan="2" style="font-weight:bold">Total</td><td class="num" style="font-weight:bold">${eur(totDebit)}</td><td class="num" style="font-weight:bold">${eur(totCredit)}</td><td class="num" style="font-weight:bold">${eur(totDebit-totCredit)}</td></tr>`
     : `<tr><td colspan="5" class="empty">Aucune \u00e9criture pour l'instant.</td></tr>`}
   </table>`;
+}
+
+function computeAccountBalances(){
+  const totals = {};
+  state.entries.forEach(en=>{
+    en.lignes.forEach(l=>{
+      if(!l.compte) return;
+      if(!totals[l.compte]) totals[l.compte] = {debit:0, credit:0};
+      totals[l.compte].debit += parseFloat(l.debit)||0;
+      totals[l.compte].credit += parseFloat(l.credit)||0;
+    });
+  });
+  return Object.keys(totals).map(accId=>{
+    const acc = state.accounts.find(a=>a.id===accId);
+    const debit = totals[accId].debit, credit = totals[accId].credit;
+    return { code: acc? acc.code : '?', label: acc? acc.label : '(compte supprim\u00e9)', debit, credit, solde: debit-credit };
+  }).sort((a,b)=>a.code.localeCompare(b.code));
+}
+function computeResultatNet(rows){
+  const produits = rows.filter(r=>r.code.startsWith('7')).reduce((s,r)=>s+(r.credit-r.debit),0);
+  const charges = rows.filter(r=>r.code.startsWith('6')).reduce((s,r)=>s+(r.debit-r.credit),0);
+  return { produits, charges, net: produits-charges };
+}
+
+function renderCompteResultat(){
+  const rows = computeAccountBalances();
+  const charges = rows.filter(r=>r.code.startsWith('6') && r.solde!==0);
+  const produits = rows.filter(r=>r.code.startsWith('7') && r.solde!==0);
+  const { produits: totProduits, charges: totCharges, net } = computeResultatNet(rows);
+  return `
+  <p class="page-sub">Charges (classe 6) et produits (classe 7) cumul\u00e9s, toutes \u00e9critures confondues.</p>
+  <div class="row" style="align-items:flex-start;gap:1.25rem">
+    <div class="card" style="flex:1;min-width:280px">
+      <div class="subhead">Charges</div>
+      <table>
+        <tr><th>Code</th><th>Libell\u00e9</th><th style="text-align:right">Montant</th></tr>
+        ${charges.length ? charges.map(r=>`<tr>
+          <td class="num">${r.code}</td>
+          <td>${r.label}</td>
+          <td class="num" style="text-align:right">${eur(r.debit-r.credit)}</td>
+        </tr>`).join('') : `<tr><td colspan="3" class="empty">Aucune charge.</td></tr>`}
+        <tr><td colspan="2" style="font-weight:bold">Total charges</td><td class="num" style="text-align:right;font-weight:bold">${eur(totCharges)}</td></tr>
+      </table>
+    </div>
+    <div class="card" style="flex:1;min-width:280px">
+      <div class="subhead">Produits</div>
+      <table>
+        <tr><th>Code</th><th>Libell\u00e9</th><th style="text-align:right">Montant</th></tr>
+        ${produits.length ? produits.map(r=>`<tr>
+          <td class="num">${r.code}</td>
+          <td>${r.label}</td>
+          <td class="num" style="text-align:right">${eur(r.credit-r.debit)}</td>
+        </tr>`).join('') : `<tr><td colspan="3" class="empty">Aucun produit.</td></tr>`}
+        <tr><td colspan="2" style="font-weight:bold">Total produits</td><td class="num" style="text-align:right;font-weight:bold">${eur(totProduits)}</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="card" style="margin-top:1.25rem">
+    <div class="totals-row ttc"><span>${net>=0 ? 'R\u00e9sultat net (b\u00e9n\u00e9fice)' : 'R\u00e9sultat net (perte)'}</span><span class="num">${eur(net)}</span></div>
+  </div>`;
+}
+
+function renderBilan(){
+  const rows = computeAccountBalances();
+  const { net } = computeResultatNet(rows);
+  const bilanRows = rows.filter(r=>!r.code.startsWith('6') && !r.code.startsWith('7'));
+  const actif = bilanRows.filter(r=>r.solde>0);
+  const passif = bilanRows.filter(r=>r.solde<0).map(r=>({...r, montant: -r.solde}));
+  const totActif = actif.reduce((s,r)=>s+r.solde,0);
+  const totPassifComptes = passif.reduce((s,r)=>s+r.montant,0);
+  const totPassif = totPassifComptes + net;
+  return `
+  <p class="page-sub">Actif (soldes d\u00e9biteurs) et passif (soldes cr\u00e9diteurs), classes 1 \u00e0 5, avec int\u00e9gration du r\u00e9sultat de l'exercice.</p>
+  <div class="row" style="align-items:flex-start;gap:1.25rem">
+    <div class="card" style="flex:1;min-width:280px">
+      <div class="subhead">Actif</div>
+      <table>
+        <tr><th>Code</th><th>Libell\u00e9</th><th style="text-align:right">Montant</th></tr>
+        ${actif.length ? actif.map(r=>`<tr>
+          <td class="num">${r.code}</td>
+          <td>${r.label}</td>
+          <td class="num" style="text-align:right">${eur(r.solde)}</td>
+        </tr>`).join('') : `<tr><td colspan="3" class="empty">Aucun compte d'actif.</td></tr>`}
+        <tr><td colspan="2" style="font-weight:bold">Total actif</td><td class="num" style="text-align:right;font-weight:bold">${eur(totActif)}</td></tr>
+      </table>
+    </div>
+    <div class="card" style="flex:1;min-width:280px">
+      <div class="subhead">Passif</div>
+      <table>
+        <tr><th>Code</th><th>Libell\u00e9</th><th style="text-align:right">Montant</th></tr>
+        ${passif.length ? passif.map(r=>`<tr>
+          <td class="num">${r.code}</td>
+          <td>${r.label}</td>
+          <td class="num" style="text-align:right">${eur(r.montant)}</td>
+        </tr>`).join('') : `<tr><td colspan="3" class="empty">Aucun compte de passif.</td></tr>`}
+        <tr>
+          <td class="num">120000</td>
+          <td>R\u00e9sultat de l'exercice ${net<0 ? '(perte)' : ''}</td>
+          <td class="num" style="text-align:right">${eur(net)}</td>
+        </tr>
+        <tr><td colspan="2" style="font-weight:bold">Total passif</td><td class="num" style="text-align:right;font-weight:bold">${eur(totPassif)}</td></tr>
+      </table>
+    </div>
+  </div>
+  ${Math.abs(totActif-totPassif) > 0.01 ? `<p class="hint" style="color:var(--danger)">\u00c9cart Actif / Passif : ${eur(totActif-totPassif)} \u2014 v\u00e9rifiez que chaque \u00e9criture est bien \u00e9quilibr\u00e9e (d\u00e9bit = cr\u00e9dit).</p>` : `<p class="hint">Bilan \u00e9quilibr\u00e9 : Actif = Passif.</p>`}`;
 }
 
 function renderDocView(id){
