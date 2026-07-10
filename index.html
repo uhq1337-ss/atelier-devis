@@ -2179,13 +2179,44 @@ async function downloadDocAsPdf(filename){
   try{
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const pageW = 210, pageH = 297;
+    let firstPage = true;
     for(let i=0;i<sheets.length;i++){
       const canvas = await html2canvas(sheets[i], { scale:1.5, useCORS:true, backgroundColor:'#ffffff', logging:false });
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      const pageW = 210, pageH = 297;
-      const imgH = Math.min(pageH, pageW * canvas.height / canvas.width);
-      if(i>0) pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
+      const pxPerMm = canvas.width / pageW;
+      const singlePageHeightPx = Math.floor(pageH * pxPerMm);
+
+      if(canvas.height <= singlePageHeightPx){
+        // Tient sur une seule page : on remplit la feuille enti\u00e8re, sans marge ajout\u00e9e (mise en page du devis d\u00e9j\u00e0 con\u00e7ue pour \u00e7a)
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        const imgH = canvas.height / pxPerMm;
+        if(!firstPage) pdf.addPage();
+        firstPage = false;
+        pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
+      } else {
+        // Contenu trop long (ex: CGV) : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille
+        const marginMm = 10;
+        const usableHmm = pageH - marginMm*2;
+        const usableWmm = pageW - marginMm*2;
+        const sliceHeightPx = Math.floor(usableHmm * pxPerMm);
+        let renderedPx = 0;
+        while(renderedPx < canvas.height){
+          const thisSliceH = Math.min(sliceHeightPx, canvas.height - renderedPx);
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = thisSliceH;
+          const ctx = sliceCanvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0,0,sliceCanvas.width, sliceCanvas.height);
+          ctx.drawImage(canvas, 0, renderedPx, canvas.width, thisSliceH, 0, 0, canvas.width, thisSliceH);
+          const imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+          const imgHmm = thisSliceH / pxPerMm;
+          if(!firstPage) pdf.addPage();
+          firstPage = false;
+          pdf.addImage(imgData, 'JPEG', marginMm, marginMm, usableWmm, imgHmm);
+          renderedPx += thisSliceH;
+        }
+      }
     }
     pdf.save(filename);
     return true;
