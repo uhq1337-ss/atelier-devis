@@ -2276,16 +2276,27 @@ function fitDocToOnePage(){
   const pxPerMm = mmToPxRatio();
   const pageHeightPx = 297 * pxPerMm;
   const naturalHeight = inner.scrollHeight;
-  if(naturalHeight > pageHeightPx){
-    const scale = Math.max(0.5, pageHeightPx / naturalHeight);
-    mainSheet.style.height = '297mm';
-    mainSheet.style.overflow = 'hidden';
+  if(naturalHeight <= 0) return;
+
+  let scale = pageHeightPx / naturalHeight;
+  scale = Math.min(1.35, Math.max(0.5, scale));
+
+  // Applique puis affine : changer la largeur peut faire varier le nombre de lignes de texte,
+  // donc on recalcule 2-3 fois pour converger vers un rendu qui remplit vraiment la page sans d\u00e9border.
+  for(let i=0;i<4;i++){
     inner.style.width = (100/scale) + '%';
     inner.style.transformOrigin = 'top left';
-    inner.style.transform = `scale(${scale})`;
-  } else {
-    mainSheet.style.height = 'auto';
+    inner.style.transform = 'none';
+    const reflowedHeight = inner.scrollHeight; // hauteur non mise \u00e0 l'\u00e9chelle, \u00e0 la nouvelle largeur
+    const effectiveScale = pageHeightPx / reflowedHeight;
+    const nextScale = Math.min(1.35, Math.max(0.5, effectiveScale));
+    if(Math.abs(nextScale-scale) < 0.01) { scale = nextScale; break; }
+    scale = nextScale;
   }
+  inner.style.width = (100/scale) + '%';
+  inner.style.transform = `scale(${scale})`;
+  mainSheet.style.height = '297mm';
+  mainSheet.style.overflow = 'hidden';
 }
 function bindDocView(){
   document.getElementById('back-btn').onclick = ()=>{ state.viewingDoc=null; render(); };
