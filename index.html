@@ -202,6 +202,7 @@
 <div id="app"><div class="landing"><div class="landing-card"><h1>Atelier Devis</h1><p>Chargement en cours...</p></div></div></div>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -228,6 +229,7 @@ const FIREBASE_CONFIG = {
 };
 const FIREBASE_COLLECTION = 'atelier-devis-shared';
 let fbDb = null;
+let fbAuth = null;
 function firebaseReady(){ return FIREBASE_CONFIG.apiKey !== "REMPLACE_MOI"; }
 function initFirebase(){
   if(!firebaseReady()) return;
@@ -235,7 +237,8 @@ function initFirebase(){
     if(typeof firebase === 'undefined'){ console.warn('SDK Firebase non charg\u00e9'); return; }
     firebase.initializeApp(FIREBASE_CONFIG);
     fbDb = firebase.firestore();
-  }catch(e){ console.error('Erreur init Firebase', e); fbDb = null; }
+    fbAuth = firebase.auth();
+  }catch(e){ console.error('Erreur init Firebase', e); fbDb = null; fbAuth = null; }
 }
 
 function withTimeout(promise, ms){
@@ -484,19 +487,24 @@ function render(){
   restoreFocus(focusInfo);
 }
 
-const AUTH_USER = 'admin';
-const AUTH_PASS = 'Williammathis2004';
-const AUTH_KEY = 'atelier-devis-auth';
-
 function renderLogin(){
+  if(!firebaseReady()){
+    return `
+    <div class="landing">
+      <div class="landing-card">
+        <h1>Atelier Devis</h1>
+        <p style="color:var(--danger)">Firebase n'est pas configur\u00e9 \u2014 aucune connexion s\u00e9curis\u00e9e n'est disponible tant que la config Firebase n'est pas renseign\u00e9e.</p>
+      </div>
+    </div>`;
+  }
   return `
   <div class="landing">
     <div class="landing-card">
       <h1>Atelier Devis</h1>
       <p>Connexion \u00e0 l'espace de l'\u00e9quipe.</p>
       <div class="field" style="text-align:left">
-        <label>Identifiant</label>
-        <input type="text" id="login-user" autocomplete="username">
+        <label>Email</label>
+        <input type="email" id="login-user" autocomplete="username">
       </div>
       <div class="field" style="text-align:left">
         <label>Mot de passe</label>
@@ -512,20 +520,30 @@ function renderLogin(){
   </div>`;
 }
 function bindLogin(){
+  const btn = document.getElementById('login-btn');
+  if(!btn) return;
   const doLogin = async ()=>{
     const u = document.getElementById('login-user').value.trim();
     const p = document.getElementById('login-pass').value;
-    if(u === AUTH_USER && p === AUTH_PASS){
-      state.authenticated = true;
-      if(document.getElementById('login-remember').checked){
-        try{ localStorage.setItem(AUTH_KEY, '1'); }catch(e){}
-      }
-      render();
-    }else{
-      document.getElementById('login-error').style.display = 'block';
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+    if(!u || !p) return;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = 'Connexion\u2026';
+    try{
+      const remember = document.getElementById('login-remember').checked;
+      await fbAuth.setPersistence(remember ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
+      await fbAuth.signInWithEmailAndPassword(u, p);
+      // onAuthStateChanged prend le relais et d\u00e9clenche le render()
+    }catch(e){
+      console.error('Erreur de connexion', e.code);
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = original;
     }
   };
-  document.getElementById('login-btn').onclick = doLogin;
+  btn.onclick = doLogin;
   document.getElementById('login-pass').onkeydown = (e)=>{ if(e.key==='Enter') doLogin(); };
 }
 
@@ -575,6 +593,7 @@ function renderShell(){
       <div class="sidebar-footer">
         Connect\u00e9 en tant que <strong style="color:#fff">${state.currentUser}</strong><br>
         <button id="switch-user">Changer d'utilisateur</button>
+        <br><button id="logout-btn" style="margin-top:.4rem">Se d\u00e9connecter</button>
       </div>
     </div>
     <div class="main">
@@ -594,6 +613,13 @@ function bindShell(){
     };
   });
   document.getElementById('switch-user').onclick = ()=>{ state.currentUser=null; render(); };
+  const logoutBtn = document.getElementById('logout-btn');
+  if(logoutBtn) logoutBtn.onclick = async ()=>{
+    try{ if(fbAuth) await fbAuth.signOut(); }catch(e){ console.error(e); }
+    state.authenticated = false;
+    state.currentUser = null;
+    render();
+  };
   bindTab();
 }
 
@@ -2169,54 +2195,59 @@ function renderDocView(id){
     <button class="btn secondary" id="delete-doc-btn" style="border-color:var(--danger);color:var(--danger)">Supprimer</button>
   </div>`;
 }
-async function downloadDocAsPdf(filename){
+async function buildDocPdf(){
   const sheets = Array.from(document.querySelectorAll('#print-area .paper2'));
-  if(!sheets.length){ showToast("Aucun document \u00e0 exporter."); return; }
-  if(!window.html2canvas || !window.jspdf){
-    showToast("Les librairies PDF n'ont pas pu se charger (v\u00e9rifie ta connexion internet), utilise Imprimer > Enregistrer en PDF \u00e0 la place.");
-    return;
-  }
-  try{
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-    const pageW = 210, pageH = 297;
-    let firstPage = true;
-    for(let i=0;i<sheets.length;i++){
-      const canvas = await html2canvas(sheets[i], { scale:1.5, useCORS:true, backgroundColor:'#ffffff', logging:false });
-      const pxPerMm = canvas.width / pageW;
-      const singlePageHeightPx = Math.floor(pageH * pxPerMm);
+  if(!sheets.length) return null;
+  if(!window.html2canvas || !window.jspdf) return null;
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  const pageW = 210, pageH = 297;
+  let firstPage = true;
+  for(let i=0;i<sheets.length;i++){
+    const canvas = await html2canvas(sheets[i], { scale:1.5, useCORS:true, backgroundColor:'#ffffff', logging:false });
+    const pxPerMm = canvas.width / pageW;
+    const singlePageHeightPx = Math.floor(pageH * pxPerMm);
 
-      if(canvas.height <= singlePageHeightPx){
-        // Tient sur une seule page : on remplit la feuille enti\u00e8re, sans marge ajout\u00e9e (mise en page du devis d\u00e9j\u00e0 con\u00e7ue pour \u00e7a)
-        const imgData = canvas.toDataURL('image/jpeg', 0.92);
-        const imgH = canvas.height / pxPerMm;
+    if(canvas.height <= singlePageHeightPx){
+      // Tient sur une seule page : on remplit la feuille enti\u00e8re, sans marge ajout\u00e9e (mise en page du devis d\u00e9j\u00e0 con\u00e7ue pour \u00e7a)
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const imgH = canvas.height / pxPerMm;
+      if(!firstPage) pdf.addPage();
+      firstPage = false;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
+    } else {
+      // Contenu trop long (ex: CGV) : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille
+      const marginMm = 10;
+      const usableHmm = pageH - marginMm*2;
+      const usableWmm = pageW - marginMm*2;
+      const sliceHeightPx = Math.floor(usableHmm * pxPerMm);
+      let renderedPx = 0;
+      while(renderedPx < canvas.height){
+        const thisSliceH = Math.min(sliceHeightPx, canvas.height - renderedPx);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = thisSliceH;
+        const ctx = sliceCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0,0,sliceCanvas.width, sliceCanvas.height);
+        ctx.drawImage(canvas, 0, renderedPx, canvas.width, thisSliceH, 0, 0, canvas.width, thisSliceH);
+        const imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+        const imgHmm = thisSliceH / pxPerMm;
         if(!firstPage) pdf.addPage();
         firstPage = false;
-        pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
-      } else {
-        // Contenu trop long (ex: CGV) : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille
-        const marginMm = 10;
-        const usableHmm = pageH - marginMm*2;
-        const usableWmm = pageW - marginMm*2;
-        const sliceHeightPx = Math.floor(usableHmm * pxPerMm);
-        let renderedPx = 0;
-        while(renderedPx < canvas.height){
-          const thisSliceH = Math.min(sliceHeightPx, canvas.height - renderedPx);
-          const sliceCanvas = document.createElement('canvas');
-          sliceCanvas.width = canvas.width;
-          sliceCanvas.height = thisSliceH;
-          const ctx = sliceCanvas.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0,0,sliceCanvas.width, sliceCanvas.height);
-          ctx.drawImage(canvas, 0, renderedPx, canvas.width, thisSliceH, 0, 0, canvas.width, thisSliceH);
-          const imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
-          const imgHmm = thisSliceH / pxPerMm;
-          if(!firstPage) pdf.addPage();
-          firstPage = false;
-          pdf.addImage(imgData, 'JPEG', marginMm, marginMm, usableWmm, imgHmm);
-          renderedPx += thisSliceH;
-        }
+        pdf.addImage(imgData, 'JPEG', marginMm, marginMm, usableWmm, imgHmm);
+        renderedPx += thisSliceH;
       }
+    }
+  }
+  return pdf;
+}
+async function downloadDocAsPdf(filename){
+  try{
+    const pdf = await buildDocPdf();
+    if(!pdf){
+      showToast("Les librairies PDF n'ont pas pu se charger (v\u00e9rifie ta connexion internet), utilise Imprimer > Enregistrer en PDF \u00e0 la place.");
+      return false;
     }
     pdf.save(filename);
     return true;
@@ -2242,14 +2273,43 @@ function bindDocView(){
     btn.textContent = original;
     if(ok) showToast('PDF t\u00e9l\u00e9charg\u00e9 !');
   };
-  document.getElementById('email-btn').onclick = ()=>{
+  document.getElementById('email-btn').onclick = async (e)=>{
+    const btn = e.currentTarget;
+    const original = btn.textContent;
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     const c = state.clients.find(c=>c.id===d.clientId);
+    const co = state.companies.find(co=>co.id===d.companyId) || state.companies[0] || {};
     const title = d.type==='facture' ? 'Facture' : 'Devis';
-    const body = `Bonjour,\n\nSuite \u00e0 votre demande, vous trouverez ci-joint notre devis relatif \u00e0 la fourniture d'unit\u00e9s de climatisation.\n\nNous esp\u00e9rons que cette proposition r\u00e9pondra \u00e0 vos attentes. Nous restons \u00e0 votre enti\u00e8re disposition pour toute pr\u00e9cision ou pour \u00e9changer sur votre projet et adapter notre offre si n\u00e9cessaire.\n\nDans l'attente de votre retour, nous vous remercions de votre confiance et vous prions d'agr\u00e9er, Madame, Monsieur, l'expression de nos salutations distingu\u00e9es.\n\nCordialement,\n${d.auteur}`;
+    const body = `Bonjour,\n\nSuite \u00e0 votre demande, vous trouverez ci-joint notre devis relatif \u00e0 la fourniture d'unit\u00e9s de climatisation.\n\nNous esp\u00e9rons que cette proposition r\u00e9pondra \u00e0 vos attentes. Nous restons \u00e0 votre enti\u00e8re disposition pour toute pr\u00e9cision ou pour \u00e9changer sur votre projet et adapter notre offre si n\u00e9cessaire.\n\nDans l'attente de votre retour, nous vous remercions de votre confiance et vous prions d'agr\u00e9er, Madame, Monsieur, l'expression de nos salutations distingu\u00e9es.\n\nCordialement,\n${co.name || 'BAWS'}`;
     const subject = `${title} ${d.numero}`;
     const to = (c && c.email) ? c.email.trim() : '';
-    showToast("Pense \u00e0 joindre le PDF t\u00e9l\u00e9charg\u00e9 \u00e0 l'email !");
+    const filename = `${title}_${d.numero}.pdf`.replace(/[^a-zA-Z0-9._-]/g,'_');
+
+    // 1) Tentative : partage natif avec le PDF d\u00e9j\u00e0 joint (fonctionne sur mobile et certains navigateurs de bureau r\u00e9cents)
+    btn.disabled = true;
+    btn.textContent = 'Pr\u00e9paration du PDF\u2026';
+    try{
+      const pdf = await buildDocPdf();
+      if(pdf){
+        const blob = pdf.output('blob');
+        const file = new File([blob], filename, {type:'application/pdf'});
+        if(navigator.canShare && navigator.canShare({files:[file]})){
+          btn.disabled = false;
+          btn.textContent = original;
+          await navigator.share({ files:[file], title: subject, text: body });
+          return;
+        }
+      }
+    }catch(err){
+      if(err && err.name === 'AbortError'){ btn.disabled=false; btn.textContent=original; return; } // l'utilisateur a annul\u00e9 le partage
+      console.error('Partage PDF impossible, on utilise le repli email:', err);
+    }
+    btn.disabled = false;
+    btn.textContent = original;
+
+    // 2) Repli : le PDF ne peut pas \u00eatre joint automatiquement \u00e0 un mailto (limitation du web), on le t\u00e9l\u00e9charge et on ouvre l'email
+    showToast("Ton navigateur ne permet pas la pi\u00e8ce jointe automatique ici \u2014 le PDF va se t\u00e9l\u00e9charger, joins-le \u00e0 l'email qui s'ouvre juste apr\u00e8s");
+    await downloadDocAsPdf(filename);
     const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     let mailAppOpened = false;
     const onBlur = ()=>{ mailAppOpened = true; };
@@ -2335,8 +2395,22 @@ function importFromExcel(file, cb){
 }
 
 (async function init(){
-  try{ if(localStorage.getItem(AUTH_KEY) === '1') state.authenticated = true; }catch(e){}
   initFirebase();
+  if(fbAuth){
+    await new Promise(resolve=>{
+      const unsub = fbAuth.onAuthStateChanged(user=>{
+        state.authenticated = !!user;
+        render();
+        resolve();
+      });
+    });
+    // Garde l'app synchronis\u00e9e si la session expire ou change dans un autre onglet
+    fbAuth.onAuthStateChanged(user=>{
+      const wasAuth = state.authenticated;
+      state.authenticated = !!user;
+      if(wasAuth !== state.authenticated){ if(!user) state.currentUser=null; render(); }
+    });
+  }
   try{
     await withTimeout(loadAll(), 10000);
   }catch(e){
