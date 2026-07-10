@@ -2140,7 +2140,7 @@ function renderDocView(id){
       </table>
       ${d.infoComp && d.infoComp.trim() ? `<div class="p2-objet" style="margin-bottom:16px">
         <span class="tag">INFORMATIONS COMPL\u00c9MENTAIRES :</span>
-        <div class="txt" style="white-space:pre-line">${d.infoComp}</div>
+        <div class="txt" id="infocomp-text" style="white-space:pre-line">${d.infoComp}</div>
       </div>` : ''}
       <div class="p2-bottom-row">
         ${co.conditions && co.conditions.length ? `<div class="p2-conditions">
@@ -2257,6 +2257,31 @@ async function downloadDocAsPdf(filename){
     return false;
   }
 }
+function mmToPxRatio(){
+  const probe = document.createElement('div');
+  probe.style.cssText = 'height:100mm;position:absolute;visibility:hidden;top:-9999px;left:-9999px;';
+  document.body.appendChild(probe);
+  const ratio = probe.offsetHeight / 100;
+  document.body.removeChild(probe);
+  return ratio || 3.78; // ~96dpi fallback
+}
+function fitDocToOnePage(){
+  const mainSheet = document.querySelector('#print-area .paper2:not(.cgv-sheet)');
+  const notesEl = document.getElementById('infocomp-text');
+  if(!mainSheet || !notesEl) return;
+  const pxPerMm = mmToPxRatio();
+  const pageHeightPx = 297 * pxPerMm;
+  let fontSize = 13;
+  notesEl.style.fontSize = fontSize + 'px';
+  notesEl.style.lineHeight = '1.4';
+  let guard = 0;
+  while(mainSheet.scrollHeight > pageHeightPx && fontSize > 7.5 && guard < 30){
+    fontSize -= 0.5;
+    notesEl.style.fontSize = fontSize + 'px';
+    notesEl.style.lineHeight = fontSize <= 9 ? '1.25' : '1.4';
+    guard++;
+  }
+}
 function bindDocView(){
   document.getElementById('back-btn').onclick = ()=>{ state.viewingDoc=null; render(); };
   document.getElementById('print-btn').onclick = ()=>{ window.print(); };
@@ -2362,6 +2387,7 @@ function bindDocView(){
     state.viewingDoc = facture.id;
     render();
   };
+  fitDocToOnePage();
 }
 
 function findVal(row, keys){
