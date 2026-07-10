@@ -2169,28 +2169,45 @@ function renderDocView(id){
 }
 async function downloadDocAsPdf(filename){
   const sheets = Array.from(document.querySelectorAll('#print-area .paper2'));
-  if(!sheets.length || !window.html2canvas || !window.jspdf){ showToast("La g\u00e9n\u00e9ration PDF n'a pas pu se charger, r\u00e9essaie."); return; }
-  showToast('G\u00e9n\u00e9ration du PDF en cours\u2026');
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-  for(let i=0;i<sheets.length;i++){
-    const canvas = await html2canvas(sheets[i], { scale:2, useCORS:true, backgroundColor:'#ffffff' });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const pageW = 210, pageH = 297;
-    const imgH = Math.min(pageH, pageW * canvas.height / canvas.width);
-    if(i>0) pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
+  if(!sheets.length){ showToast("Aucun document \u00e0 exporter."); return; }
+  if(!window.html2canvas || !window.jspdf){
+    showToast("Les librairies PDF n'ont pas pu se charger (v\u00e9rifie ta connexion internet), utilise Imprimer > Enregistrer en PDF \u00e0 la place.");
+    return;
   }
-  pdf.save(filename);
+  try{
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    for(let i=0;i<sheets.length;i++){
+      const canvas = await html2canvas(sheets[i], { scale:1.5, useCORS:true, backgroundColor:'#ffffff', logging:false });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pageW = 210, pageH = 297;
+      const imgH = Math.min(pageH, pageW * canvas.height / canvas.width);
+      if(i>0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
+    }
+    pdf.save(filename);
+    return true;
+  }catch(err){
+    console.error('Erreur g\u00e9n\u00e9ration PDF:', err);
+    showToast("La g\u00e9n\u00e9ration du PDF a \u00e9chou\u00e9 \u2014 utilise le bouton Imprimer puis choisis \u00ab Enregistrer en PDF \u00bb comme destination.");
+    return false;
+  }
 }
 function bindDocView(){
   document.getElementById('back-btn').onclick = ()=>{ state.viewingDoc=null; render(); };
   document.getElementById('print-btn').onclick = ()=>{ window.print(); };
-  document.getElementById('pdf-btn').onclick = async ()=>{
+  document.getElementById('pdf-btn').onclick = async (e)=>{
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'G\u00e9n\u00e9ration en cours\u2026';
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     const title = d.type==='facture' ? 'Facture' : 'Devis';
     const filename = `${title}_${d.numero}.pdf`.replace(/[^a-zA-Z0-9._-]/g,'_');
-    await downloadDocAsPdf(filename);
+    const ok = await downloadDocAsPdf(filename);
+    btn.disabled = false;
+    btn.textContent = original;
+    if(ok) showToast('PDF t\u00e9l\u00e9charg\u00e9 !');
   };
   document.getElementById('email-btn').onclick = ()=>{
     const d = state.documents.find(x=>x.id===state.viewingDoc);
