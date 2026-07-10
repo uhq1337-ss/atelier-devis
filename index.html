@@ -2089,7 +2089,7 @@ function renderDocView(id){
   return `
   <button class="btn secondary small" id="back-btn" style="margin-bottom:1rem">&larr; Retour</button>
   <div id="print-area">
-  <div class="paper-wrap"><div class="paper2" style="--p2-color:${color}">
+  <div class="paper-wrap"><div class="paper2" style="--p2-color:${color}"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
     <div class="p2-banner" style="--p2-color:${color};border-bottom:3px solid ${color}">
       ${co.logo ? `<img class="p2-logo-img" src="${co.logo}" alt="${co.name}">` : `<div class="p2-logo-text"><div class="nm">${co.name}</div><div class="tg">${co.tagline||''}</div></div>`}
       <div class="p2-devis-box">
@@ -2169,7 +2169,7 @@ function renderDocView(id){
       SAS au capital de ${co.capital||''} \u20ac - Siret : ${co.siret||''} - RCS Paris ${co.rcs||''} - N.TVA : ${co.tva||''}<br>
       ${co.disclaimerText||''}
     </div>
-  </div></div>
+  </div></div></div>
   ${co.cgv && co.cgv.length ? `
   <div class="paper-wrap cgv-page"><div class="paper2 cgv-sheet">
     <div class="cgv-header">
@@ -2267,19 +2267,24 @@ function mmToPxRatio(){
 }
 function fitDocToOnePage(){
   const mainSheet = document.querySelector('#print-area .paper2:not(.cgv-sheet)');
-  const notesEl = document.getElementById('infocomp-text');
-  if(!mainSheet || !notesEl) return;
+  const inner = document.getElementById('p2-scale-inner');
+  if(!mainSheet || !inner) return;
+  // R\u00e9initialise avant de mesurer la taille naturelle du contenu
+  mainSheet.style.height = 'auto';
+  inner.style.transform = 'none';
+  inner.style.width = '100%';
   const pxPerMm = mmToPxRatio();
   const pageHeightPx = 297 * pxPerMm;
-  let fontSize = 13;
-  notesEl.style.fontSize = fontSize + 'px';
-  notesEl.style.lineHeight = '1.4';
-  let guard = 0;
-  while(mainSheet.scrollHeight > pageHeightPx && fontSize > 7.5 && guard < 30){
-    fontSize -= 0.5;
-    notesEl.style.fontSize = fontSize + 'px';
-    notesEl.style.lineHeight = fontSize <= 9 ? '1.25' : '1.4';
-    guard++;
+  const naturalHeight = inner.scrollHeight;
+  if(naturalHeight > pageHeightPx){
+    const scale = Math.max(0.5, pageHeightPx / naturalHeight);
+    mainSheet.style.height = '297mm';
+    mainSheet.style.overflow = 'hidden';
+    inner.style.width = (100/scale) + '%';
+    inner.style.transformOrigin = 'top left';
+    inner.style.transform = `scale(${scale})`;
+  } else {
+    mainSheet.style.height = 'auto';
   }
 }
 function bindDocView(){
