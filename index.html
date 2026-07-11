@@ -792,9 +792,10 @@ function renderArticles(){
     <div class="row">
       <div class="field" style="width:110px"><label>Code</label><input id="a-code" placeholder="REF-001"></div>
       <div class="field" style="flex:2;min-width:180px"><label>Libell\u00e9</label><input id="a-nom" placeholder="Nom de l'article"></div>
-      <div class="field" style="width:120px"><label>Prix d'achat (\u20ac)</label><input id="a-achat" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="field" style="width:150px"><label>Fournisseur</label><input id="a-fournisseur" placeholder="Nom du fournisseur"></div>
+      <div class="field" style="width:150px"><label>Prix achat HT hors \u00e9co-contribution (\u20ac)</label><input id="a-achat" type="number" step="0.01" placeholder="0.00"></div>
       <div class="field" style="width:120px"><label>Prix de vente HT (\u20ac)</label><input id="a-vente" type="number" step="0.01" placeholder="0.00"></div>
-      <div class="field" style="width:130px"><label>Dont \u00e9co-part. (\u20ac)</label><input id="a-eco" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="field" style="width:130px"><label>\u00c9co-contribution (\u20ac)</label><input id="a-eco" type="number" step="0.01" placeholder="0.00"></div>
     </div>
     <button class="btn" id="add-article">Ajouter l'article</button>
     <hr class="divider">
@@ -803,15 +804,16 @@ function renderArticles(){
       <div class="field"><label>Importer un fichier (.xlsx / .xlsm)</label><input type="file" id="a-import" accept=".xlsx,.xls,.xlsm"></div>
       <button class="btn secondary small" id="a-export">Exporter les articles (Excel)</button>
     </div>
-    <p class="hint">Colonnes attendues \u00e0 l'import : Code, Libell\u00e9, Prix achat, Prix vente (ou PU HT), Eco participation.</p>
+    <p class="hint">Colonnes attendues \u00e0 l'import : Code, Libell\u00e9, Fournisseur, Prix achat, Prix vente (ou PU HT), Eco participation.</p>
   </div>
   <table>
-    <tr><th>Code</th><th>Libell\u00e9</th><th>Achat</th><th>Vente HT</th><th>Eco-part.</th><th>Marge</th><th></th></tr>
+    <tr><th>Code</th><th>Libell\u00e9</th><th>Fournisseur</th><th>Achat HT</th><th>Vente HT</th><th>Eco-contrib.</th><th>Marge</th><th></th></tr>
     ${state.articles.length ? state.articles.map(a=>{
       if(state.editingArticleId === a.id){
         return `<tr>
           <td><input class="num" style="width:100px" value="${a.code}" data-edit-code="${a.id}"></td>
           <td><input style="width:100%;min-width:140px" value="${a.nom}" data-edit-nom="${a.id}"></td>
+          <td><input style="width:100%;min-width:110px" value="${a.fournisseur||''}" data-edit-fournisseur="${a.id}"></td>
           <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.achat}" data-edit-achat="${a.id}"></td>
           <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.vente}" data-edit-vente="${a.id}"></td>
           <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.eco}" data-edit-eco="${a.id}"></td>
@@ -826,6 +828,7 @@ function renderArticles(){
       <tr>
         <td class="num">${a.code}</td>
         <td>${a.nom}</td>
+        <td>${a.fournisseur||''}</td>
         <td class="num">${eur(a.achat)}</td>
         <td class="num">${eur(a.vente)}</td>
         <td class="num">${eur(a.eco)}</td>
@@ -835,7 +838,7 @@ function renderArticles(){
           <button class="rm-btn" data-del-article="${a.id}" aria-label="Supprimer">&times;</button>
         </td>
       </tr>`;
-    }).join('') : `<tr><td colspan="7" class="empty">Aucun article pour l'instant.</td></tr>`}
+    }).join('') : `<tr><td colspan="8" class="empty">Aucun article pour l'instant.</td></tr>`}
   </table>`;
 }
 function bindArticles(){
@@ -846,6 +849,7 @@ function bindArticles(){
       id: uid(),
       code: document.getElementById('a-code').value.trim() || ('ART-'+(state.articles.length+1)),
       nom,
+      fournisseur: document.getElementById('a-fournisseur').value.trim(),
       achat: parseNum(document.getElementById('a-achat').value)||0,
       vente: parseNum(document.getElementById('a-vente').value)||0,
       eco: parseNum(document.getElementById('a-eco').value)||0,
@@ -876,6 +880,7 @@ function bindArticles(){
       if(!nom){ showToast("Le nom de l'article est requis"); return; }
       a.code = document.querySelector(`[data-edit-code="${id}"]`).value.trim() || a.code;
       a.nom = nom;
+      a.fournisseur = document.querySelector(`[data-edit-fournisseur="${id}"]`).value.trim();
       a.achat = parseNum(document.querySelector(`[data-edit-achat="${id}"]`).value)||0;
       a.vente = parseNum(document.querySelector(`[data-edit-vente="${id}"]`).value)||0;
       a.eco = parseNum(document.querySelector(`[data-edit-eco="${id}"]`).value)||0;
@@ -886,7 +891,7 @@ function bindArticles(){
     };
   });
   document.getElementById('a-export').onclick = ()=>{
-    const rows = state.articles.map(a=>({Code:a.code, Libelle:a.nom, 'Prix achat':a.achat, 'Prix vente':a.vente, 'Eco participation':a.eco||0}));
+    const rows = state.articles.map(a=>({Code:a.code, Libelle:a.nom, Fournisseur:a.fournisseur||'', 'Prix achat':a.achat, 'Prix vente':a.vente, 'Eco participation':a.eco||0}));
     exportToExcel(rows, 'articles.xlsx', 'Articles');
   };
   document.getElementById('a-import').onchange = (e)=>{
@@ -900,6 +905,7 @@ function bindArticles(){
           id: uid(),
           code: get(['code'])||('ART-'+(state.articles.length+1)),
           nom,
+          fournisseur: get(['fournisseur','supplier'])||'',
           achat: parseNum(get(['prix achat','achat','prixachat']))||0,
           vente: parseNum(get(['prix vente','vente','pu ht','prixvente']))||0,
           eco: parseNum(get(['eco participation',"dont eco participation",'eco']))||0,
@@ -913,14 +919,21 @@ function bindArticles(){
   };
 }
 
+function lineEcoUnit(l){
+  const art = state.articles.find(a=>a.id===l.articleId);
+  return art && art.eco ? art.eco : 0;
+}
+function lineHT(l){
+  return l.qty * (l.pu + lineEcoUnit(l));
+}
+function lineEcoTotal(l){
+  return l.qty * lineEcoUnit(l);
+}
 function calcTotals(b){
-  const ht = b.lignes.reduce((s,l)=> s + l.qty*l.pu, 0);
+  const ht = b.lignes.reduce((s,l)=> s + lineHT(l), 0);
   const tva = ht * (b.tva/100);
   const ttc = ht + tva;
-  const eco = b.lignes.reduce((s,l)=>{
-    const art = state.articles.find(a=>a.id===l.articleId);
-    return s + (art && art.eco ? art.eco : 0);
-  }, 0);
+  const eco = b.lignes.reduce((s,l)=> s + lineEcoTotal(l), 0);
   return {ht,tva,ttc,eco};
 }
 function renderBuilder(){
@@ -991,7 +1004,7 @@ function renderBuilder(){
         <input type="text" inputmode="decimal" value="${l.qty}" data-line-qty="${i}">
         <select data-line-unite="${i}">${UNIT_OPTIONS.map(u=>`<option value="${u}" ${l.unite===u?'selected':''}>${u}</option>`).join('')}</select>
         <input type="text" inputmode="decimal" value="${l.pu}" data-line-pu="${i}">
-        <div class="lt">${eur(l.qty*l.pu)}</div>
+        <div class="lt">${eur(lineHT(l))}</div>
         <button class="rm-btn" data-line-del="${i}" aria-label="Retirer la ligne">&times;</button>
       </div>`;
     }).join('')}
@@ -1199,6 +1212,40 @@ function renderHistorique(){
       });
       out += `<tr><td colspan="4" style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totVenteAll)}</td><td class="num" style="font-weight:bold">${eur(totAchatAll)}</td><td class="num" style="font-weight:bold">${eur(totVenteAll-totAchatAll)}</td></tr>`;
       return out;
+    })()}
+  </table>
+
+  <hr class="divider">
+  <h1 class="page-title" style="font-size:20px">Marge par fournisseur</h1>
+  <p class="page-sub">Total vente, achat et marge, tous devis confondus, regroup\u00e9s par fournisseur.</p>
+  <table>
+    <tr><th>Fournisseur</th><th>Vente HT</th><th>Achat</th><th>Marge</th></tr>
+    ${(()=>{
+      const parFournisseur = {};
+      docs.forEach(d=>{
+        d.lignes.forEach(l=>{
+          const art = state.articles.find(a=>a.id===l.articleId);
+          const fourn = (art && art.fournisseur && art.fournisseur.trim()) ? art.fournisseur.trim() : 'Sans fournisseur';
+          if(!parFournisseur[fourn]) parFournisseur[fourn] = {vente:0, achat:0};
+          parFournisseur[fourn].vente += l.qty*l.pu;
+          parFournisseur[fourn].achat += art? l.qty*(art.achat||0) : 0;
+        });
+      });
+      const keys = Object.keys(parFournisseur).sort((a,b)=>a.localeCompare(b));
+      if(!keys.length) return `<tr><td colspan="4" class="empty">Aucune ligne pour l'instant.</td></tr>`;
+      let out2 = keys.map(f=>{
+        const v = parFournisseur[f];
+        return `<tr>
+          <td>${f}</td>
+          <td class="num">${eur(v.vente)}</td>
+          <td class="num">${eur(v.achat)}</td>
+          <td class="num">${eur(v.vente-v.achat)}</td>
+        </tr>`;
+      }).join('');
+      const totV = keys.reduce((s,f)=>s+parFournisseur[f].vente,0);
+      const totA = keys.reduce((s,f)=>s+parFournisseur[f].achat,0);
+      out2 += `<tr><td style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totV)}</td><td class="num" style="font-weight:bold">${eur(totA)}</td><td class="num" style="font-weight:bold">${eur(totV-totA)}</td></tr>`;
+      return out2;
     })()}
   </table>`;
 }
@@ -2133,8 +2180,8 @@ function renderDocView(id){
             <td style="text-align:right" class="num">${l.qty}</td>
             <td>${l.unite||'Forfait'}</td>
             <td style="text-align:right" class="num">${eur(l.pu)}</td>
-            <td style="text-align:right" class="num">${eur(l.qty*l.pu)}</td>
-            <td style="text-align:right" class="num">${art&&art.eco? eur(art.eco):'\u2013'}</td>
+            <td style="text-align:right" class="num">${eur(lineHT(l))}</td>
+            <td style="text-align:right" class="num">${art&&art.eco? eur(lineEcoTotal(l)):'\u2013'}</td>
           </tr>`;
         }).join('')}
       </table>
