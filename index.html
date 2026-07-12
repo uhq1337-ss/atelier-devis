@@ -1466,7 +1466,6 @@ function renderCommandeView(id){
   const c = state.clients.find(c=>c.id===cmd.clientId);
   const co = state.companies.find(co=>co.id===cmd.companyId) || state.companies[0] || {};
   const devis = cmd.devisId ? state.documents.find(d=>d.id===cmd.devisId) : null;
-  const color = co.color || '#1B2A4A';
 
   // Adresse de livraison : celle des travaux du devis d'origine si renseign\u00e9e, sinon celle du client
   let livraisonNom = c ? clientFullName(c) : '(client supprim\u00e9)';
@@ -1476,63 +1475,87 @@ function renderCommandeView(id){
     livraisonLignes = `${devis.travauxAdresse||''}<br>${devis.travauxCp||''} ${devis.travauxVille||''}`;
   }
 
-  const totAchat = cmd.lignes.reduce((s,l)=>{ const art=state.articles.find(a=>a.id===l.articleId); return s + l.qty*(art?(art.achat||0):0); }, 0);
-  const totEco = cmd.lignes.reduce((s,l)=>{ const art=state.articles.find(a=>a.id===l.articleId); return s + l.qty*(art?(art.eco||0):0); }, 0);
-  const totGeneral = totAchat + totEco;
+  const td = 'padding:5px 8px;border:1px solid #000;font-size:11px;vertical-align:top';
+  const th = td + ';font-weight:bold;background:#f2f2f2;text-align:left';
+  let ligCounter = 10;
+  let rowsHtml = '';
+  let totGeneral = 0;
+  cmd.lignes.forEach(l=>{
+    const art = state.articles.find(a=>a.id===l.articleId);
+    const achat = art? (art.achat||0) : 0;
+    const eco = art? (art.eco||0) : 0;
+    const montantLigne = l.qty*achat;
+    totGeneral += montantLigne;
+    rowsHtml += `<tr>
+      <td style="${td}">${ligCounter}-000</td>
+      <td style="${td}">${art? art.code : ''}</td>
+      <td style="${td}">${art? art.nom : '(article supprim\u00e9)'}</td>
+      <td style="${td}"></td>
+      <td style="${td}"></td>
+      <td style="${td}">${l.qty}<br>PCE</td>
+      <td style="${td};text-align:right">${eur(achat)}</td>
+      <td style="${td};text-align:right">${eur(montantLigne)}</td>
+    </tr>`;
+    if(eco){
+      totGeneral += l.qty*eco;
+      rowsHtml += `<tr>
+        <td style="${td}"></td>
+        <td style="${td}">TT0012</td>
+        <td style="${td}">Eco Participation</td>
+        <td style="${td}"></td>
+        <td style="${td}"></td>
+        <td style="${td}"></td>
+        <td style="${td}"></td>
+        <td style="${td};text-align:right">${eur(l.qty*eco)}</td>
+      </tr>`;
+    }
+    ligCounter += 10;
+  });
 
   return `
   <button class="btn secondary small" id="back-cmd-btn" style="margin-bottom:1rem">&larr; Retour</button>
   <div id="print-area">
-  <div class="paper-wrap"><div class="paper2" style="--p2-color:${color}"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
-    <div class="p2-body" style="padding:24px 36px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid ${color};padding-bottom:14px;margin-bottom:24px">
-        ${co.logo ? `<img class="p2-logo-img" src="${co.logo}" alt="${co.name}" style="max-height:44px">` : `<div class="p2-logo-text"><div class="nm">${co.name}</div><div class="tg">${co.tagline||''}</div></div>`}
-        <div style="text-align:right;font-size:13px">
-          <div style="font-weight:bold;font-size:16px;letter-spacing:.04em">TOSHIBA</div>
-          <div style="color:var(--muted)">Service commandes</div>
+  <div class="paper-wrap"><div class="paper2"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
+    <div class="p2-body" style="padding:28px 40px;font-family:'Times New Roman',Georgia,serif;color:#000;font-size:13px;line-height:1.5">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">
+        ${co.logo ? `<img src="${co.logo}" alt="${co.name}" style="max-height:60px">` : `<div style="font-weight:bold;font-size:18px">${co.name||'BAWS'}</div>`}
+        <div style="text-align:right">
+          <div>TOSHIBA</div>
+          <div>Service commandes</div>
         </div>
       </div>
 
-      <p style="text-align:right;margin:0 0 20px">Paris, le ${frenchLongDate(cmd.date)}</p>
-      <p style="margin:0 0 20px"><strong>Objet\u00a0: Commande ${cmd.numero}</strong></p>
+      <p style="margin:0 0 20px">Paris, le ${frenchLongDate(cmd.date)}</p>
+      <p style="margin:0 0 20px">Objet\u00a0: Commande</p>
       <p style="margin:0 0 16px">Madame, Monsieur,</p>
-      <p style="margin:0 0 10px">Vous trouverez ci-dessous notre commande \u00e0 livrer \u00e0 notre client\u00a0:</p>
+      <p style="margin:0 0 14px">Vous trouverez ci-dessous notre commande \u00e0 livrer \u00e0 notre client</p>
 
-      <div style="border:1px solid var(--line-strong);border-radius:4px;padding:12px 16px;margin-bottom:18px;max-width:360px">
-        <strong>${livraisonNom}</strong><br>${livraisonLignes}
-      </div>
+      <p style="margin:0 0 20px">
+        ${livraisonNom}<br>${livraisonLignes}
+      </p>
 
-      ${cmd.commentaire && cmd.commentaire.trim() ? `<p style="margin:0 0 20px"><strong>Commentaires\u00a0:</strong> ${cmd.commentaire}</p>` : ''}
+      ${cmd.commentaire && cmd.commentaire.trim() ? `<p style="margin:0 0 6px"><strong>Commentaires\u00a0:</strong></p><p style="margin:0 0 20px"><strong>${cmd.commentaire}</strong></p>` : ''}
 
-      <p style="margin:0 0 10px"><strong>D\u00e9tail de la commande\u00a0:</strong></p>
-      <table class="p2-table" style="margin-bottom:16px">
-        <tr><th>R\u00e9f\u00e9rence</th><th>D\u00e9signation</th><th style="text-align:right">Qt\u00e9</th><th style="text-align:right">Prix achat HT (\u20ac)</th><th style="text-align:right">\u00c9co-contribution (\u20ac)</th><th style="text-align:right">Total HT (\u20ac)</th></tr>
-        ${cmd.lignes.map(l=>{
-          const art = state.articles.find(a=>a.id===l.articleId);
-          const achat = art? (art.achat||0) : 0;
-          const eco = art? (art.eco||0) : 0;
-          return `<tr>
-            <td class="num">${art? art.code : ''}</td>
-            <td>${art? art.nom : '(article supprim\u00e9)'}</td>
-            <td style="text-align:right" class="num">${l.qty}</td>
-            <td style="text-align:right" class="num">${eur(achat)}</td>
-            <td style="text-align:right" class="num">${eco? eur(eco) : '\u2013'}</td>
-            <td style="text-align:right" class="num">${eur(l.qty*(achat+eco))}</td>
-          </tr>`;
-        }).join('')}
+      <p style="margin:0 0 10px">D\u00e9tail de la commande\u00a0:</p>
+      <table style="border-collapse:collapse;width:100%;margin-bottom:20px">
+        <tr>
+          <th style="${th}">Lig.</th>
+          <th style="${th}">Article</th>
+          <th style="${th}">D\u00e9signation</th>
+          <th style="${th}">Prix brut<br>Unitaire</th>
+          <th style="${th}">% Remise</th>
+          <th style="${th}">Qt<br>Cd\u00e9e.</th>
+          <th style="${th}">Prix net<br>Unitaire</th>
+          <th style="${th}">Montant<br>Total net</th>
+        </tr>
+        ${rowsHtml}
       </table>
 
-      <div style="max-width:320px;margin-left:auto;margin-bottom:24px">
-        <div class="totals-row"><span>Total achat HT</span><span class="num">${eur(totAchat)}</span></div>
-        <div class="totals-row"><span>Total \u00e9co-contribution</span><span class="num">${eur(totEco)}</span></div>
-        <div class="totals-row ttc"><span>Total g\u00e9n\u00e9ral HT</span><span class="num">${eur(totGeneral)}</span></div>
-      </div>
+      <p style="margin:0 0 16px">Nous restons \u00e0 votre disposition pour tout compl\u00e9ment d'information</p>
+      <p style="margin:0 0 4px">Cordialement</p>
+      <p style="margin:0 0 24px">Service Ventes ${co.name||'BAWS'}</p>
 
-      <p style="margin:0 0 16px">Nous restons \u00e0 votre disposition pour tout compl\u00e9ment d'information.</p>
-      <p style="margin:0 0 4px">Cordialement,</p>
-      <p style="margin:0 0 20px"><strong>Service Ventes ${co.name||'BAWS'}</strong></p>
-
-      <div class="p2-legal-footer" style="margin-top:auto;border-top:1px solid var(--line);padding-top:10px;font-size:10.5px;color:var(--muted);text-align:center">
+      <div style="margin-top:auto;border-top:1px solid #999;padding-top:8px;font-size:9.5px;color:#555;text-align:center">
         ${co.name||'BAWS'} - ${co.street||''} ${co.cp||''} ${co.ville||''} - SAS au capital de ${co.capital||''} \u20ac - RCS Paris ${co.rcs||''} - TVA ${co.tva||''}
       </div>
     </div>
@@ -1544,8 +1567,8 @@ function renderCommandeView(id){
     <button class="btn" id="pdf-cmd-btn">Enregistrer en PDF</button>
   </div>
   <div class="card" style="margin-top:1.25rem;max-width:500px">
-    <p class="subhead" style="margin-bottom:.5rem">Commentaire interne (visible dans le courrier)</p>
-    <textarea id="cmd-commentaire" rows="2" placeholder="Ex\u00a0: joignable au 06 00 00 00 00 pour d\u00e9finir l'horaire de livraison.">${cmd.commentaire||''}</textarea>
+    <p class="subhead" style="margin-bottom:.5rem">Commentaire (visible dans le courrier)</p>
+    <textarea id="cmd-commentaire" rows="2" placeholder="Ex\u00a0: Il est joignable au 06 00 00 00 00 pour d\u00e9finir l'horaire de livraison.">${cmd.commentaire||''}</textarea>
   </div>`;
 }
 function bindCommandeView(){
