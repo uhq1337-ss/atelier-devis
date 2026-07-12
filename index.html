@@ -1605,6 +1605,7 @@ function renderCommandeView(id){
         </tr>
         ${rowsHtml}
       </table>
+      <p style="text-align:right;margin:0 0 20px"><strong>Montant total net\u00a0: ${eur(totGeneral)}</strong></p>
 
       <p style="margin:0 0 16px">Nous restons \u00e0 votre disposition pour tout compl\u00e9ment d'information</p>
       <p style="margin:0 0 4px">Cordialement</p>
@@ -1620,6 +1621,7 @@ function renderCommandeView(id){
   <div class="row" style="margin-top:1.25rem">
     <button class="btn" id="print-cmd-btn">Imprimer</button>
     <button class="btn" id="pdf-cmd-btn">Enregistrer en PDF</button>
+    <button class="btn secondary" id="email-cmd-btn">Envoyer par email</button>
   </div>
   <div class="card" style="margin-top:1.25rem;max-width:500px">
     <p class="subhead" style="margin-bottom:.5rem">Commentaire (visible dans le courrier)</p>
@@ -1649,6 +1651,52 @@ function bindCommandeView(){
     await sset('commandes', state.commandes);
     showToast('Commentaire enregistr\u00e9');
     render();
+  };
+  document.getElementById('email-cmd-btn').onclick = async (e)=>{
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    const cmd = state.commandes.find(x=>x.id===state.viewingCommande);
+    const filename = `Commande_${cmd.numero}.pdf`.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const to = 'bawstoconsult@gmail.com';
+    const subject = `Commande ${cmd.numero}`;
+    const body = "Bonjour,\n\nVous trouverez ci-joint notre commande.\n\nDans l'attente de votre retour,\n\nCordialement";
+
+    btn.disabled = true;
+    btn.textContent = 'Pr\u00e9paration du PDF\u2026';
+    try{
+      const pdf = await buildDocPdf();
+      if(pdf){
+        const blob = pdf.output('blob');
+        const file = new File([blob], filename, {type:'application/pdf'});
+        if(navigator.canShare && navigator.canShare({files:[file]})){
+          btn.disabled = false;
+          btn.textContent = original;
+          await navigator.share({ files:[file], title: subject, text: body });
+          return;
+        }
+      }
+    }catch(err){
+      if(err && err.name === 'AbortError'){ btn.disabled=false; btn.textContent=original; return; }
+      console.error('Partage PDF impossible, on utilise le repli email:', err);
+    }
+    btn.disabled = false;
+    btn.textContent = original;
+
+    showToast("Ton navigateur ne permet pas la pi\u00e8ce jointe automatique ici \u2014 le PDF va se t\u00e9l\u00e9charger, joins-le \u00e0 l'email qui s'ouvre juste apr\u00e8s");
+    await downloadDocAsPdf(filename);
+    const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    let mailAppOpened = false;
+    const onBlur = ()=>{ mailAppOpened = true; };
+    window.addEventListener('blur', onBlur, {once:true});
+    window.location.href = mailtoUrl;
+    setTimeout(()=>{
+      window.removeEventListener('blur', onBlur);
+      if(!mailAppOpened){
+        const gmailUrl = `https://mail.google.com/mail/?authuser=bawstoconsult@gmail.com&view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        showToast("Aucune application email d\u00e9tect\u00e9e \u2014 ouverture de Gmail dans un nouvel onglet");
+        window.open(gmailUrl, '_blank');
+      }
+    }, 1200);
   };
   fitDocToOnePage();
 }
@@ -2788,7 +2836,7 @@ function bindDocView(){
     setTimeout(()=>{
       window.removeEventListener('blur', onBlur);
       if(!mailAppOpened){
-        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        const gmailUrl = `https://mail.google.com/mail/?authuser=bawstoconsult@gmail.com&view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         showToast("Aucune application email d\u00e9tect\u00e9e \u2014 ouverture de Gmail dans un nouvel onglet");
         window.open(gmailUrl, '_blank');
       }
