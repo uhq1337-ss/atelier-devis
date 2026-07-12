@@ -319,6 +319,8 @@ let state = {
   articlesSearch: '',
   articlesFournisseurFilter: '',
   articlesSort: { key:'code', dir:'asc' },
+  accountsSearch: '',
+  accountsSort: { key:'code', dir:'asc' },
   expandedCommandeId: null,
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
   builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null },
@@ -1637,6 +1639,19 @@ function bindCompta(){
 }
 
 function renderPlanComptable(){
+  const sortKey = state.accountsSort.key, sortDir = state.accountsSort.dir;
+  const arrow = (key)=> sortKey===key ? (sortDir==='asc' ? ' \u25b2' : ' \u25bc') : '';
+  let list = state.accounts.slice();
+  if(state.accountsSearch.trim()){
+    const q = state.accountsSearch.trim().toLowerCase();
+    list = list.filter(a => (a.code||'').toLowerCase().includes(q) || (a.label||'').toLowerCase().includes(q));
+  }
+  list.sort((a,b)=>{
+    const va = (a[sortKey]||'').toString().toLowerCase(), vb = (b[sortKey]||'').toString().toLowerCase();
+    if(va<vb) return sortDir==='asc' ? -1 : 1;
+    if(va>vb) return sortDir==='asc' ? 1 : -1;
+    return 0;
+  });
   return `
   <div class="card">
     <div class="row">
@@ -1645,9 +1660,18 @@ function renderPlanComptable(){
     </div>
     <button class="btn" id="add-account">Ajouter le compte</button>
   </div>
+  <div class="row" style="margin-bottom:1rem;align-items:flex-end">
+    <div class="field" style="min-width:220px"><label>Rechercher</label><input id="acc-search" placeholder="Code ou libell\u00e9\u2026" value="${state.accountsSearch}"></div>
+    ${state.accountsSearch ? `<button class="btn secondary small" id="acc-clear-search">R\u00e9initialiser</button>` : ''}
+    <p class="hint" style="margin:0 0 .5rem">${list.length} compte(s) affich\u00e9(s) sur ${state.accounts.length}</p>
+  </div>
   <table>
-    <tr><th>Code</th><th>Libell\u00e9</th><th></th></tr>
-    ${state.accounts.slice().sort((a,b)=>a.code.localeCompare(b.code)).map(a=>{
+    <tr>
+      <th data-acc-sort="code" style="cursor:pointer">Code${arrow('code')}</th>
+      <th data-acc-sort="label" style="cursor:pointer">Libell\u00e9${arrow('label')}</th>
+      <th></th>
+    </tr>
+    ${list.length ? list.map(a=>{
       if(state.editingAccountId===a.id){
         return `<tr>
           <td><input class="num" style="width:110px" value="${a.code}" data-edit-acc-code="${a.id}"></td>
@@ -1660,10 +1684,25 @@ function renderPlanComptable(){
         <td>${a.label}</td>
         <td style="white-space:nowrap"><button class="btn secondary small" data-edit-account="${a.id}">Modifier</button> <button class="rm-btn" data-del-account="${a.id}">&times;</button></td>
       </tr>`;
-    }).join('')}
+    }).join('') : `<tr><td colspan="3" class="empty">Aucun compte ne correspond.</td></tr>`}
   </table>`;
 }
 function bindPlanComptable(){
+  const search = document.getElementById('acc-search');
+  if(search) search.oninput = (e)=>{ state.accountsSearch = e.target.value; render(); };
+  const clearBtn = document.getElementById('acc-clear-search');
+  if(clearBtn) clearBtn.onclick = ()=>{ state.accountsSearch=''; render(); };
+  document.querySelectorAll('[data-acc-sort]').forEach(th=>{
+    th.onclick = ()=>{
+      const key = th.dataset.accSort;
+      if(state.accountsSort.key === key){
+        state.accountsSort.dir = state.accountsSort.dir==='asc' ? 'desc' : 'asc';
+      } else {
+        state.accountsSort = { key, dir:'asc' };
+      }
+      render();
+    };
+  });
   document.getElementById('add-account').onclick = async ()=>{
     const code = document.getElementById('acc-code').value.trim();
     const label = document.getElementById('acc-label').value.trim();
