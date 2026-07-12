@@ -667,6 +667,7 @@ function renderClients(){
       <div class="field" style="flex:2;min-width:160px"><label>Nom</label><input id="c-nom" placeholder="Nom du client"></div>
       <div class="field" style="flex:2;min-width:160px"><label>Pr\u00e9nom</label><input id="c-prenom" placeholder="Pr\u00e9nom (optionnel)"></div>
       <div class="field" style="flex:2;min-width:180px"><label>Email</label><input id="c-email" type="email" placeholder="client@exemple.com"></div>
+      <div class="field" style="width:150px"><label>T\u00e9l\u00e9phone</label><input id="c-tel" type="tel" placeholder="06 00 00 00 00"></div>
       <div class="field" style="flex:2;min-width:180px"><label>Adresse</label><input id="c-adresse" placeholder="N\u00b0, rue"></div>
       <div class="field" style="flex:2;min-width:180px"><label>Compl\u00e9ment d'adresse</label><input id="c-comp" placeholder="Optionnel"></div>
       <div class="field" style="width:110px"><label>Code postal</label><input id="c-cp" placeholder="00000"></div>
@@ -685,13 +686,14 @@ function renderClients(){
     <p class="hint">Colonnes attendues \u00e0 l'import : Nom, Prenom, Email, Adresse, Complement, CP, Ville, Categorie.</p>
   </div>
   <table>
-    <tr><th>Nom</th><th>Pr\u00e9nom</th><th>Email</th><th>Adresse</th><th>CP / Ville</th><th>Cat\u00e9gorie</th><th></th></tr>
+    <tr><th>Nom</th><th>Pr\u00e9nom</th><th>Email</th><th>T\u00e9l\u00e9phone</th><th>Adresse</th><th>CP / Ville</th><th>Cat\u00e9gorie</th><th></th></tr>
     ${state.clients.length ? state.clients.map(c=>{
       if(state.editingClientId === c.id){
         return `<tr>
           <td><input value="${c.nom}" data-edit-c-nom="${c.id}" style="width:100%;min-width:110px"></td>
           <td><input value="${c.prenom||''}" data-edit-c-prenom="${c.id}" style="width:100%;min-width:100px"></td>
           <td><input type="email" value="${c.email||''}" data-edit-c-email="${c.id}" style="width:100%;min-width:140px"></td>
+          <td><input type="tel" value="${c.tel||''}" data-edit-c-tel="${c.id}" style="width:100%;min-width:110px"></td>
           <td><input value="${c.adresse||''}" data-edit-c-adresse="${c.id}" placeholder="Adresse" style="width:100%;min-width:120px;margin-bottom:.3rem"><input value="${c.comp||''}" data-edit-c-comp="${c.id}" placeholder="Compl\u00e9ment" style="width:100%;min-width:120px"></td>
           <td><input value="${c.cp||''}" data-edit-c-cp="${c.id}" placeholder="CP" style="width:70px;margin-bottom:.3rem"><input value="${c.ville||''}" data-edit-c-ville="${c.id}" placeholder="Ville" style="width:100%;min-width:100px"></td>
           <td><select data-edit-c-cat="${c.id}">${CLIENT_CATS.map(cc=>`<option value="${cc}" ${((c.categorie||'PROFESSIONNEL')===cc)?'selected':''}>${cc}</option>`).join('')}</select></td>
@@ -706,6 +708,7 @@ function renderClients(){
         <td>${c.nom}</td>
         <td>${c.prenom||''}</td>
         <td>${c.email||''}</td>
+        <td>${c.tel||''}</td>
         <td>${c.adresse||''}${c.comp?', '+c.comp:''}</td>
         <td>${c.cp||''} ${c.ville||''}</td>
         <td>${c.categorie||'PROFESSIONNEL'}</td>
@@ -725,6 +728,7 @@ function bindClients(){
       id: uid(), nom,
       prenom: document.getElementById('c-prenom').value.trim(),
       email: document.getElementById('c-email').value.trim(),
+      tel: document.getElementById('c-tel').value.trim(),
       adresse: document.getElementById('c-adresse').value.trim(),
       comp: document.getElementById('c-comp').value.trim(),
       cp: document.getElementById('c-cp').value.trim(),
@@ -758,6 +762,7 @@ function bindClients(){
       c.nom = nom;
       c.prenom = document.querySelector(`[data-edit-c-prenom="${id}"]`).value.trim();
       c.email = document.querySelector(`[data-edit-c-email="${id}"]`).value.trim();
+      c.tel = document.querySelector(`[data-edit-c-tel="${id}"]`).value.trim();
       c.adresse = document.querySelector(`[data-edit-c-adresse="${id}"]`).value.trim();
       c.comp = document.querySelector(`[data-edit-c-comp="${id}"]`).value.trim();
       c.cp = document.querySelector(`[data-edit-c-cp="${id}"]`).value.trim();
@@ -770,7 +775,7 @@ function bindClients(){
     };
   });
   document.getElementById('c-export').onclick = ()=>{
-    const rows = state.clients.map(c=>({Nom:c.nom, Prenom:c.prenom||'', Email:c.email||'', Adresse:c.adresse||'', Complement:c.comp||'', CP:c.cp||'', Ville:c.ville||'', Categorie:c.categorie||''}));
+    const rows = state.clients.map(c=>({Nom:c.nom, Prenom:c.prenom||'', Email:c.email||'', Telephone:c.tel||'', Adresse:c.adresse||'', Complement:c.comp||'', CP:c.cp||'', Ville:c.ville||'', Categorie:c.categorie||''}));
     exportToExcel(rows, 'clients.xlsx', 'Clients');
   };
   document.getElementById('c-import').onchange = (e)=>{
@@ -784,6 +789,7 @@ function bindClients(){
           id: uid(), nom,
           prenom: get(['prenom','pr\u00e9nom','firstname'])||'',
           email: get(['email','mail','e-mail'])||'',
+          tel: get(['telephone','t\u00e9l\u00e9phone','tel','phone'])||'',
           adresse: get(['adresse','address'])||'',
           comp: get(['complement',"complement d'adresse",'comp'])||'',
           cp: get(['cp','code postal','codepostal'])||'',
@@ -1266,25 +1272,39 @@ function renderHistorique(){
       let totVenteAll = 0, totAchatAll = 0;
       docs.forEach(d=>{
         const c = state.clients.find(c=>c.id===d.clientId);
-        let subVente = 0, subAchat = 0;
+        let subVenteDevis = 0, subAchatDevis = 0;
+        // Regroupe les lignes du devis par fournisseur
+        const parFournisseur = {};
         d.lignes.forEach(l=>{
           const art = state.articles.find(a=>a.id===l.articleId);
-          const vente = l.qty*l.pu;
-          const achat = art? l.qty*(art.achat||0) : 0;
-          subVente += vente; subAchat += achat;
-          out += `<tr>
-            <td class="num">${d.numero}</td>
-            <td>${c? clientFullName(c):''}</td>
-            <td>${art? art.nom : '(article supprim\u00e9)'}</td>
-            <td>${art&&art.fournisseur? art.fournisseur : ''}</td>
-            <td class="num">${l.qty}</td>
-            <td class="num">${eur(vente)}</td>
-            <td class="num">${eur(achat)}</td>
-            <td class="num">${eur(vente-achat)}</td>
-          </tr>`;
+          const fourn = (art && art.fournisseur && art.fournisseur.trim()) ? art.fournisseur.trim() : 'Sans fournisseur';
+          if(!parFournisseur[fourn]) parFournisseur[fourn] = [];
+          parFournisseur[fourn].push(l);
         });
-        out += `<tr style="background:var(--paper)"><td colspan="5" style="font-weight:bold">Sous-total ${d.numero}</td><td class="num" style="font-weight:bold">${eur(subVente)}</td><td class="num" style="font-weight:bold">${eur(subAchat)}</td><td class="num" style="font-weight:bold">${eur(subVente-subAchat)}</td></tr>`;
-        totVenteAll += subVente; totAchatAll += subAchat;
+        const fournisseurs = Object.keys(parFournisseur).sort((a,b)=>a.localeCompare(b));
+        fournisseurs.forEach(fourn=>{
+          let subVenteF = 0, subAchatF = 0;
+          parFournisseur[fourn].forEach(l=>{
+            const art = state.articles.find(a=>a.id===l.articleId);
+            const vente = l.qty*l.pu;
+            const achat = art? l.qty*(art.achat||0) : 0;
+            subVenteF += vente; subAchatF += achat;
+            out += `<tr>
+              <td class="num">${d.numero}</td>
+              <td>${c? clientFullName(c):''}</td>
+              <td>${art? art.nom : '(article supprim\u00e9)'}</td>
+              <td>${fourn==='Sans fournisseur' ? '' : fourn}</td>
+              <td class="num">${l.qty}</td>
+              <td class="num">${eur(vente)}</td>
+              <td class="num">${eur(achat)}</td>
+              <td class="num">${eur(vente-achat)}</td>
+            </tr>`;
+          });
+          out += `<tr style="background:#F5F2EA"><td colspan="5" style="font-style:italic">Sous-total ${fourn}</td><td class="num" style="font-style:italic">${eur(subVenteF)}</td><td class="num" style="font-style:italic">${eur(subAchatF)}</td><td class="num" style="font-style:italic">${eur(subVenteF-subAchatF)}</td></tr>`;
+          subVenteDevis += subVenteF; subAchatDevis += subAchatF;
+        });
+        out += `<tr style="background:var(--paper)"><td colspan="5" style="font-weight:bold">Sous-total ${d.numero}</td><td class="num" style="font-weight:bold">${eur(subVenteDevis)}</td><td class="num" style="font-weight:bold">${eur(subAchatDevis)}</td><td class="num" style="font-weight:bold">${eur(subVenteDevis-subAchatDevis)}</td></tr>`;
+        totVenteAll += subVenteDevis; totAchatAll += subAchatDevis;
       });
       out += `<tr><td colspan="5" style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totVenteAll)}</td><td class="num" style="font-weight:bold">${eur(totAchatAll)}</td><td class="num" style="font-weight:bold">${eur(totVenteAll-totAchatAll)}</td></tr>`;
       return out;
@@ -1534,7 +1554,8 @@ function renderCommandeView(id){
         ${livraisonNom}<br>${livraisonLignes}
       </p>
 
-      ${cmd.commentaire && cmd.commentaire.trim() ? `<p style="margin:0 0 6px"><strong>Commentaires\u00a0:</strong></p><p style="margin:0 0 20px"><strong>${cmd.commentaire}</strong></p>` : ''}
+      <p style="margin:0 0 4px"><strong>Commentaires\u00a0:</strong></p>
+      <p style="margin:0 0 20px"><strong>${(cmd.commentaire && cmd.commentaire.trim()) || "Il est joignable au [num\u00e9ro de t\u00e9l\u00e9phone] pour d\u00e9finir l'horaire de livraison."}</strong></p>
 
       <p style="margin:0 0 10px">D\u00e9tail de la commande\u00a0:</p>
       <table style="border-collapse:collapse;width:100%;margin-bottom:20px">
@@ -2781,6 +2802,7 @@ function bindDocView(){
   if(tcb) tcb.onclick = async ()=>{
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     if(!d.lignes || !d.lignes.length){ showToast('Ce devis ne contient aucune ligne'); return; }
+    const client = state.clients.find(c=>c.id===d.clientId);
     state.counters.commande = (state.counters.commande||0) + 1;
     const numero = 'CT-' + new Date().getFullYear() + '-' + String(state.counters.commande).padStart(4,'0');
     const commande = {
@@ -2790,6 +2812,7 @@ function bindDocView(){
       lignes: d.lignes.map(l=>({ articleId: l.articleId, qty: l.qty })),
       statut: 'En attente',
       auteur: state.currentUser,
+      commentaire: `Il est joignable au ${client && client.tel ? client.tel : '[num\u00e9ro de t\u00e9l\u00e9phone]'} pour d\u00e9finir l'horaire de livraison.`,
     };
     state.commandes.push(commande);
     await sset('commandes', state.commandes);
