@@ -321,6 +321,8 @@ let state = {
   articlesSort: { key:'code', dir:'asc' },
   accountsSearch: '',
   accountsSort: { key:'code', dir:'asc' },
+  ecrituresSearch: '',
+  ecrituresSort: { key:'pieceNum', dir:'desc' },
   expandedCommandeId: null,
   viewingCommande: null,
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
@@ -1605,7 +1607,7 @@ function renderCommandeView(id){
         </tr>
         ${rowsHtml}
       </table>
-      <p style="text-align:right;margin:0 0 20px"><strong>Montant total net\u00a0: ${eur(totGeneral)}</strong></p>
+      <p style="text-align:right;margin:0 0 20px"><strong>Montant total net HT\u00a0: ${eur(totGeneral)}</strong></p>
 
       <p style="margin:0 0 16px">Nous restons \u00e0 votre disposition pour tout compl\u00e9ment d'information</p>
       <p style="margin:0 0 4px">Cordialement</p>
@@ -2164,12 +2166,55 @@ function bindSaisieEcriture(){
 }
 
 function renderEcritures(){
-  const rows = [...state.entries].reverse();
+  const sortKey = state.ecrituresSort.key, sortDir = state.ecrituresSort.dir;
+  const arrow = (key)=> sortKey===key ? (sortDir==='asc' ? ' \u25b2' : ' \u25bc') : '';
+  let entries = [...state.entries];
+  if(state.ecrituresSearch.trim()){
+    const q = state.ecrituresSearch.trim().toLowerCase();
+    entries = entries.filter(en=>{
+      const journal = state.journals.find(j=>j.id===en.journalId);
+      const matchHead = (journal&&journal.code||'').toLowerCase().includes(q) || (en.date||'').includes(q) || (en.factureNum||'').toLowerCase().includes(q) || String(en.pieceNum||'').includes(q);
+      const matchLignes = en.lignes.some(l=>{
+        const acc = state.accounts.find(a=>a.id===l.compte);
+        return (acc&&acc.code||'').includes(q) || (l.libelle||(acc&&acc.label)||'').toLowerCase().includes(q);
+      });
+      return matchHead || matchLignes;
+    });
+  }
+  entries.sort((a,b)=>{
+    let va, vb;
+    if(sortKey==='journal'){
+      va = (state.journals.find(j=>j.id===a.journalId)||{}).code||'';
+      vb = (state.journals.find(j=>j.id===b.journalId)||{}).code||'';
+    } else if(sortKey==='pieceNum'){
+      va = a.pieceNum||0; vb = b.pieceNum||0;
+      return sortDir==='asc' ? va-vb : vb-va;
+    } else {
+      va = a[sortKey]||''; vb = b[sortKey]||'';
+    }
+    va = va.toString().toLowerCase(); vb = vb.toString().toLowerCase();
+    if(va<vb) return sortDir==='asc' ? -1 : 1;
+    if(va>vb) return sortDir==='asc' ? 1 : -1;
+    return 0;
+  });
   return `
   <button class="btn secondary small" id="export-ecritures" style="margin-bottom:1rem">Exporter les \u00e9critures (Excel)</button>
+  <div class="row" style="margin-bottom:1rem;align-items:flex-end">
+    <div class="field" style="min-width:240px"><label>Rechercher</label><input id="ec-search" placeholder="Journal, compte, libell\u00e9, date, n\u00b0 facture ou pi\u00e8ce\u2026" value="${state.ecrituresSearch}"></div>
+    ${state.ecrituresSearch ? `<button class="btn secondary small" id="ec-clear-search">R\u00e9initialiser</button>` : ''}
+    <p class="hint" style="margin:0 0 .5rem">${entries.length} \u00e9criture(s) affich\u00e9e(s) sur ${state.entries.length}</p>
+  </div>
   <table>
-    <tr><th>Journal</th><th>Compte</th><th>Libell\u00e9</th><th>Date</th><th>N\u00b0 facture</th><th>N\u00b0 pi\u00e8ce</th><th>D\u00e9bit</th><th>Cr\u00e9dit</th><th></th></tr>
-    ${rows.length ? rows.map(en=>{
+    <tr>
+      <th data-ec-sort="journal" style="cursor:pointer">Journal${arrow('journal')}</th>
+      <th>Compte</th>
+      <th>Libell\u00e9</th>
+      <th data-ec-sort="date" style="cursor:pointer">Date${arrow('date')}</th>
+      <th data-ec-sort="factureNum" style="cursor:pointer">N\u00b0 facture${arrow('factureNum')}</th>
+      <th data-ec-sort="pieceNum" style="cursor:pointer">N\u00b0 pi\u00e8ce${arrow('pieceNum')}</th>
+      <th>D\u00e9bit</th><th>Cr\u00e9dit</th><th></th>
+    </tr>
+    ${entries.length ? entries.map(en=>{
       const journal = state.journals.find(j=>j.id===en.journalId);
       return en.lignes.map((l,i)=>{
         const acc = state.accounts.find(a=>a.id===l.compte);
@@ -2185,10 +2230,25 @@ function renderEcritures(){
           <td>${i===0? `<button class="rm-btn" data-edit-entry="${en.id}" title="Modifier" style="color:var(--brass);margin-right:.3rem">&#9998;</button><button class="rm-btn" data-copy-entry="${en.id}" title="Dupliquer" style="color:var(--brass);margin-right:.3rem">&#10697;</button><button class="rm-btn" data-del-entry="${en.id}" title="Supprimer">&times;</button>` : ''}</td>
         </tr>`;
       }).join('');
-    }).join('') : `<tr><td colspan="9" class="empty">Aucune \u00e9criture pour l'instant.</td></tr>`}
+    }).join('') : `<tr><td colspan="9" class="empty">Aucune \u00e9criture ne correspond.</td></tr>`}
   </table>`;
 }
 function bindEcritures(){
+  const search = document.getElementById('ec-search');
+  if(search) search.oninput = (e)=>{ state.ecrituresSearch = e.target.value; render(); };
+  const clearBtn = document.getElementById('ec-clear-search');
+  if(clearBtn) clearBtn.onclick = ()=>{ state.ecrituresSearch=''; render(); };
+  document.querySelectorAll('[data-ec-sort]').forEach(th=>{
+    th.onclick = ()=>{
+      const key = th.dataset.ecSort;
+      if(state.ecrituresSort.key === key){
+        state.ecrituresSort.dir = state.ecrituresSort.dir==='asc' ? 'desc' : 'asc';
+      } else {
+        state.ecrituresSort = { key, dir: key==='pieceNum' ? 'desc' : 'asc' };
+      }
+      render();
+    };
+  });
   document.querySelectorAll('[data-edit-entry]').forEach(b=>{
     b.onclick = ()=>{
       const en = state.entries.find(e=>e.id===b.dataset.editEntry);
