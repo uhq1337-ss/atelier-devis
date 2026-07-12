@@ -322,6 +322,7 @@ let state = {
   accountsSearch: '',
   accountsSort: { key:'code', dir:'asc' },
   expandedCommandeId: null,
+  viewingCommande: null,
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
   builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null },
   toast: null,
@@ -619,7 +620,7 @@ function bindShell(){
       if(b.dataset.tab==='nouveau' && state.builder.editingDocId){
         state.builder = { clientId:'', companyId: state.builder.companyId, objet:'', lignes:[], tva:20, notes:'', editingDocId:null };
       }
-      state.tab=b.dataset.tab; state.viewingDoc=null; render();
+      state.tab=b.dataset.tab; state.viewingDoc=null; state.viewingCommande=null; render();
     };
   });
   document.getElementById('switch-user').onclick = ()=>{ state.currentUser=null; render(); };
@@ -635,6 +636,7 @@ function bindShell(){
 
 function renderTab(){
   if(state.viewingDoc) return renderDocView(state.viewingDoc);
+  if(state.viewingCommande) return renderCommandeView(state.viewingCommande);
   if(state.tab==='clients') return renderClients();
   if(state.tab==='articles') return renderArticles();
   if(state.tab==='nouveau') return renderBuilder();
@@ -646,6 +648,7 @@ function renderTab(){
 }
 function bindTab(){
   if(state.viewingDoc){ bindDocView(); return; }
+  if(state.viewingCommande){ bindCommandeView(); return; }
   if(state.tab==='clients') return bindClients();
   if(state.tab==='articles') return bindArticles();
   if(state.tab==='nouveau') return bindBuilder();
@@ -1406,7 +1409,6 @@ function renderCommandes(){
     ${list.length ? list.map(cmd=>{
       const c = state.clients.find(c=>c.id===cmd.clientId);
       const totAchat = commandeTotalAchat(cmd);
-      const expanded = state.expandedCommandeId === cmd.id;
       return `<tr>
         <td class="num">${cmd.numero}</td>
         <td>${cmd.date}</td>
@@ -1420,33 +1422,16 @@ function renderCommandes(){
           </select>
         </td>
         <td style="white-space:nowrap">
-          <button class="btn secondary small" data-toggle-cmd="${cmd.id}">${expanded ? 'Masquer' : 'Voir'}</button>
+          <button class="btn secondary small" data-view-cmd="${cmd.id}">Voir la lettre</button>
           <button class="rm-btn" data-del-cmd="${cmd.id}" aria-label="Supprimer">&times;</button>
         </td>
-      </tr>
-      ${expanded ? `<tr><td colspan="8" style="padding:0">
-        <table style="margin:.5rem 0">
-          <tr><th>Code</th><th>Article</th><th>Fournisseur</th><th>Qt\u00e9</th><th>Achat unitaire</th><th>Total achat</th></tr>
-          ${cmd.lignes.map(l=>{
-            const art = state.articles.find(a=>a.id===l.articleId);
-            const achat = art? (art.achat||0) : 0;
-            return `<tr>
-              <td class="num">${art? art.code : ''}</td>
-              <td>${art? art.nom : '(article supprim\u00e9)'}</td>
-              <td>${art&&art.fournisseur? art.fournisseur : ''}</td>
-              <td class="num">${l.qty}</td>
-              <td class="num">${eur(achat)}</td>
-              <td class="num">${eur(l.qty*achat)}</td>
-            </tr>`;
-          }).join('')}
-        </table>
-      </td></tr>` : ''}`;
+      </tr>`;
     }).join('') : `<tr><td colspan="8" class="empty">Aucune commande Toshiba pour l'instant. Cr\u00e9es-en une depuis un devis avec le bouton \u00ab Transformer en commande Toshiba \u00bb.</td></tr>`}
   </table>`;
 }
 function bindCommandes(){
-  document.querySelectorAll('[data-toggle-cmd]').forEach(b=>{
-    b.onclick = ()=>{ state.expandedCommandeId = (state.expandedCommandeId===b.dataset.toggleCmd) ? null : b.dataset.toggleCmd; render(); };
+  document.querySelectorAll('[data-view-cmd]').forEach(b=>{
+    b.onclick = ()=>{ state.viewingCommande = b.dataset.viewCmd; render(); };
   });
   document.querySelectorAll('[data-cmd-statut]').forEach(sel=>{
     sel.onchange = async (e)=>{
@@ -1465,6 +1450,129 @@ function bindCommandes(){
       render();
     };
   });
+}
+const FR_MONTHS = ['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre'];
+function frenchLongDate(dateStr){
+  const parts = (dateStr||'').split('/');
+  if(parts.length!==3) return dateStr||'';
+  const [dd,mm,yyyy] = parts;
+  const mIdx = parseInt(mm,10)-1;
+  if(mIdx<0 || mIdx>11) return dateStr;
+  return `${parseInt(dd,10)} ${FR_MONTHS[mIdx]} ${yyyy}`;
+}
+function renderCommandeView(id){
+  const cmd = state.commandes.find(x=>x.id===id);
+  if(!cmd) return `<p class="empty">Commande introuvable.</p>`;
+  const c = state.clients.find(c=>c.id===cmd.clientId);
+  const co = state.companies.find(co=>co.id===cmd.companyId) || state.companies[0] || {};
+  const devis = cmd.devisId ? state.documents.find(d=>d.id===cmd.devisId) : null;
+  const color = co.color || '#1B2A4A';
+
+  // Adresse de livraison : celle des travaux du devis d'origine si renseign\u00e9e, sinon celle du client
+  let livraisonNom = c ? clientFullName(c) : '(client supprim\u00e9)';
+  let livraisonLignes = c ? `${c.adresse||''}${c.comp? ', '+c.comp:''}<br>${c.cp||''} ${c.ville||''}` : '';
+  if(devis && devis.travauxSameAsClient===false){
+    if(devis.travauxNom) livraisonNom = devis.travauxNom;
+    livraisonLignes = `${devis.travauxAdresse||''}<br>${devis.travauxCp||''} ${devis.travauxVille||''}`;
+  }
+
+  const totAchat = cmd.lignes.reduce((s,l)=>{ const art=state.articles.find(a=>a.id===l.articleId); return s + l.qty*(art?(art.achat||0):0); }, 0);
+  const totEco = cmd.lignes.reduce((s,l)=>{ const art=state.articles.find(a=>a.id===l.articleId); return s + l.qty*(art?(art.eco||0):0); }, 0);
+  const totGeneral = totAchat + totEco;
+
+  return `
+  <button class="btn secondary small" id="back-cmd-btn" style="margin-bottom:1rem">&larr; Retour</button>
+  <div id="print-area">
+  <div class="paper-wrap"><div class="paper2" style="--p2-color:${color}"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
+    <div class="p2-body" style="padding:24px 36px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid ${color};padding-bottom:14px;margin-bottom:24px">
+        ${co.logo ? `<img class="p2-logo-img" src="${co.logo}" alt="${co.name}" style="max-height:44px">` : `<div class="p2-logo-text"><div class="nm">${co.name}</div><div class="tg">${co.tagline||''}</div></div>`}
+        <div style="text-align:right;font-size:13px">
+          <div style="font-weight:bold;font-size:16px;letter-spacing:.04em">TOSHIBA</div>
+          <div style="color:var(--muted)">Service commandes</div>
+        </div>
+      </div>
+
+      <p style="text-align:right;margin:0 0 20px">Paris, le ${frenchLongDate(cmd.date)}</p>
+      <p style="margin:0 0 20px"><strong>Objet\u00a0: Commande ${cmd.numero}</strong></p>
+      <p style="margin:0 0 16px">Madame, Monsieur,</p>
+      <p style="margin:0 0 10px">Vous trouverez ci-dessous notre commande \u00e0 livrer \u00e0 notre client\u00a0:</p>
+
+      <div style="border:1px solid var(--line-strong);border-radius:4px;padding:12px 16px;margin-bottom:18px;max-width:360px">
+        <strong>${livraisonNom}</strong><br>${livraisonLignes}
+      </div>
+
+      ${cmd.commentaire && cmd.commentaire.trim() ? `<p style="margin:0 0 20px"><strong>Commentaires\u00a0:</strong> ${cmd.commentaire}</p>` : ''}
+
+      <p style="margin:0 0 10px"><strong>D\u00e9tail de la commande\u00a0:</strong></p>
+      <table class="p2-table" style="margin-bottom:16px">
+        <tr><th>R\u00e9f\u00e9rence</th><th>D\u00e9signation</th><th style="text-align:right">Qt\u00e9</th><th style="text-align:right">Prix achat HT (\u20ac)</th><th style="text-align:right">\u00c9co-contribution (\u20ac)</th><th style="text-align:right">Total HT (\u20ac)</th></tr>
+        ${cmd.lignes.map(l=>{
+          const art = state.articles.find(a=>a.id===l.articleId);
+          const achat = art? (art.achat||0) : 0;
+          const eco = art? (art.eco||0) : 0;
+          return `<tr>
+            <td class="num">${art? art.code : ''}</td>
+            <td>${art? art.nom : '(article supprim\u00e9)'}</td>
+            <td style="text-align:right" class="num">${l.qty}</td>
+            <td style="text-align:right" class="num">${eur(achat)}</td>
+            <td style="text-align:right" class="num">${eco? eur(eco) : '\u2013'}</td>
+            <td style="text-align:right" class="num">${eur(l.qty*(achat+eco))}</td>
+          </tr>`;
+        }).join('')}
+      </table>
+
+      <div style="max-width:320px;margin-left:auto;margin-bottom:24px">
+        <div class="totals-row"><span>Total achat HT</span><span class="num">${eur(totAchat)}</span></div>
+        <div class="totals-row"><span>Total \u00e9co-contribution</span><span class="num">${eur(totEco)}</span></div>
+        <div class="totals-row ttc"><span>Total g\u00e9n\u00e9ral HT</span><span class="num">${eur(totGeneral)}</span></div>
+      </div>
+
+      <p style="margin:0 0 16px">Nous restons \u00e0 votre disposition pour tout compl\u00e9ment d'information.</p>
+      <p style="margin:0 0 4px">Cordialement,</p>
+      <p style="margin:0 0 20px"><strong>Service Ventes ${co.name||'BAWS'}</strong></p>
+
+      <div class="p2-legal-footer" style="margin-top:auto;border-top:1px solid var(--line);padding-top:10px;font-size:10.5px;color:var(--muted);text-align:center">
+        ${co.name||'BAWS'} - ${co.street||''} ${co.cp||''} ${co.ville||''} - SAS au capital de ${co.capital||''} \u20ac - RCS Paris ${co.rcs||''} - TVA ${co.tva||''}
+      </div>
+    </div>
+  </div></div></div>
+  </div>
+
+  <div class="row" style="margin-top:1.25rem">
+    <button class="btn" id="print-cmd-btn">Imprimer</button>
+    <button class="btn" id="pdf-cmd-btn">Enregistrer en PDF</button>
+  </div>
+  <div class="card" style="margin-top:1.25rem;max-width:500px">
+    <p class="subhead" style="margin-bottom:.5rem">Commentaire interne (visible dans le courrier)</p>
+    <textarea id="cmd-commentaire" rows="2" placeholder="Ex\u00a0: joignable au 06 00 00 00 00 pour d\u00e9finir l'horaire de livraison.">${cmd.commentaire||''}</textarea>
+  </div>`;
+}
+function bindCommandeView(){
+  document.getElementById('back-cmd-btn').onclick = ()=>{ state.viewingCommande=null; render(); };
+  document.getElementById('print-cmd-btn').onclick = ()=>{ window.print(); };
+  document.getElementById('pdf-cmd-btn').onclick = async (e)=>{
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'G\u00e9n\u00e9ration en cours\u2026';
+    const cmd = state.commandes.find(x=>x.id===state.viewingCommande);
+    const filename = `Commande_${cmd.numero}.pdf`.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const ok = await downloadDocAsPdf(filename);
+    btn.disabled = false;
+    btn.textContent = original;
+    if(ok) showToast('PDF t\u00e9l\u00e9charg\u00e9 !');
+  };
+  const commentaire = document.getElementById('cmd-commentaire');
+  if(commentaire) commentaire.onchange = async (e)=>{
+    const cmd = state.commandes.find(x=>x.id===state.viewingCommande);
+    if(!cmd) return;
+    cmd.commentaire = e.target.value;
+    await sset('commandes', state.commandes);
+    showToast('Commentaire enregistr\u00e9');
+    render();
+  };
+  fitDocToOnePage();
 }
 function renderEntreprise(){
   if(!state.editingCompanyId && state.companies.length) state.editingCompanyId = state.companies[0].id;
