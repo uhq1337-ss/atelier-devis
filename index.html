@@ -1050,6 +1050,10 @@ function renderBuilder(){
             </div>`).join('') : `<div style="padding:.5rem .75rem;color:var(--muted);font-size:13px">Aucun client trouv\u00e9.</div>`}
         </div>`;
       })() : ''}
+      ${(!b.clientSearchOpen && b.clientId) ? (()=>{
+        const selected = state.clients.find(c=>c.id===b.clientId);
+        return selected ? `<p class="hint" style="margin-top:.35rem">\u2713 S\u00e9lectionn\u00e9\u00a0: ${selected.adresse||''}${selected.comp? ', '+selected.comp:''}, ${selected.cp||''} ${selected.ville||''}</p>` : '';
+      })() : ''}
     </div>
     ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
     <div class="field">
@@ -1133,13 +1137,14 @@ function bindBuilder(){
     render();
   };
   document.querySelectorAll('[data-pick-client]').forEach(row=>{
-    row.onmousedown = (e)=>{
-      e.preventDefault(); // \u00e9vite que le blur ferme la liste avant le clic
+    const pick = ()=>{
       b.clientId = row.dataset.pickClient;
       b.clientSearchOpen = false;
       b.clientSearchText = null;
       render();
     };
+    row.onmousedown = (e)=>{ e.preventDefault(); pick(); };
+    row.onclick = pick;
   });
   clientSearch.onblur = ()=>{
     setTimeout(()=>{ b.clientSearchOpen = false; b.clientSearchText = null; render(); }, 150);
@@ -1203,11 +1208,11 @@ function bindBuilder(){
         existing.travauxVille = b.travauxVille||'';
         existing.lignes = JSON.parse(JSON.stringify(b.lignes));
         existing.tva = b.tva;
+        await sset('documents', state.documents);
         showToast(existing.numero + ' mis \u00e0 jour');
         state.viewingDoc = existing.id;
         state.builder = { clientId:'', companyId: b.companyId, objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null };
         render();
-        sset('documents', state.documents).catch(()=>{});
       }
       return;
     }
