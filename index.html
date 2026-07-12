@@ -324,7 +324,7 @@ let state = {
   expandedCommandeId: null,
   viewingCommande: null,
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
-  builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null },
+  builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null, clientSearchOpen:false, clientSearchText:null },
   toast: null,
   viewingDoc: null,
 };
@@ -1032,12 +1032,24 @@ function renderBuilder(){
     </div>
   </div>
   <div class="card">
-    <div class="field" style="max-width:320px">
+    <div class="field" style="max-width:360px;position:relative">
       <label>Client</label>
-      <input type="text" id="b-client-search" list="clients-datalist" placeholder="Taper pour rechercher un client..." value="${clientFullName(state.clients.find(c=>c.id===b.clientId))}" autocomplete="off">
-      <datalist id="clients-datalist">
-        ${state.clients.map(c=>`<option value="${clientFullName(c)}" label="${c.cp||''} ${c.ville||''}">`).join('')}
-      </datalist>
+      <input type="text" id="b-client-search" placeholder="Taper pour rechercher un client..." autocomplete="off"
+        value="${b.clientSearchOpen ? (b.clientSearchText||'') : clientFullName(state.clients.find(c=>c.id===b.clientId))}">
+      ${b.clientSearchOpen ? (()=>{
+        const q = (b.clientSearchText||'').trim().toLowerCase();
+        const matches = state.clients.filter(c=>{
+          if(!q) return true;
+          return clientFullName(c).toLowerCase().includes(q) || (c.ville||'').toLowerCase().includes(q) || (c.cp||'').includes(q);
+        }).slice(0,8);
+        return `<div style="position:absolute;top:100%;left:0;right:0;z-index:20;background:#fff;border:1px solid var(--line-strong);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);max-height:280px;overflow-y:auto">
+          ${matches.length ? matches.map(c=>`
+            <div class="client-suggestion" data-pick-client="${c.id}" style="padding:.5rem .75rem;cursor:pointer;border-bottom:1px solid var(--line)">
+              <div style="font-weight:600">${clientFullName(c)}</div>
+              <div style="font-size:12px;color:var(--muted)">${c.cp||''} ${c.ville||''}${c.adresse? ' \u2014 '+c.adresse : ''}</div>
+            </div>`).join('') : `<div style="padding:.5rem .75rem;color:var(--muted);font-size:13px">Aucun client trouv\u00e9.</div>`}
+        </div>`;
+      })() : ''}
     </div>
     ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
     <div class="field">
@@ -1111,9 +1123,26 @@ function bindBuilder(){
   });
   const clientSearch = document.getElementById('b-client-search');
   clientSearch.oninput = (e)=>{
-    const val = e.target.value.trim().toLowerCase();
-    const match = state.clients.find(c=>clientFullName(c).toLowerCase()===val);
-    b.clientId = match ? match.id : '';
+    b.clientSearchText = e.target.value;
+    b.clientSearchOpen = true;
+    render();
+  };
+  clientSearch.onfocus = ()=>{
+    if(b.clientSearchText == null){ b.clientSearchText = ''; }
+    b.clientSearchOpen = true;
+    render();
+  };
+  document.querySelectorAll('[data-pick-client]').forEach(row=>{
+    row.onmousedown = (e)=>{
+      e.preventDefault(); // \u00e9vite que le blur ferme la liste avant le clic
+      b.clientId = row.dataset.pickClient;
+      b.clientSearchOpen = false;
+      b.clientSearchText = null;
+      render();
+    };
+  });
+  clientSearch.onblur = ()=>{
+    setTimeout(()=>{ b.clientSearchOpen = false; b.clientSearchText = null; render(); }, 150);
   };
   document.getElementById('b-objet').oninput = (e)=>{ b.objet = e.target.value; };
   document.getElementById('b-infocomp').oninput = (e)=>{ b.infoComp = e.target.value; };
