@@ -303,7 +303,8 @@ let state = {
   clients: [],
   articles: [],
   documents: [],
-  counters: {devis:0, facture:0},
+  commandes: [],
+  counters: {devis:0, facture:0, commande:0},
   companies: [],
   accounts: [],
   journals: [],
@@ -315,6 +316,10 @@ let state = {
   editingJournalId: null,
   tab: 'clients',
   comptaTab: 'plan',
+  articlesSearch: '',
+  articlesFournisseurFilter: '',
+  articlesSort: { key:'code', dir:'asc' },
+  expandedCommandeId: null,
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
   builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null },
   toast: null,
@@ -405,7 +410,9 @@ async function loadAll(){
   state.clients = await sget('clients', []);
   state.articles = await sget('articles', []);
   state.documents = await sget('documents', []);
-  state.counters = await sget('counters', {devis:0, facture:0});
+  state.commandes = await sget('commandes', []);
+  state.counters = await sget('counters', {devis:0, facture:0, commande:0});
+  if(state.counters.commande === undefined) state.counters.commande = 0;
   const co = await sget('companies', null);
   if(co && co.length){
     state.companies = co.map(c=>{
@@ -582,6 +589,7 @@ function renderShell(){
     ['articles','Articles'],
     ['nouveau','Nouveau devis'],
     ['historique','Historique'],
+    ['commandes','Commandes Toshiba'],
     ['entreprise','Entreprises'],
     ['compta','Comptabilit\u00e9'],
   ];
@@ -629,6 +637,7 @@ function renderTab(){
   if(state.tab==='articles') return renderArticles();
   if(state.tab==='nouveau') return renderBuilder();
   if(state.tab==='historique') return renderHistorique();
+  if(state.tab==='commandes') return renderCommandes();
   if(state.tab==='entreprise') return renderEntreprise();
   if(state.tab==='compta') return renderCompta();
   return '';
@@ -639,6 +648,7 @@ function bindTab(){
   if(state.tab==='articles') return bindArticles();
   if(state.tab==='nouveau') return bindBuilder();
   if(state.tab==='historique') return bindHistorique();
+  if(state.tab==='commandes') return bindCommandes();
   if(state.tab==='entreprise') return bindEntreprise();
   if(state.tab==='compta') return bindCompta();
 }
@@ -785,6 +795,29 @@ function bindClients(){
 }
 
 function renderArticles(){
+  const fournisseurs = [...new Set(state.articles.map(a=>(a.fournisseur||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const sortKey = state.articlesSort.key, sortDir = state.articlesSort.dir;
+  const arrow = (key)=> sortKey===key ? (sortDir==='asc' ? ' \u25b2' : ' \u25bc') : '';
+  let list = state.articles.slice();
+  if(state.articlesSearch.trim()){
+    const q = state.articlesSearch.trim().toLowerCase();
+    list = list.filter(a => (a.code||'').toLowerCase().includes(q) || (a.nom||'').toLowerCase().includes(q) || (a.fournisseur||'').toLowerCase().includes(q));
+  }
+  if(state.articlesFournisseurFilter){
+    list = list.filter(a => (a.fournisseur||'').trim() === state.articlesFournisseurFilter);
+  }
+  list.sort((a,b)=>{
+    let va = a[sortKey], vb = b[sortKey];
+    if(sortKey==='achat' || sortKey==='vente' || sortKey==='eco' || sortKey==='marge'){
+      va = sortKey==='marge' ? (a.vente-a.achat) : (a[sortKey]||0);
+      vb = sortKey==='marge' ? (b.vente-b.achat) : (b[sortKey]||0);
+      return sortDir==='asc' ? va-vb : vb-va;
+    }
+    va = (va||'').toString().toLowerCase(); vb = (vb||'').toString().toLowerCase();
+    if(va<vb) return sortDir==='asc' ? -1 : 1;
+    if(va>vb) return sortDir==='asc' ? 1 : -1;
+    return 0;
+  });
   return `
   <h1 class="page-title">Articles</h1>
   <p class="page-sub">Catalogue produits, partag\u00e9 avec toute l'\u00e9quipe.</p>
@@ -806,9 +839,29 @@ function renderArticles(){
     </div>
     <p class="hint">Colonnes attendues \u00e0 l'import : Code, Libell\u00e9, Fournisseur, Prix achat, Prix vente (ou PU HT), Eco participation.</p>
   </div>
+  <div class="row" style="margin-bottom:1rem;align-items:flex-end">
+    <div class="field" style="min-width:220px"><label>Rechercher</label><input id="a-search" placeholder="Code, libell\u00e9 ou fournisseur\u2026" value="${state.articlesSearch}"></div>
+    <div class="field" style="width:200px"><label>Filtrer par fournisseur</label>
+      <select id="a-filter-fournisseur">
+        <option value="">Tous les fournisseurs</option>
+        ${fournisseurs.map(f=>`<option value="${f}" ${state.articlesFournisseurFilter===f?'selected':''}>${f}</option>`).join('')}
+      </select>
+    </div>
+    ${(state.articlesSearch || state.articlesFournisseurFilter) ? `<button class="btn secondary small" id="a-clear-filters">R\u00e9initialiser</button>` : ''}
+    <p class="hint" style="margin:0 0 .5rem">${list.length} article(s) affich\u00e9(s) sur ${state.articles.length}</p>
+  </div>
   <table>
-    <tr><th>Code</th><th>Libell\u00e9</th><th>Fournisseur</th><th>Achat HT</th><th>Vente HT</th><th>Eco-contrib.</th><th>Marge</th><th></th></tr>
-    ${state.articles.length ? state.articles.map(a=>{
+    <tr>
+      <th data-sort="code" style="cursor:pointer">Code${arrow('code')}</th>
+      <th data-sort="nom" style="cursor:pointer">Libell\u00e9${arrow('nom')}</th>
+      <th data-sort="fournisseur" style="cursor:pointer">Fournisseur${arrow('fournisseur')}</th>
+      <th data-sort="achat" style="cursor:pointer;text-align:right">Achat HT${arrow('achat')}</th>
+      <th data-sort="vente" style="cursor:pointer;text-align:right">Vente HT${arrow('vente')}</th>
+      <th data-sort="eco" style="cursor:pointer;text-align:right">Eco-contrib.${arrow('eco')}</th>
+      <th data-sort="marge" style="cursor:pointer;text-align:right">Marge${arrow('marge')}</th>
+      <th></th>
+    </tr>
+    ${list.length ? list.map(a=>{
       if(state.editingArticleId === a.id){
         return `<tr>
           <td><input class="num" style="width:100px" value="${a.code}" data-edit-code="${a.id}"></td>
@@ -838,10 +891,27 @@ function renderArticles(){
           <button class="rm-btn" data-del-article="${a.id}" aria-label="Supprimer">&times;</button>
         </td>
       </tr>`;
-    }).join('') : `<tr><td colspan="8" class="empty">Aucun article pour l'instant.</td></tr>`}
+    }).join('') : `<tr><td colspan="8" class="empty">Aucun article ne correspond.</td></tr>`}
   </table>`;
 }
 function bindArticles(){
+  const search = document.getElementById('a-search');
+  if(search) search.oninput = (e)=>{ state.articlesSearch = e.target.value; render(); };
+  const filterF = document.getElementById('a-filter-fournisseur');
+  if(filterF) filterF.onchange = (e)=>{ state.articlesFournisseurFilter = e.target.value; render(); };
+  const clearBtn = document.getElementById('a-clear-filters');
+  if(clearBtn) clearBtn.onclick = ()=>{ state.articlesSearch=''; state.articlesFournisseurFilter=''; render(); };
+  document.querySelectorAll('[data-sort]').forEach(th=>{
+    th.onclick = ()=>{
+      const key = th.dataset.sort;
+      if(state.articlesSort.key === key){
+        state.articlesSort.dir = state.articlesSort.dir==='asc' ? 'desc' : 'asc';
+      } else {
+        state.articlesSort = { key, dir:'asc' };
+      }
+      render();
+    };
+  });
   document.getElementById('add-article').onclick = async ()=>{
     const nom = document.getElementById('a-nom').value.trim();
     if(!nom){ showToast("Le nom de l'article est requis"); return; }
@@ -1184,9 +1254,9 @@ function renderHistorique(){
   <p class="page-sub">D\u00e9tail par devis et par article de la marge r\u00e9alis\u00e9e.</p>
   <button class="btn secondary small" id="export-synthese" style="margin-bottom:1rem">Exporter la synth\u00e8se (Excel)</button>
   <table>
-    <tr><th>Devis</th><th>Client</th><th>Article</th><th>Qt\u00e9</th><th>Vente HT</th><th>Achat</th><th>Marge</th></tr>
+    <tr><th>Devis</th><th>Client</th><th>Article</th><th>Fournisseur</th><th>Qt\u00e9</th><th>Vente HT</th><th>Achat</th><th>Marge</th></tr>
     ${(()=>{
-      if(!docs.length) return `<tr><td colspan="7" class="empty">Aucune ligne pour l'instant.</td></tr>`;
+      if(!docs.length) return `<tr><td colspan="8" class="empty">Aucune ligne pour l'instant.</td></tr>`;
       let out = '';
       let totVenteAll = 0, totAchatAll = 0;
       docs.forEach(d=>{
@@ -1201,16 +1271,17 @@ function renderHistorique(){
             <td class="num">${d.numero}</td>
             <td>${c? clientFullName(c):''}</td>
             <td>${art? art.nom : '(article supprim\u00e9)'}</td>
+            <td>${art&&art.fournisseur? art.fournisseur : ''}</td>
             <td class="num">${l.qty}</td>
             <td class="num">${eur(vente)}</td>
             <td class="num">${eur(achat)}</td>
             <td class="num">${eur(vente-achat)}</td>
           </tr>`;
         });
-        out += `<tr style="background:var(--paper)"><td colspan="4" style="font-weight:bold">Sous-total ${d.numero}</td><td class="num" style="font-weight:bold">${eur(subVente)}</td><td class="num" style="font-weight:bold">${eur(subAchat)}</td><td class="num" style="font-weight:bold">${eur(subVente-subAchat)}</td></tr>`;
+        out += `<tr style="background:var(--paper)"><td colspan="5" style="font-weight:bold">Sous-total ${d.numero}</td><td class="num" style="font-weight:bold">${eur(subVente)}</td><td class="num" style="font-weight:bold">${eur(subAchat)}</td><td class="num" style="font-weight:bold">${eur(subVente-subAchat)}</td></tr>`;
         totVenteAll += subVente; totAchatAll += subAchat;
       });
-      out += `<tr><td colspan="4" style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totVenteAll)}</td><td class="num" style="font-weight:bold">${eur(totAchatAll)}</td><td class="num" style="font-weight:bold">${eur(totVenteAll-totAchatAll)}</td></tr>`;
+      out += `<tr><td colspan="5" style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totVenteAll)}</td><td class="num" style="font-weight:bold">${eur(totAchatAll)}</td><td class="num" style="font-weight:bold">${eur(totVenteAll-totAchatAll)}</td></tr>`;
       return out;
     })()}
   </table>
@@ -1304,6 +1375,7 @@ function bindHistorique(){
           'Devis': d.numero,
           'Client': c? clientFullName(c):'',
           'Article': art? art.nom : '(article supprim\u00e9)',
+          'Fournisseur': art&&art.fournisseur? art.fournisseur : '',
           'Qt\u00e9': l.qty,
           'Vente HT': Math.round(vente*100)/100,
           'Achat': Math.round(achat*100)/100,
@@ -1315,6 +1387,83 @@ function bindHistorique(){
   };
 }
 
+function commandeTotalAchat(cmd){
+  return cmd.lignes.reduce((s,l)=>{
+    const art = state.articles.find(a=>a.id===l.articleId);
+    return s + l.qty*(art? (art.achat||0) : 0);
+  }, 0);
+}
+const COMMANDE_STATUTS = ['En attente','Envoy\u00e9e','Re\u00e7ue'];
+function renderCommandes(){
+  const list = [...state.commandes].reverse();
+  return `
+  <h1 class="page-title">Commandes Toshiba</h1>
+  <p class="page-sub">Commandes fournisseur g\u00e9n\u00e9r\u00e9es depuis vos devis, partag\u00e9es avec toute l'\u00e9quipe.</p>
+  <table>
+    <tr><th>N\u00b0</th><th>Date</th><th>Devis d'origine</th><th>Client</th><th>Lignes</th><th>Total achat HT</th><th>Statut</th><th></th></tr>
+    ${list.length ? list.map(cmd=>{
+      const c = state.clients.find(c=>c.id===cmd.clientId);
+      const totAchat = commandeTotalAchat(cmd);
+      const expanded = state.expandedCommandeId === cmd.id;
+      return `<tr>
+        <td class="num">${cmd.numero}</td>
+        <td>${cmd.date}</td>
+        <td class="num">${cmd.devisNumero||''}</td>
+        <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
+        <td class="num">${cmd.lignes.length}</td>
+        <td class="num">${eur(totAchat)}</td>
+        <td>
+          <select data-cmd-statut="${cmd.id}">
+            ${COMMANDE_STATUTS.map(s=>`<option value="${s}" ${cmd.statut===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-toggle-cmd="${cmd.id}">${expanded ? 'Masquer' : 'Voir'}</button>
+          <button class="rm-btn" data-del-cmd="${cmd.id}" aria-label="Supprimer">&times;</button>
+        </td>
+      </tr>
+      ${expanded ? `<tr><td colspan="8" style="padding:0">
+        <table style="margin:.5rem 0">
+          <tr><th>Code</th><th>Article</th><th>Fournisseur</th><th>Qt\u00e9</th><th>Achat unitaire</th><th>Total achat</th></tr>
+          ${cmd.lignes.map(l=>{
+            const art = state.articles.find(a=>a.id===l.articleId);
+            const achat = art? (art.achat||0) : 0;
+            return `<tr>
+              <td class="num">${art? art.code : ''}</td>
+              <td>${art? art.nom : '(article supprim\u00e9)'}</td>
+              <td>${art&&art.fournisseur? art.fournisseur : ''}</td>
+              <td class="num">${l.qty}</td>
+              <td class="num">${eur(achat)}</td>
+              <td class="num">${eur(l.qty*achat)}</td>
+            </tr>`;
+          }).join('')}
+        </table>
+      </td></tr>` : ''}`;
+    }).join('') : `<tr><td colspan="8" class="empty">Aucune commande Toshiba pour l'instant. Cr\u00e9es-en une depuis un devis avec le bouton \u00ab Transformer en commande Toshiba \u00bb.</td></tr>`}
+  </table>`;
+}
+function bindCommandes(){
+  document.querySelectorAll('[data-toggle-cmd]').forEach(b=>{
+    b.onclick = ()=>{ state.expandedCommandeId = (state.expandedCommandeId===b.dataset.toggleCmd) ? null : b.dataset.toggleCmd; render(); };
+  });
+  document.querySelectorAll('[data-cmd-statut]').forEach(sel=>{
+    sel.onchange = async (e)=>{
+      const cmd = state.commandes.find(c=>c.id===sel.dataset.cmdStatut);
+      if(!cmd) return;
+      cmd.statut = e.target.value;
+      await sset('commandes', state.commandes);
+      showToast('Statut mis \u00e0 jour');
+    };
+  });
+  document.querySelectorAll('[data-del-cmd]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!confirm('Supprimer d\u00e9finitivement cette commande ?')) return;
+      state.commandes = state.commandes.filter(c=>c.id!==b.dataset.delCmd);
+      await sset('commandes', state.commandes);
+      render();
+    };
+  });
+}
 function renderEntreprise(){
   if(!state.editingCompanyId && state.companies.length) state.editingCompanyId = state.companies[0].id;
   const co = state.companies.find(c=>c.id===state.editingCompanyId) || state.companies[0];
@@ -2239,6 +2388,7 @@ function renderDocView(id){
     <button class="btn secondary" id="email-btn">Envoyer par email</button>
     ${d.type==='devis' ? `<button class="btn secondary" id="edit-devis-btn">Modifier ce devis</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-facture-btn">Transformer en facture</button>` : ''}
+    ${d.type==='devis' ? `<button class="btn secondary" id="to-commande-btn">Transformer en commande Toshiba</button>` : ''}
     <button class="btn secondary" id="delete-doc-btn" style="border-color:var(--danger);color:var(--danger)">Supprimer</button>
   </div>`;
 }
@@ -2455,6 +2605,28 @@ function bindDocView(){
     await sset('counters', state.counters);
     showToast('Facture ' + numero + ' cr\u00e9\u00e9e');
     state.viewingDoc = facture.id;
+    render();
+  };
+  const tcb = document.getElementById('to-commande-btn');
+  if(tcb) tcb.onclick = async ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    if(!d.lignes || !d.lignes.length){ showToast('Ce devis ne contient aucune ligne'); return; }
+    state.counters.commande = (state.counters.commande||0) + 1;
+    const numero = 'CT-' + new Date().getFullYear() + '-' + String(state.counters.commande).padStart(4,'0');
+    const commande = {
+      id: uid(), numero, date: todayStr(),
+      devisId: d.id, devisNumero: d.numero,
+      clientId: d.clientId, companyId: d.companyId,
+      lignes: d.lignes.map(l=>({ articleId: l.articleId, qty: l.qty })),
+      statut: 'En attente',
+      auteur: state.currentUser,
+    };
+    state.commandes.push(commande);
+    await sset('commandes', state.commandes);
+    await sset('counters', state.counters);
+    showToast('Commande Toshiba ' + numero + ' cr\u00e9\u00e9e');
+    state.viewingDoc = null;
+    state.tab = 'commandes';
     render();
   };
   fitDocToOnePage();
