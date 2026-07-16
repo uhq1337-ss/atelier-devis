@@ -1037,24 +1037,18 @@ function renderBuilder(){
     <div class="field" style="max-width:360px;position:relative">
       <label>Client</label>
       <input type="text" id="b-client-search" placeholder="Taper pour rechercher un client..." autocomplete="off"
-        value="${b.clientSearchOpen ? (b.clientSearchText||'') : clientFullName(state.clients.find(c=>c.id===b.clientId))}">
-      ${b.clientSearchOpen ? (()=>{
-        const q = (b.clientSearchText||'').trim().toLowerCase();
-        const matches = state.clients.filter(c=>{
-          if(!q) return true;
-          return clientFullName(c).toLowerCase().includes(q) || (c.ville||'').toLowerCase().includes(q) || (c.cp||'').includes(q);
-        }).slice(0,8);
-        return `<div style="position:absolute;top:100%;left:0;right:0;z-index:20;background:#fff;border:1px solid var(--line-strong);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);max-height:280px;overflow-y:auto">
-          ${matches.length ? matches.map(c=>`
-            <div class="client-suggestion" data-pick-client="${c.id}" style="padding:.5rem .75rem;cursor:pointer;border-bottom:1px solid var(--line)">
-              <div style="font-weight:600">${clientFullName(c)}</div>
-              <div style="font-size:12px;color:var(--muted)">${c.cp||''} ${c.ville||''}${c.adresse? ' \u2014 '+c.adresse : ''}</div>
-            </div>`).join('') : `<div style="padding:.5rem .75rem;color:var(--muted);font-size:13px">Aucun client trouv\u00e9.</div>`}
-        </div>`;
-      })() : ''}
-      ${(!b.clientSearchOpen && b.clientId) ? (()=>{
+        value="${clientFullName(state.clients.find(c=>c.id===b.clientId))}">
+      <div id="client-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:20;background:#fff;border:1px solid var(--line-strong);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);max-height:280px;overflow-y:auto">
+        ${state.clients.map(c=>`
+          <div class="client-suggestion" data-pick-client="${c.id}" data-search="${(clientFullName(c)+' '+(c.ville||'')+' '+(c.cp||'')).toLowerCase()}" style="padding:.5rem .75rem;cursor:pointer;border-bottom:1px solid var(--line)">
+            <div style="font-weight:600">${clientFullName(c)}</div>
+            <div style="font-size:12px;color:var(--muted)">${c.cp||''} ${c.ville||''}${c.adresse? ' \u2014 '+c.adresse : ''}</div>
+          </div>`).join('')}
+        <div id="client-no-match" style="display:none;padding:.5rem .75rem;color:var(--muted);font-size:13px">Aucun client trouv\u00e9.</div>
+      </div>
+      ${b.clientId ? (()=>{
         const selected = state.clients.find(c=>c.id===b.clientId);
-        return selected ? `<p class="hint" style="margin-top:.35rem">\u2713 S\u00e9lectionn\u00e9\u00a0: ${selected.adresse||''}${selected.comp? ', '+selected.comp:''}, ${selected.cp||''} ${selected.ville||''}</p>` : '';
+        return selected ? `<p class="hint" id="client-selected-hint" style="margin-top:.35rem">\u2713 S\u00e9lectionn\u00e9\u00a0: ${selected.adresse||''}${selected.comp? ', '+selected.comp:''}, ${selected.cp||''} ${selected.ville||''}</p>` : '';
       })() : ''}
     </div>
     ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
@@ -1128,28 +1122,37 @@ function bindBuilder(){
     btn.onclick = ()=>{ b.companyId = btn.dataset.pickCompany; render(); };
   });
   const clientSearch = document.getElementById('b-client-search');
-  clientSearch.oninput = (e)=>{
-    b.clientSearchText = e.target.value;
-    b.clientSearchOpen = true;
-    render();
+  const clientDropdown = document.getElementById('client-dropdown');
+  const clientNoMatch = document.getElementById('client-no-match');
+  const clientRows = Array.from(document.querySelectorAll('[data-pick-client]'));
+  const filterClientRows = ()=>{
+    const q = clientSearch.value.trim().toLowerCase();
+    let visibleCount = 0;
+    clientRows.forEach(row=>{
+      const show = !q || row.dataset.search.includes(q);
+      row.style.display = show ? '' : 'none';
+      if(show) visibleCount++;
+    });
+    if(clientNoMatch) clientNoMatch.style.display = visibleCount ? 'none' : '';
   };
+  clientSearch.oninput = ()=>{ filterClientRows(); };
   clientSearch.onfocus = ()=>{
-    if(b.clientSearchText == null){ b.clientSearchText = ''; }
-    b.clientSearchOpen = true;
-    render();
+    clientSearch.value = '';
+    filterClientRows();
+    if(clientDropdown) clientDropdown.style.display = '';
   };
   document.querySelectorAll('[data-pick-client]').forEach(row=>{
-    const pick = ()=>{
+    row.onmousedown = (e)=>{
+      e.preventDefault();
       b.clientId = row.dataset.pickClient;
-      b.clientSearchOpen = false;
-      b.clientSearchText = null;
       render();
     };
-    row.onmousedown = (e)=>{ e.preventDefault(); pick(); };
-    row.onclick = pick;
   });
   clientSearch.onblur = ()=>{
-    setTimeout(()=>{ b.clientSearchOpen = false; b.clientSearchText = null; render(); }, 150);
+    setTimeout(()=>{
+      if(clientDropdown) clientDropdown.style.display = 'none';
+      clientSearch.value = clientFullName(state.clients.find(c=>c.id===b.clientId));
+    }, 150);
   };
   document.getElementById('b-objet').oninput = (e)=>{ b.objet = e.target.value; };
   document.getElementById('b-infocomp').oninput = (e)=>{ b.infoComp = e.target.value; };
