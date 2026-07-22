@@ -2759,15 +2759,27 @@ function renderDocView(id){
         <div class="txt" id="infocomp-text" style="white-space:pre-line">${d.infoComp}</div>
       </div>` : ''}
       <div class="p2-bottom-row">
-        ${co.conditions && co.conditions.length ? `<div class="p2-conditions">
+        ${d.type==='facture' ? `<div class="p2-conditions">
+          <div class="lbl" style="color:${color}">Conditions</div>
+          <ul>
+            <li>Pas d'escompte pour r\u00e8glement anticip\u00e9</li>
+            <li>Conditions de paiement : paiement \u00e0 r\u00e9ception</li>
+            <li>\u00c9ch\u00e9ance : \u00c0 r\u00e9ception</li>
+            <li>P\u00e9nalit\u00e9s de retard en cas de r\u00e8glement tardif : 3 fois le taux int\u00e9r\u00eat l\u00e9gal sera exigible (Article L 441-6, alin\u00e9a 12 du Code de Commerce)</li>
+            <li>Indemnit\u00e9 forfaitaire de 40 \u20ac pour frais de recouvrement, \u00e0 l'occasion de tout retard de paiement</li>
+          </ul>
+        </div>` : (co.conditions && co.conditions.length ? `<div class="p2-conditions">
           <div class="lbl" style="color:${color}">Conditions</div>
           <ul>${co.conditions.map(c=>`<li>${c}</li>`).join('')}</ul>
-        </div>` : ''}
-        <div class="p2-totals" style="${co.conditions && co.conditions.length ? '' : 'max-width:320px;margin-left:auto'}">
+        </div>` : '')}
+        <div class="p2-totals" style="${(d.type==='facture' || (co.conditions && co.conditions.length)) ? '' : 'max-width:320px;margin-left:auto'}">
           <div class="r"><span>Total HT</span><span class="num">${eur(t.ht)}</span></div>
           ${t.eco ? `<div class="r"><span>Total \u00e9co-contribution</span><span class="num">${eur(t.eco)}</span></div>` : ''}
           <div class="r"><span>TVA (${d.tva}%)</span><span class="num">${eur(t.tva)}</span></div>
           <div class="r ttc" style="background:${color}"><span>Total TTC</span><span class="num">${eur(t.ttc)}</span></div>
+          ${d.type==='facture' ? `
+          <div class="r"><span>Montant d\u00e9j\u00e0 pay\u00e9</span><span class="num">${d.montantPaye ? eur(parseNum(d.montantPaye)) : '\u00c0 renseigner'}</span></div>
+          <div class="r ttc" style="background:${color}"><span>Net \u00e0 payer</span><span class="num">${eur(t.ttc - parseNum(d.montantPaye||0))}</span></div>` : ''}
           <div class="p2-signbox">Bon pour accord<br><span style="font-weight:normal">Date et signature</span></div>
         </div>
       </div>
@@ -2817,6 +2829,13 @@ function renderDocView(id){
     <div class="row" style="align-items:flex-end">
       <div class="field" style="max-width:180px"><input type="date" id="facture-date-edit" value="${frDateToIso(d.date)}"></div>
       <button class="btn small" id="save-facture-date">Enregistrer</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:1.25rem;max-width:340px">
+    <p class="subhead" style="margin-bottom:.5rem">Montant d\u00e9j\u00e0 pay\u00e9</p>
+    <div class="row" style="align-items:flex-end">
+      <div class="field" style="max-width:180px"><input type="text" inputmode="decimal" id="facture-montant-paye-edit" value="${d.montantPaye||''}" placeholder="0.00"></div>
+      <button class="btn small" id="save-facture-montant-paye">Enregistrer</button>
     </div>
   </div>` : ''}`;
 }
@@ -3021,6 +3040,16 @@ function bindDocView(){
     d.date = isoDateToFr(dateInput.value);
     await sset('documents', state.documents);
     showToast('Date mise \u00e0 jour');
+    render();
+  };
+  const saveFactureMontantPayeBtn = document.getElementById('save-facture-montant-paye');
+  if(saveFactureMontantPayeBtn) saveFactureMontantPayeBtn.onclick = async ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    const input = document.getElementById('facture-montant-paye-edit');
+    if(!d) return;
+    d.montantPaye = parseNum(input.value)||0;
+    await sset('documents', state.documents);
+    showToast('Montant d\u00e9j\u00e0 pay\u00e9 mis \u00e0 jour');
     render();
   };
   if(deleteBtn) deleteBtn.onclick = async ()=>{
