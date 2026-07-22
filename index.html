@@ -339,6 +339,8 @@ let state = {
   accountsSearch: '',
   accountsSort: { key:'code', dir:'asc' },
   ecrituresSearch: '',
+  ecrituresDateFrom: '',
+  ecrituresDateTo: '',
   ecrituresSort: { key:'pieceNum', dir:'desc' },
   expandedCommandeId: null,
   viewingCommande: null,
@@ -610,7 +612,8 @@ function renderShell(){
     ['clients','Clients'],
     ['articles','Articles'],
     ['nouveau','Nouveau devis'],
-    ['historique','Historique'],
+    ['devis-liste','Devis'],
+    ['factures-liste','Factures'],
     ['commandes','Commandes Toshiba'],
     ['entreprise','Entreprises'],
     ['compta','Comptabilit\u00e9'],
@@ -659,7 +662,8 @@ function renderTab(){
   if(state.tab==='clients') return renderClients();
   if(state.tab==='articles') return renderArticles();
   if(state.tab==='nouveau') return renderBuilder();
-  if(state.tab==='historique') return renderHistorique();
+  if(state.tab==='devis-liste') return renderDevisListe();
+  if(state.tab==='factures-liste') return renderFacturesListe();
   if(state.tab==='commandes') return renderCommandes();
   if(state.tab==='entreprise') return renderEntreprise();
   if(state.tab==='compta') return renderCompta();
@@ -671,7 +675,8 @@ function bindTab(){
   if(state.tab==='clients') return bindClients();
   if(state.tab==='articles') return bindArticles();
   if(state.tab==='nouveau') return bindBuilder();
-  if(state.tab==='historique') return bindHistorique();
+  if(state.tab==='devis-liste') return bindDevisListe();
+  if(state.tab==='factures-liste') return bindFacturesListe();
   if(state.tab==='commandes') return bindCommandes();
   if(state.tab==='entreprise') return bindEntreprise();
   if(state.tab==='compta') return bindCompta();
@@ -1271,20 +1276,19 @@ function bindBuilder(){
   };
 }
 
-function renderHistorique(){
-  const docs = [...state.documents].reverse();
+function renderDevisListe(){
+  const docs = state.documents.filter(d=>d.type==='devis').reverse();
   return `
-  <h1 class="page-title">Historique</h1>
-  <p class="page-sub">Tous les devis et factures cr\u00e9\u00e9s par l'\u00e9quipe.</p>
+  <h1 class="page-title">Devis</h1>
+  <p class="page-sub">Tous les devis cr\u00e9\u00e9s par l'\u00e9quipe.</p>
   <table>
-    <tr><th>N\u00b0</th><th>Type</th><th>Entreprise</th><th>Client</th><th>Date</th><th>Total TTC</th><th>Auteur</th><th></th></tr>
+    <tr><th>N\u00b0</th><th>Entreprise</th><th>Client</th><th>Date</th><th>Total TTC</th><th>Auteur</th><th></th></tr>
     ${docs.length ? docs.map(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
       const co = state.companies.find(co=>co.id===d.companyId);
       const t = calcTotals(d);
       return `<tr>
         <td class="num">${d.numero}</td>
-        <td><span class="badge ${d.type==='facture'?'facture':''}">${d.type}</span></td>
         <td>${co? co.name : ''}</td>
         <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
         <td>${d.date}</td>
@@ -1295,7 +1299,7 @@ function renderHistorique(){
           <button class="rm-btn" data-del-doc="${d.id}" aria-label="Supprimer">&times;</button>
         </td>
       </tr>`;
-    }).join('') : `<tr><td colspan="8" class="empty">Aucun document pour l'instant.</td></tr>`}
+    }).join('') : `<tr><td colspan="7" class="empty">Aucun devis pour l'instant.</td></tr>`}
   </table>
 
   <hr class="divider">
@@ -1320,7 +1324,7 @@ function renderHistorique(){
         <td class="num">${idx}</td>
         <td><button class="btn secondary small" data-view="${d.id}">Ouvrir</button></td>
       </tr>`;
-    }).join('') : `<tr><td colspan="10" class="empty">Aucun document pour l'instant.</td></tr>`}
+    }).join('') : `<tr><td colspan="10" class="empty">Aucun devis pour l'instant.</td></tr>`}
   </table>
 
   <hr class="divider">
@@ -1408,7 +1412,35 @@ function renderHistorique(){
     })()}
   </table>`;
 }
-function bindHistorique(){
+function renderFacturesListe(){
+  const docs = state.documents.filter(d=>d.type==='facture').reverse();
+  const totTTC = docs.reduce((s,d)=>s+calcTotals(d).ttc,0);
+  return `
+  <h1 class="page-title">Factures</h1>
+  <p class="page-sub">Toutes les factures \u00e9mises par l'\u00e9quipe.</p>
+  <table>
+    <tr><th>N\u00b0</th><th>Entreprise</th><th>Client</th><th>Date</th><th>Total TTC</th><th>Auteur</th><th></th></tr>
+    ${docs.length ? docs.map(d=>{
+      const c = state.clients.find(c=>c.id===d.clientId);
+      const co = state.companies.find(co=>co.id===d.companyId);
+      const t = calcTotals(d);
+      return `<tr>
+        <td class="num">${d.numero}</td>
+        <td>${co? co.name : ''}</td>
+        <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
+        <td>${d.date}</td>
+        <td class="num">${eur(t.ttc)}</td>
+        <td>${d.auteur}</td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-view="${d.id}">Voir</button>
+          <button class="rm-btn" data-del-doc="${d.id}" aria-label="Supprimer">&times;</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty">Aucune facture pour l'instant.</td></tr>`}
+    ${docs.length ? `<tr><td colspan="4" style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totTTC)}</td><td colspan="2"></td></tr>` : ''}
+  </table>`;
+}
+function bindDevisListe(){
   document.querySelectorAll('[data-view]').forEach(b=>{
     b.onclick = ()=>{ state.viewingDoc = b.dataset.view; render(); };
   });
@@ -1425,7 +1457,7 @@ function bindHistorique(){
   });
   const exp = document.getElementById('export-overview');
   if(exp) exp.onclick = ()=>{
-    const docs = [...state.documents].reverse();
+    const docs = state.documents.filter(d=>d.type==='devis').reverse();
     const rows = docs.map(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
       const co = state.companies.find(co=>co.id===d.companyId);
@@ -1451,7 +1483,7 @@ function bindHistorique(){
   };
   const expSynth = document.getElementById('export-synthese');
   if(expSynth) expSynth.onclick = ()=>{
-    const docs2 = [...state.documents].reverse();
+    const docs2 = state.documents.filter(d=>d.type==='devis').reverse();
     let rows = [];
     docs2.forEach(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
@@ -1473,6 +1505,22 @@ function bindHistorique(){
     });
     exportToExcel(rows, 'synthese-marge.xlsx', 'Synthese');
   };
+}
+function bindFacturesListe(){
+  document.querySelectorAll('[data-view]').forEach(b=>{
+    b.onclick = ()=>{ state.viewingDoc = b.dataset.view; render(); };
+  });
+  document.querySelectorAll('[data-del-doc]').forEach(b=>{
+    b.onclick = async ()=>{
+      const d = state.documents.find(x=>x.id===b.dataset.delDoc);
+      if(!d) return;
+      if(!confirm(`Supprimer d\u00e9finitivement la facture ${d.numero} ? Cette action est irr\u00e9versible.`)) return;
+      state.documents = state.documents.filter(x=>x.id!==d.id);
+      await sset('documents', state.documents);
+      showToast(d.numero + ' supprim\u00e9e');
+      render();
+    };
+  });
 }
 
 function commandeTotalAchat(cmd){
@@ -2208,6 +2256,12 @@ function renderEcritures(){
       return matchHead || matchLignes;
     });
   }
+  if(state.ecrituresDateFrom){
+    entries = entries.filter(en=> en.date && en.date >= state.ecrituresDateFrom);
+  }
+  if(state.ecrituresDateTo){
+    entries = entries.filter(en=> en.date && en.date <= state.ecrituresDateTo);
+  }
   entries.sort((a,b)=>{
     let va, vb;
     if(sortKey==='journal'){
@@ -2228,7 +2282,9 @@ function renderEcritures(){
   <button class="btn secondary small" id="export-ecritures" style="margin-bottom:1rem">Exporter les \u00e9critures (Excel)</button>
   <div class="row" style="margin-bottom:1rem;align-items:flex-end">
     <div class="field" style="min-width:240px"><label>Rechercher</label><input id="ec-search" placeholder="Journal, compte, libell\u00e9, date, n\u00b0 facture ou pi\u00e8ce\u2026" value="${state.ecrituresSearch}"></div>
-    ${state.ecrituresSearch ? `<button class="btn secondary small" id="ec-clear-search">R\u00e9initialiser</button>` : ''}
+    <div class="field" style="width:160px"><label>Du</label><input type="date" id="ec-date-from" value="${state.ecrituresDateFrom||''}"></div>
+    <div class="field" style="width:160px"><label>Au</label><input type="date" id="ec-date-to" value="${state.ecrituresDateTo||''}"></div>
+    ${(state.ecrituresSearch || state.ecrituresDateFrom || state.ecrituresDateTo) ? `<button class="btn secondary small" id="ec-clear-search">R\u00e9initialiser</button>` : ''}
     <p class="hint" style="margin:0 0 .5rem">${entries.length} \u00e9criture(s) affich\u00e9e(s) sur ${state.entries.length}</p>
   </div>
   <table>
@@ -2263,8 +2319,12 @@ function renderEcritures(){
 function bindEcritures(){
   const search = document.getElementById('ec-search');
   if(search) search.oninput = (e)=>{ state.ecrituresSearch = e.target.value; render(); };
+  const dateFrom = document.getElementById('ec-date-from');
+  if(dateFrom) dateFrom.onchange = (e)=>{ state.ecrituresDateFrom = e.target.value; render(); };
+  const dateTo = document.getElementById('ec-date-to');
+  if(dateTo) dateTo.onchange = (e)=>{ state.ecrituresDateTo = e.target.value; render(); };
   const clearBtn = document.getElementById('ec-clear-search');
-  if(clearBtn) clearBtn.onclick = ()=>{ state.ecrituresSearch=''; render(); };
+  if(clearBtn) clearBtn.onclick = ()=>{ state.ecrituresSearch=''; state.ecrituresDateFrom=''; state.ecrituresDateTo=''; render(); };
   document.querySelectorAll('[data-ec-sort]').forEach(th=>{
     th.onclick = ()=>{
       const key = th.dataset.ecSort;
@@ -2750,7 +2810,15 @@ function renderDocView(id){
     ${d.type==='devis' ? `<button class="btn secondary" id="to-facture-btn">Transformer en facture</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-commande-btn">Transformer en commande Toshiba</button>` : ''}
     <button class="btn secondary" id="delete-doc-btn" style="border-color:var(--danger);color:var(--danger)">Supprimer</button>
-  </div>`;
+  </div>
+  ${d.type==='facture' ? `
+  <div class="card" style="margin-top:1.25rem;max-width:340px">
+    <p class="subhead" style="margin-bottom:.5rem">Modifier la date</p>
+    <div class="row" style="align-items:flex-end">
+      <div class="field" style="max-width:180px"><input type="date" id="facture-date-edit" value="${frDateToIso(d.date)}"></div>
+      <button class="btn small" id="save-facture-date">Enregistrer</button>
+    </div>
+  </div>` : ''}`;
 }
 async function buildDocPdf(){
   const sheets = Array.from(document.querySelectorAll('#print-area .paper2'));
@@ -2945,6 +3013,16 @@ function bindDocView(){
     render();
   };
   const deleteBtn = document.getElementById('delete-doc-btn');
+  const saveFactureDateBtn = document.getElementById('save-facture-date');
+  if(saveFactureDateBtn) saveFactureDateBtn.onclick = async ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    const dateInput = document.getElementById('facture-date-edit');
+    if(!d || !dateInput.value) return;
+    d.date = isoDateToFr(dateInput.value);
+    await sset('documents', state.documents);
+    showToast('Date mise \u00e0 jour');
+    render();
+  };
   if(deleteBtn) deleteBtn.onclick = async ()=>{
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     if(!d) return;
@@ -2959,7 +3037,7 @@ function bindDocView(){
   if(tfb) tfb.onclick = async ()=>{
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     state.counters.facture += 1;
-    const numero = 'F-' + new Date().getFullYear() + '-' + String(state.counters.facture).padStart(4,'0');
+    const numero = 'F-' + new Date().getFullYear() + '-' + String(state.counters.facture).padStart(3,'0');
     const facture = Object.assign(JSON.parse(JSON.stringify(d)), { id: uid(), type:'facture', numero, date: todayStr(), parentDevisId: d.id });
     state.documents.push(facture);
     await sset('documents', state.documents);
