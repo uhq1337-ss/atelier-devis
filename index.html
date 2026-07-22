@@ -292,6 +292,18 @@ function parseNum(v){
   return isNaN(n) ? 0 : n;
 }
 function todayStr(){ const d=new Date(); return d.toLocaleDateString('fr-FR'); }
+function frDateToIso(s){
+  const parts = (s||'').split('/');
+  if(parts.length!==3) return '';
+  const [dd,mm,yyyy] = parts;
+  return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+}
+function isoDateToFr(s){
+  const parts = (s||'').split('-');
+  if(parts.length!==3) return '';
+  const [yyyy,mm,dd] = parts;
+  return `${dd}/${mm}/${yyyy}`;
+}
 function shadeColor(hex, percent){
   try{
     let f=parseInt(hex.slice(1),16), t=percent<0?0:255, p=Math.abs(percent);
@@ -844,9 +856,9 @@ function renderArticles(){
       <div class="field" style="width:110px"><label>Code</label><input id="a-code" placeholder="REF-001"></div>
       <div class="field" style="flex:2;min-width:180px"><label>Libell\u00e9</label><input id="a-nom" placeholder="Nom de l'article"></div>
       <div class="field" style="width:150px"><label>Fournisseur</label><input id="a-fournisseur" placeholder="Nom du fournisseur"></div>
-      <div class="field" style="width:150px"><label>Prix achat HT hors \u00e9co-contribution (\u20ac)</label><input id="a-achat" type="number" step="0.01" placeholder="0.00"></div>
-      <div class="field" style="width:120px"><label>Prix de vente HT (\u20ac)</label><input id="a-vente" type="number" step="0.01" placeholder="0.00"></div>
-      <div class="field" style="width:130px"><label>\u00c9co-contribution (\u20ac)</label><input id="a-eco" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="field" style="width:150px"><label>Prix achat HT hors \u00e9co-contribution (\u20ac)</label><input id="a-achat" type="text" inputmode="decimal" placeholder="0.00"></div>
+      <div class="field" style="width:120px"><label>Prix de vente HT (\u20ac)</label><input id="a-vente" type="text" inputmode="decimal" placeholder="0.00"></div>
+      <div class="field" style="width:130px"><label>\u00c9co-contribution (\u20ac)</label><input id="a-eco" type="text" inputmode="decimal" placeholder="0.00"></div>
     </div>
     <button class="btn" id="add-article">Ajouter l'article</button>
     <hr class="divider">
@@ -885,9 +897,9 @@ function renderArticles(){
           <td><input class="num" style="width:100px" value="${a.code}" data-edit-code="${a.id}"></td>
           <td><input style="width:100%;min-width:140px" value="${a.nom}" data-edit-nom="${a.id}"></td>
           <td><input style="width:100%;min-width:110px" value="${a.fournisseur||''}" data-edit-fournisseur="${a.id}"></td>
-          <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.achat}" data-edit-achat="${a.id}"></td>
-          <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.vente}" data-edit-vente="${a.id}"></td>
-          <td><input class="num" type="number" step="0.01" style="width:90px" value="${a.eco}" data-edit-eco="${a.id}"></td>
+          <td><input class="num" type="text" inputmode="decimal" style="width:90px" value="${a.achat}" data-edit-achat="${a.id}"></td>
+          <td><input class="num" type="text" inputmode="decimal" style="width:90px" value="${a.vente}" data-edit-vente="${a.id}"></td>
+          <td><input class="num" type="text" inputmode="decimal" style="width:90px" value="${a.eco}" data-edit-eco="${a.id}"></td>
           <td class="num">${eur(a.vente - a.achat)}</td>
           <td style="white-space:nowrap">
             <button class="btn small" data-save-article="${a.id}">Enregistrer</button>
@@ -1057,6 +1069,10 @@ function renderBuilder(){
       })() : ''}
     </div>
     ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
+    <div class="field" style="max-width:200px">
+      <label>Date${editingDoc? ' ('+editingDoc.type+')' : ''}</label>
+      <input type="date" id="b-date" value="${frDateToIso(b.date||todayStr())}">
+    </div>
     <div class="field">
       <label>Objet du devis</label>
       <input id="b-objet" placeholder="Ex : Devis pour prestations de maintenance CVC" value="${b.objet}">
@@ -1160,6 +1176,7 @@ function bindBuilder(){
       clientSearch.value = clientFullName(state.clients.find(c=>c.id===b.clientId));
     }, 150);
   };
+  document.getElementById('b-date').onchange = (e)=>{ b.date = isoDateToFr(e.target.value); };
   document.getElementById('b-objet').oninput = (e)=>{ b.objet = e.target.value; };
   document.getElementById('b-infocomp').oninput = (e)=>{ b.infoComp = e.target.value; };
   document.getElementById('b-travaux-same').onchange = (e)=>{ b.travauxSameAsClient = e.target.checked; render(); };
@@ -1209,6 +1226,7 @@ function bindBuilder(){
       const existing = state.documents.find(d=>d.id===b.editingDocId);
       if(existing){
         existing.clientId = b.clientId;
+        existing.date = b.date || existing.date;
         existing.companyId = b.companyId;
         existing.objet = b.objet;
         existing.infoComp = b.infoComp||'';
@@ -1231,7 +1249,7 @@ function bindBuilder(){
     const numero = 'D-' + new Date().getFullYear() + '-' + String(state.counters.devis).padStart(4,'0');
     const doc = {
       id: uid(), type:'devis', numero,
-      date: todayStr(), clientId: b.clientId, companyId: b.companyId, objet: b.objet, infoComp: b.infoComp||'', auteur: state.currentUser,
+      date: b.date || todayStr(), clientId: b.clientId, companyId: b.companyId, objet: b.objet, infoComp: b.infoComp||'', auteur: state.currentUser,
       travauxSameAsClient: b.travauxSameAsClient!==false,
       travauxNom: b.travauxNom||'', travauxAdresse: b.travauxAdresse||'', travauxCp: b.travauxCp||'', travauxVille: b.travauxVille||'',
       lignes: JSON.parse(JSON.stringify(b.lignes)), tva: b.tva, notes: '',
@@ -2916,6 +2934,7 @@ function bindDocView(){
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     state.builder = {
       clientId: d.clientId, companyId: d.companyId, objet: d.objet||'', infoComp: d.infoComp||'',
+      date: d.date,
       travauxSameAsClient: d.travauxSameAsClient!==false,
       travauxNom: d.travauxNom||'', travauxAdresse: d.travauxAdresse||'', travauxCp: d.travauxCp||'', travauxVille: d.travauxVille||'',
       lignes: JSON.parse(JSON.stringify(d.lignes)), tva: d.tva, notes: '',
