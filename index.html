@@ -1012,10 +1012,10 @@ function lineEcoUnit(l){
   return art && art.eco ? art.eco : 0;
 }
 function lineHT(l){
-  return l.qty * (l.pu + lineEcoUnit(l));
+  return parseNum(l.qty) * (parseNum(l.pu) + lineEcoUnit(l));
 }
 function lineEcoTotal(l){
-  return l.qty * lineEcoUnit(l);
+  return parseNum(l.qty) * lineEcoUnit(l);
 }
 function calcTotals(b){
   const ht = b.lignes.reduce((s,l)=> s + lineHT(l), 0);
@@ -1190,13 +1190,13 @@ function bindBuilder(){
     };
   });
   document.querySelectorAll('[data-line-qty]').forEach(inp=>{
-    inp.oninput = (e)=>{ b.lignes[+inp.dataset.lineQty].qty = parseNum(e.target.value)||0; render(); };
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.lineQty].qty = e.target.value; render(); };
   });
   document.querySelectorAll('[data-line-unite]').forEach(sel=>{
     sel.onchange = (e)=>{ b.lignes[+sel.dataset.lineUnite].unite = e.target.value; };
   });
   document.querySelectorAll('[data-line-pu]').forEach(inp=>{
-    inp.oninput = (e)=>{ b.lignes[+inp.dataset.linePu].pu = parseNum(e.target.value)||0; render(); };
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.linePu].pu = e.target.value; render(); };
   });
   document.querySelectorAll('[data-line-del]').forEach(btn=>{
     btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.lineDel,1); render(); };
@@ -1331,8 +1331,8 @@ function renderHistorique(){
           let subVenteF = 0, subAchatF = 0;
           parFournisseur[fourn].forEach(l=>{
             const art = state.articles.find(a=>a.id===l.articleId);
-            const vente = l.qty*l.pu;
-            const achat = art? l.qty*(art.achat||0) : 0;
+            const vente = parseNum(l.qty)*parseNum(l.pu);
+            const achat = art? parseNum(l.qty)*(art.achat||0) : 0;
             subVenteF += vente; subAchatF += achat;
             out += `<tr>
               <td class="num">${d.numero}</td>
@@ -1368,8 +1368,8 @@ function renderHistorique(){
           const art = state.articles.find(a=>a.id===l.articleId);
           const fourn = (art && art.fournisseur && art.fournisseur.trim()) ? art.fournisseur.trim() : 'Sans fournisseur';
           if(!parFournisseur[fourn]) parFournisseur[fourn] = {vente:0, achat:0};
-          parFournisseur[fourn].vente += l.qty*l.pu;
-          parFournisseur[fourn].achat += art? l.qty*(art.achat||0) : 0;
+          parFournisseur[fourn].vente += parseNum(l.qty)*parseNum(l.pu);
+          parFournisseur[fourn].achat += art? parseNum(l.qty)*(art.achat||0) : 0;
         });
       });
       const keys = Object.keys(parFournisseur).sort((a,b)=>a.localeCompare(b));
@@ -1439,14 +1439,14 @@ function bindHistorique(){
       const c = state.clients.find(c=>c.id===d.clientId);
       d.lignes.forEach(l=>{
         const art = state.articles.find(a=>a.id===l.articleId);
-        const vente = l.qty*l.pu;
-        const achat = art? l.qty*(art.achat||0) : 0;
+        const vente = parseNum(l.qty)*parseNum(l.pu);
+        const achat = art? parseNum(l.qty)*(art.achat||0) : 0;
         rows.push({
           'Devis': d.numero,
           'Client': c? clientFullName(c):'',
           'Article': art? art.nom : '(article supprim\u00e9)',
           'Fournisseur': art&&art.fournisseur? art.fournisseur : '',
-          'Qt\u00e9': l.qty,
+          'Qt\u00e9': parseNum(l.qty),
           'Vente HT': Math.round(vente*100)/100,
           'Achat': Math.round(achat*100)/100,
           'Marge': Math.round((vente-achat)*100)/100,
@@ -1460,7 +1460,7 @@ function bindHistorique(){
 function commandeTotalAchat(cmd){
   return cmd.lignes.reduce((s,l)=>{
     const art = state.articles.find(a=>a.id===l.articleId);
-    return s + l.qty*(art? (art.achat||0) : 0);
+    return s + parseNum(l.qty)*(art? (art.achat||0) : 0);
   }, 0);
 }
 const COMMANDE_STATUTS = ['En attente','Envoy\u00e9e','Re\u00e7ue'];
@@ -1549,7 +1549,7 @@ function renderCommandeView(id){
     const art = state.articles.find(a=>a.id===l.articleId);
     const achat = art? (art.achat||0) : 0;
     const eco = art? (art.eco||0) : 0;
-    const montantLigne = l.qty*achat;
+    const montantLigne = parseNum(l.qty)*achat;
     totGeneral += montantLigne;
     rowsHtml += `<tr>
       <td style="${td}">${ligCounter}-000</td>
@@ -1562,7 +1562,7 @@ function renderCommandeView(id){
       <td style="${td};text-align:right">${eur(montantLigne)}</td>
     </tr>`;
     if(eco){
-      totGeneral += l.qty*eco;
+      totGeneral += parseNum(l.qty)*eco;
       rowsHtml += `<tr>
         <td style="${td}"></td>
         <td style="${td}">TT0012</td>
@@ -1571,7 +1571,7 @@ function renderCommandeView(id){
         <td style="${td}"></td>
         <td style="${td}"></td>
         <td style="${td}"></td>
-        <td style="${td};text-align:right">${eur(l.qty*eco)}</td>
+        <td style="${td};text-align:right">${eur(parseNum(l.qty)*eco)}</td>
       </tr>`;
     }
     ligCounter += 10;
@@ -2670,7 +2670,7 @@ function renderDocView(id){
             <td>${art? art.nom : '(article supprim\u00e9)'}</td>
             <td style="text-align:right" class="num">${l.qty}</td>
             <td>${l.unite||'Forfait'}</td>
-            <td style="text-align:right" class="num">${eur(l.pu)}</td>
+            <td style="text-align:right" class="num">${eur(parseNum(l.pu))}</td>
             <td style="text-align:right" class="num">${eur(lineHT(l))}</td>
             <td style="text-align:right" class="num">${art&&art.eco? eur(lineEcoTotal(l)):'\u2013'}</td>
           </tr>`;
