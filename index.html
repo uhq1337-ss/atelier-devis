@@ -2783,10 +2783,10 @@ function renderDocView(id){
           <div class="p2-signbox">Bon pour accord<br><span style="font-weight:normal">Date et signature</span></div>
         </div>
       </div>
-      <div class="p2-icons-row">
+      ${d.type==='devis' ? `<div class="p2-icons-row">
         <div><div class="ic-title">Dur\u00e9e de validit\u00e9 du devis</div><div class="ic-desc">${co.validityText||''}</div></div>
         <div><div class="ic-title">Conditions de r\u00e8glement</div><div class="ic-desc">${co.paymentText||''}</div></div>
-      </div>
+      </div>` : ''}
     </div>
     <div class="p2-tagline" style="background:${colorDark}">
       <div class="q">\u00ab ${co.footerTagline||''} \u00bb</div>
@@ -2814,6 +2814,15 @@ function renderDocView(id){
     </div>
   </div></div>` : ''}
   </div>
+  ${d.type==='facture' ? `
+  <div class="card" style="margin-top:1.25rem;max-width:420px;border-color:${color}">
+    <p class="subhead" style="margin-bottom:.35rem">\u00c0 remplir\u00a0: montant d\u00e9j\u00e0 pay\u00e9 par le client</p>
+    <p class="hint" style="margin:0 0 .6rem">Le \u00ab Net \u00e0 payer \u00bb affich\u00e9 sur la facture se recalcule automatiquement (Total TTC \u2212 ce montant).</p>
+    <div class="row" style="align-items:flex-end">
+      <div class="field" style="max-width:180px"><input type="text" inputmode="decimal" id="facture-montant-paye-edit" value="${d.montantPaye||''}" placeholder="0.00"></div>
+      <button class="btn small" id="save-facture-montant-paye">Enregistrer</button>
+    </div>
+  </div>` : ''}
   <div class="row" style="margin-top:1.25rem">
     <button class="btn" id="print-btn">Imprimer</button>
     <button class="btn" id="pdf-btn">Enregistrer en PDF</button>
@@ -2829,13 +2838,6 @@ function renderDocView(id){
     <div class="row" style="align-items:flex-end">
       <div class="field" style="max-width:180px"><input type="date" id="facture-date-edit" value="${frDateToIso(d.date)}"></div>
       <button class="btn small" id="save-facture-date">Enregistrer</button>
-    </div>
-  </div>
-  <div class="card" style="margin-top:1.25rem;max-width:340px">
-    <p class="subhead" style="margin-bottom:.5rem">Montant d\u00e9j\u00e0 pay\u00e9</p>
-    <div class="row" style="align-items:flex-end">
-      <div class="field" style="max-width:180px"><input type="text" inputmode="decimal" id="facture-montant-paye-edit" value="${d.montantPaye||''}" placeholder="0.00"></div>
-      <button class="btn small" id="save-facture-montant-paye">Enregistrer</button>
     </div>
   </div>` : ''}`;
 }
