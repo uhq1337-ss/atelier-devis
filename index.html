@@ -115,6 +115,7 @@
   .p2-section-title{color:#fff;font-size:12.5px;font-weight:bold;letter-spacing:.04em;padding:.55rem 1rem;border-radius:3px 3px 0 0;margin-bottom:0;}
   .p2-table{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:16px;background:var(--paper);}
   .p2-table th{background:var(--paper);font-size:9.5px;text-transform:uppercase;color:var(--muted);padding:.6rem .4rem;text-align:left;border:1px solid var(--line);white-space:nowrap;}
+  .p2-table tr{break-inside:avoid;page-break-inside:avoid;}
   .p2-table td{padding:.65rem .4rem;border:1px solid var(--line);background:#fff;}
   .p2-table th:nth-child(6), .p2-table td:nth-child(6),
   .p2-table th:nth-child(7), .p2-table td:nth-child(7),
@@ -156,6 +157,9 @@
     .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
     @page cgv-print-page{ size:A4; margin:16mm; }
     .cgv-sheet{ page:cgv-print-page; padding:0; }
+    @page devis-print-page{ size:A4; margin:14mm; }
+    .paper2.multi-page{ page:devis-print-page; }
+    .paper2.multi-page .p2-body{ padding:0; }
   }
 
   .paper2, .p2-banner, .p2-section-title, .p2-totals .r.ttc, .p2-tagline{
@@ -2739,7 +2743,8 @@ function renderDocView(id){
       </div>` : ''}
       <div class="p2-section-title" style="background:${color}">1. D\u00c9SIGNATION DES PRESTATIONS</div>
       <table class="p2-table">
-        <tr><th>N\u00b0</th><th>R\u00e9f\u00e9rence</th><th>Description</th><th style="text-align:right">Qt\u00e9</th><th>Unit\u00e9</th><th style="text-align:right">PU HT (\u20ac)</th><th style="text-align:right">Total HT (\u20ac)</th><th style="text-align:right">\u00c9co-contribution</th></tr>
+        <thead><tr><th>N\u00b0</th><th>R\u00e9f\u00e9rence</th><th>Description</th><th style="text-align:right">Qt\u00e9</th><th>Unit\u00e9</th><th style="text-align:right">PU HT (\u20ac)</th><th style="text-align:right">Total HT (\u20ac)</th><th style="text-align:right">\u00c9co-contribution</th></tr></thead>
+        <tbody>
         ${d.lignes.map((l,i)=>{
           const art = state.articles.find(a=>a.id===l.articleId);
           return `<tr>
@@ -2753,6 +2758,7 @@ function renderDocView(id){
             <td style="text-align:right" class="num">${art&&art.eco? eur(lineEcoTotal(l)):'\u2013'}</td>
           </tr>`;
         }).join('')}
+        </tbody>
       </table>
       ${d.infoComp && d.infoComp.trim() ? `<div class="p2-objet" style="margin-bottom:16px">
         <span class="tag">INFORMATIONS COMPL\u00c9MENTAIRES :</span>
@@ -2846,9 +2852,10 @@ async function buildDocPdf(){
   if(!sheets.length) return null;
   if(!window.html2canvas || !window.jspdf) return null;
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
   const pageW = 210, pageH = 297;
-  let firstPage = true;
+
+  // 1) Capture chaque feuille, d\u00e9coupe celles qui sont trop hautes pour une seule page A4
+  const pages = []; // { imgData, x, y, w, h, sheetIndex, multi }
   for(let i=0;i<sheets.length;i++){
     const canvas = await html2canvas(sheets[i], { scale:1.5, useCORS:true, backgroundColor:'#ffffff', logging:false });
     const pxPerMm = canvas.width / pageW;
@@ -2858,11 +2865,9 @@ async function buildDocPdf(){
       // Tient sur une seule page : on remplit la feuille enti\u00e8re, sans marge ajout\u00e9e (mise en page du devis d\u00e9j\u00e0 con\u00e7ue pour \u00e7a)
       const imgData = canvas.toDataURL('image/jpeg', 0.92);
       const imgH = canvas.height / pxPerMm;
-      if(!firstPage) pdf.addPage();
-      firstPage = false;
-      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
+      pages.push({ imgData, x:0, y:0, w:pageW, h:imgH, sheetIndex:i, multi:false });
     } else {
-      // Contenu trop long (ex: CGV) : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille
+      // Contenu trop long : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille
       const marginMm = 10;
       const usableHmm = pageH - marginMm*2;
       const usableWmm = pageW - marginMm*2;
@@ -2879,13 +2884,29 @@ async function buildDocPdf(){
         ctx.drawImage(canvas, 0, renderedPx, canvas.width, thisSliceH, 0, 0, canvas.width, thisSliceH);
         const imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
         const imgHmm = thisSliceH / pxPerMm;
-        if(!firstPage) pdf.addPage();
-        firstPage = false;
-        pdf.addImage(imgData, 'JPEG', marginMm, marginMm, usableWmm, imgHmm);
+        pages.push({ imgData, x:marginMm, y:marginMm, w:usableWmm, h:imgHmm, sheetIndex:i, multi:true });
         renderedPx += thisSliceH;
       }
     }
   }
+
+  // 2) Construit le PDF ; ajoute \u00ab Page X / Y \u00bb en bas de chaque page,
+  // uniquement pour les feuilles qui ont \u00e9t\u00e9 d\u00e9coup\u00e9es en plusieurs pages (comme un vrai devis fournisseur multi-pages).
+  const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  const countsBySheet = {};
+  pages.forEach(p=>{ countsBySheet[p.sheetIndex] = (countsBySheet[p.sheetIndex]||0)+1; });
+  const seenBySheet = {};
+  pages.forEach((p,idx)=>{
+    if(idx>0) pdf.addPage();
+    pdf.addImage(p.imgData, 'JPEG', p.x, p.y, p.w, p.h);
+    if(p.multi){
+      seenBySheet[p.sheetIndex] = (seenBySheet[p.sheetIndex]||0) + 1;
+      const total = countsBySheet[p.sheetIndex];
+      pdf.setFontSize(9);
+      pdf.setTextColor(130);
+      pdf.text(`Page ${seenBySheet[p.sheetIndex]} / ${total}`, pageW/2, pageH-6, { align:'center' });
+    }
+  });
   return pdf;
 }
 async function downloadDocAsPdf(filename){
@@ -2917,11 +2938,26 @@ function fitDocToOnePage(){
   if(!mainSheet || !inner) return;
   // R\u00e9initialise avant de mesurer
   mainSheet.style.height = 'auto';
+  mainSheet.style.overflow = 'visible';
+  mainSheet.classList.remove('multi-page');
   inner.style.transform = 'none';
   inner.style.width = '100%';
   const pxPerMm = mmToPxRatio();
   const safetyMarginMm = 2; // marge minimale, juste pour \u00e9viter tout risque d'arrondi sur la derni\u00e8re ligne
   const pageHeightPx = (297 - safetyMarginMm) * pxPerMm;
+  const naturalHeight = inner.scrollHeight;
+  if(naturalHeight <= 0) return;
+
+  // Si le contenu est vraiment trop long pour tenir de fa\u00e7on lisible sur une page,
+  // on pr\u00e9f\u00e8re plusieurs pages (comme un vrai devis fournisseur) plut\u00f4t qu'un texte minuscule.
+  const MULTI_PAGE_THRESHOLD = 1.35;
+  if(naturalHeight > pageHeightPx * MULTI_PAGE_THRESHOLD){
+    mainSheet.style.height = 'auto';
+    mainSheet.classList.add('multi-page');
+    inner.style.width = '100%';
+    inner.style.transform = 'none';
+    return;
+  }
 
   const visualHeightAt = (s)=>{
     inner.style.width = (100/s) + '%';
