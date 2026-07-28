@@ -2915,38 +2915,31 @@ function fitDocToOnePage(){
   const mainSheet = document.querySelector('#print-area .paper2:not(.cgv-sheet)');
   const inner = document.getElementById('p2-scale-inner');
   if(!mainSheet || !inner) return;
-  // R\u00e9initialise avant de mesurer la taille naturelle du contenu
+  // R\u00e9initialise avant de mesurer
   mainSheet.style.height = 'auto';
   inner.style.transform = 'none';
   inner.style.width = '100%';
   const pxPerMm = mmToPxRatio();
-  const safetyMarginMm = 4; // \u00e9vite tout risque de couper la derni\u00e8re ligne
+  const safetyMarginMm = 2; // marge minimale, juste pour \u00e9viter tout risque d'arrondi sur la derni\u00e8re ligne
   const pageHeightPx = (297 - safetyMarginMm) * pxPerMm;
-  const naturalHeight = inner.scrollHeight;
-  if(naturalHeight <= 0) return;
 
-  let scale = pageHeightPx / naturalHeight;
-  scale = Math.min(1.3, Math.max(0.5, scale));
-
-  // Applique puis affine : changer la largeur peut faire varier le nombre de lignes de texte,
-  // donc on recalcule 2-3 fois pour converger vers un rendu qui remplit vraiment la page sans d\u00e9border.
-  for(let i=0;i<4;i++){
-    inner.style.width = (100/scale) + '%';
-    inner.style.transformOrigin = 'top left';
+  const visualHeightAt = (s)=>{
+    inner.style.width = (100/s) + '%';
     inner.style.transform = 'none';
-    const reflowedHeight = inner.scrollHeight; // hauteur non mise \u00e0 l'\u00e9chelle, \u00e0 la nouvelle largeur
-    const effectiveScale = pageHeightPx / reflowedHeight;
-    const nextScale = Math.min(1.3, Math.max(0.5, effectiveScale));
-    if(Math.abs(nextScale-scale) < 0.01) { scale = nextScale; break; }
-    scale = nextScale;
+    return inner.scrollHeight * s; // hauteur r\u00e9elle qu'occuperait le contenu \u00e0 cette \u00e9chelle
+  };
+
+  // Recherche par dichotomie du plus grand facteur d'\u00e9chelle qui tient encore sur une page.
+  // Plus fiable qu'un calcul direct : la largeur change le nombre de retours \u00e0 la ligne du texte,
+  // donc la relation entre \u00e9chelle et hauteur finale n'est pas parfaitement lin\u00e9aire.
+  let low = 0.35, high = 1.3;
+  for(let i=0;i<10;i++){
+    const mid = (low+high)/2;
+    if(visualHeightAt(mid) <= pageHeightPx) low = mid; else high = mid;
   }
+  const scale = low;
   inner.style.width = (100/scale) + '%';
-  inner.style.transform = 'none';
-  const finalReflow = inner.scrollHeight;
-  if(finalReflow * scale > pageHeightPx){
-    scale = Math.max(0.5, (pageHeightPx / finalReflow) * 0.995); // marge suppl\u00e9mentaire anti-arrondi
-    inner.style.width = (100/scale) + '%';
-  }
+  inner.style.transformOrigin = 'top left';
   inner.style.transform = `scale(${scale})`;
   mainSheet.style.height = '297mm';
   mainSheet.style.overflow = 'hidden';
