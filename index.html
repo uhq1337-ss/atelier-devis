@@ -1049,11 +1049,6 @@ function calcTotals(b){
   const eco = b.lignes.reduce((s,l)=> s + lineEcoTotal(l), 0);
   return {htBrut, remiseType, remiseValeur, remise, ht, tva, ttc, eco};
 }
-function docRemiseRatio(d){
-  const t = calcTotals(d);
-  if(!t.htBrut) return 1;
-  return t.ht / t.htBrut; // fraction du prix de vente qui reste apr\u00e8s remise, appliqu\u00e9e proportionnellement \u00e0 chaque ligne
-}
 function renderBuilder(){
   const b = state.builder;
   const t = calcTotals(b);
@@ -1376,7 +1371,6 @@ function renderDevisListe(){
       let totVenteAll = 0, totAchatAll = 0;
       docs.forEach(d=>{
         const c = state.clients.find(c=>c.id===d.clientId);
-        const remiseRatio = docRemiseRatio(d);
         let subVenteDevis = 0, subAchatDevis = 0;
         // Regroupe les lignes du devis par fournisseur
         const parFournisseur = {};
@@ -1391,7 +1385,7 @@ function renderDevisListe(){
           let subVenteF = 0, subAchatF = 0;
           parFournisseur[fourn].forEach(l=>{
             const art = state.articles.find(a=>a.id===l.articleId);
-            const vente = parseNum(l.qty)*parseNum(l.pu) * remiseRatio;
+            const vente = parseNum(l.qty)*parseNum(l.pu);
             const achat = art? parseNum(l.qty)*(art.achat||0) : 0;
             subVenteF += vente; subAchatF += achat;
             out += `<tr>
@@ -1408,6 +1402,11 @@ function renderDevisListe(){
           out += `<tr style="background:#F5F2EA"><td colspan="5" style="font-style:italic">Sous-total ${fourn}</td><td class="num" style="font-style:italic">${eur(subVenteF)}</td><td class="num" style="font-style:italic">${eur(subAchatF)}</td><td class="num" style="font-style:italic">${eur(subVenteF-subAchatF)}</td></tr>`;
           subVenteDevis += subVenteF; subAchatDevis += subAchatF;
         });
+        const t = calcTotals(d);
+        if(t.remise){
+          out += `<tr style="background:var(--paper)"><td colspan="5" style="font-style:italic">Remise commerciale ${d.numero}${t.remiseType==='percent' ? ` (${t.remiseValeur}%)` : ''}</td><td class="num" style="font-style:italic">-${eur(t.remise)}</td><td colspan="2"></td></tr>`;
+          subVenteDevis -= t.remise;
+        }
         out += `<tr style="background:var(--paper)"><td colspan="5" style="font-weight:bold">Sous-total ${d.numero}</td><td class="num" style="font-weight:bold">${eur(subVenteDevis)}</td><td class="num" style="font-weight:bold">${eur(subAchatDevis)}</td><td class="num" style="font-weight:bold">${eur(subVenteDevis-subAchatDevis)}</td></tr>`;
         totVenteAll += subVenteDevis; totAchatAll += subAchatDevis;
       });
@@ -1423,13 +1422,15 @@ function renderDevisListe(){
     <tr><th>Fournisseur</th><th>Vente HT</th><th>Achat</th><th>Marge</th></tr>
     ${(()=>{
       const parFournisseur = {};
+      let totRemise = 0;
       docs.forEach(d=>{
-        const remiseRatio = docRemiseRatio(d);
+        const t = calcTotals(d);
+        totRemise += t.remise;
         d.lignes.forEach(l=>{
           const art = state.articles.find(a=>a.id===l.articleId);
           const fourn = (art && art.fournisseur && art.fournisseur.trim()) ? art.fournisseur.trim() : 'Sans fournisseur';
           if(!parFournisseur[fourn]) parFournisseur[fourn] = {vente:0, achat:0};
-          parFournisseur[fourn].vente += parseNum(l.qty)*parseNum(l.pu) * remiseRatio;
+          parFournisseur[fourn].vente += parseNum(l.qty)*parseNum(l.pu);
           parFournisseur[fourn].achat += art? parseNum(l.qty)*(art.achat||0) : 0;
         });
       });
@@ -1446,7 +1447,10 @@ function renderDevisListe(){
       }).join('');
       const totV = keys.reduce((s,f)=>s+parFournisseur[f].vente,0);
       const totA = keys.reduce((s,f)=>s+parFournisseur[f].achat,0);
-      out2 += `<tr><td style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totV)}</td><td class="num" style="font-weight:bold">${eur(totA)}</td><td class="num" style="font-weight:bold">${eur(totV-totA)}</td></tr>`;
+      if(totRemise){
+        out2 += `<tr><td style="font-style:italic">Remise commerciale (tous devis)</td><td class="num" style="font-style:italic">-${eur(totRemise)}</td><td colspan="2"></td></tr>`;
+      }
+      out2 += `<tr><td style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totV-totRemise)}</td><td class="num" style="font-weight:bold">${eur(totA)}</td><td class="num" style="font-weight:bold">${eur(totV-totRemise-totA)}</td></tr>`;
       return out2;
     })()}
   </table>`;
@@ -1526,10 +1530,10 @@ function bindDevisListe(){
     let rows = [];
     docs2.forEach(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
-      const remiseRatio = docRemiseRatio(d);
+      const t = calcTotals(d);
       d.lignes.forEach(l=>{
         const art = state.articles.find(a=>a.id===l.articleId);
-        const vente = parseNum(l.qty)*parseNum(l.pu) * remiseRatio;
+        const vente = parseNum(l.qty)*parseNum(l.pu);
         const achat = art? parseNum(l.qty)*(art.achat||0) : 0;
         rows.push({
           'Devis': d.numero,
@@ -1542,6 +1546,18 @@ function bindDevisListe(){
           'Marge': Math.round((vente-achat)*100)/100,
         });
       });
+      if(t.remise){
+        rows.push({
+          'Devis': d.numero,
+          'Client': c? clientFullName(c):'',
+          'Article': `Remise commerciale${t.remiseType==='percent' ? ` (${t.remiseValeur}%)` : ''}`,
+          'Fournisseur': '',
+          'Qt\u00e9': '',
+          'Vente HT': -Math.round(t.remise*100)/100,
+          'Achat': 0,
+          'Marge': -Math.round(t.remise*100)/100,
+        });
+      }
     });
     exportToExcel(rows, 'synthese-marge.xlsx', 'Synthese');
   };
