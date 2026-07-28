@@ -1049,6 +1049,11 @@ function calcTotals(b){
   const eco = b.lignes.reduce((s,l)=> s + lineEcoTotal(l), 0);
   return {htBrut, remiseType, remiseValeur, remise, ht, tva, ttc, eco};
 }
+function docRemiseRatio(d){
+  const t = calcTotals(d);
+  if(!t.htBrut) return 1;
+  return t.ht / t.htBrut; // fraction du prix de vente qui reste apr\u00e8s remise, appliqu\u00e9e proportionnellement \u00e0 chaque ligne
+}
 function renderBuilder(){
   const b = state.builder;
   const t = calcTotals(b);
@@ -1371,6 +1376,7 @@ function renderDevisListe(){
       let totVenteAll = 0, totAchatAll = 0;
       docs.forEach(d=>{
         const c = state.clients.find(c=>c.id===d.clientId);
+        const remiseRatio = docRemiseRatio(d);
         let subVenteDevis = 0, subAchatDevis = 0;
         // Regroupe les lignes du devis par fournisseur
         const parFournisseur = {};
@@ -1385,7 +1391,7 @@ function renderDevisListe(){
           let subVenteF = 0, subAchatF = 0;
           parFournisseur[fourn].forEach(l=>{
             const art = state.articles.find(a=>a.id===l.articleId);
-            const vente = parseNum(l.qty)*parseNum(l.pu);
+            const vente = parseNum(l.qty)*parseNum(l.pu) * remiseRatio;
             const achat = art? parseNum(l.qty)*(art.achat||0) : 0;
             subVenteF += vente; subAchatF += achat;
             out += `<tr>
@@ -1418,11 +1424,12 @@ function renderDevisListe(){
     ${(()=>{
       const parFournisseur = {};
       docs.forEach(d=>{
+        const remiseRatio = docRemiseRatio(d);
         d.lignes.forEach(l=>{
           const art = state.articles.find(a=>a.id===l.articleId);
           const fourn = (art && art.fournisseur && art.fournisseur.trim()) ? art.fournisseur.trim() : 'Sans fournisseur';
           if(!parFournisseur[fourn]) parFournisseur[fourn] = {vente:0, achat:0};
-          parFournisseur[fourn].vente += parseNum(l.qty)*parseNum(l.pu);
+          parFournisseur[fourn].vente += parseNum(l.qty)*parseNum(l.pu) * remiseRatio;
           parFournisseur[fourn].achat += art? parseNum(l.qty)*(art.achat||0) : 0;
         });
       });
@@ -1519,9 +1526,10 @@ function bindDevisListe(){
     let rows = [];
     docs2.forEach(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
+      const remiseRatio = docRemiseRatio(d);
       d.lignes.forEach(l=>{
         const art = state.articles.find(a=>a.id===l.articleId);
-        const vente = parseNum(l.qty)*parseNum(l.pu);
+        const vente = parseNum(l.qty)*parseNum(l.pu) * remiseRatio;
         const achat = art? parseNum(l.qty)*(art.achat||0) : 0;
         rows.push({
           'Devis': d.numero,
