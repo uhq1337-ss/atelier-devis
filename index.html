@@ -2867,11 +2867,16 @@ async function buildDocPdf(){
       const imgH = canvas.height / pxPerMm;
       pages.push({ imgData, x:0, y:0, w:pageW, h:imgH, sheetIndex:i, multi:false });
     } else {
-      // Contenu trop long : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille
+      // Contenu trop long : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille.
+      // On calcule d'abord le nombre de pages n\u00e9cessaires, puis on r\u00e9partit le contenu \u00e9quitablement
+      // entre elles (plut\u00f4t que de remplir chaque page au maximum et de laisser un petit reliquat
+      // presque vide tout seul sur la derni\u00e8re page).
       const marginMm = 10;
       const usableHmm = pageH - marginMm*2;
       const usableWmm = pageW - marginMm*2;
-      const sliceHeightPx = Math.floor(usableHmm * pxPerMm);
+      const maxSliceHeightPx = Math.floor(usableHmm * pxPerMm);
+      const numPages = Math.max(1, Math.ceil(canvas.height / maxSliceHeightPx));
+      const sliceHeightPx = Math.ceil(canvas.height / numPages);
       let renderedPx = 0;
       while(renderedPx < canvas.height){
         const thisSliceH = Math.min(sliceHeightPx, canvas.height - renderedPx);
