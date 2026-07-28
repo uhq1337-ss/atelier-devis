@@ -349,7 +349,7 @@ let state = {
   expandedCommandeId: null,
   viewingCommande: null,
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
-  builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null, clientSearchOpen:false, clientSearchText:null },
+  builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, remiseType:'percent', remiseValeur:0, notes:'', editingDocId:null, clientSearchOpen:false, clientSearchText:null },
   toast: null,
   viewingDoc: null,
 };
@@ -1039,11 +1039,15 @@ function lineEcoTotal(l){
   return parseNum(l.qty) * lineEcoUnit(l);
 }
 function calcTotals(b){
-  const ht = b.lignes.reduce((s,l)=> s + lineHT(l), 0);
+  const htBrut = b.lignes.reduce((s,l)=> s + lineHT(l), 0);
+  const remiseType = b.remiseType || 'percent';
+  const remiseValeur = parseNum(b.remiseValeur||0);
+  const remise = Math.max(0, Math.min(htBrut, remiseType==='percent' ? htBrut * (remiseValeur/100) : remiseValeur));
+  const ht = htBrut - remise;
   const tva = ht * (b.tva/100);
   const ttc = ht + tva;
   const eco = b.lignes.reduce((s,l)=> s + lineEcoTotal(l), 0);
-  return {ht,tva,ttc,eco};
+  return {htBrut, remiseType, remiseValeur, remise, ht, tva, ttc, eco};
 }
 function renderBuilder(){
   const b = state.builder;
@@ -1133,12 +1137,32 @@ function renderBuilder(){
     }).join('')}
     <button class="btn secondary small" id="add-line" style="margin-top:.5rem">+ Ajouter une ligne</button>
 
+    <div class="totals-box" style="border-top:1px dashed var(--line-strong);margin-top:1rem;padding-top:1rem">
+      <p class="subhead" style="margin-bottom:.5rem">Remise commerciale</p>
+      <div class="row" style="align-items:flex-end">
+        <div class="field" style="width:120px">
+          <label>Type</label>
+          <select id="b-remise-type">
+            <option value="percent" ${(b.remiseType||'percent')==='percent'?'selected':''}>%</option>
+            <option value="montant" ${b.remiseType==='montant'?'selected':''}>\u20ac</option>
+          </select>
+        </div>
+        <div class="field" style="width:140px">
+          <label>Valeur</label>
+          <input type="text" inputmode="decimal" id="b-remise-valeur" value="${b.remiseValeur||''}" placeholder="0">
+        </div>
+        <p class="hint" style="margin:0 0 .5rem">Remise\u00a0: -${eur(t.remise)} \u2014 Total HT apr\u00e8s remise\u00a0: ${eur(t.ht)}</p>
+      </div>
+    </div>
+
     <div class="totals-box">
       <div class="field" style="max-width:160px;margin-bottom:.75rem">
         <label>Taux de TVA (%)</label>
         <input type="text" inputmode="decimal" id="b-tva" value="${b.tva}">
       </div>
-      <div class="totals-row"><span>Total HT</span><span class="num">${eur(t.ht)}</span></div>
+      <div class="totals-row"><span>Total HT brut</span><span class="num">${eur(t.htBrut)}</span></div>
+      ${t.remise ? `<div class="totals-row"><span>Remise commerciale</span><span class="num">-${eur(t.remise)}</span></div>
+      <div class="totals-row"><span>Total HT apr\u00e8s remise</span><span class="num">${eur(t.ht)}</span></div>` : ''}
       <div class="totals-row"><span>TVA (${b.tva}%)</span><span class="num">${eur(t.tva)}</span></div>
       <div class="totals-row ttc"><span>Total TTC</span><span class="num">${eur(t.ttc)}</span></div>
     </div>
@@ -1199,6 +1223,8 @@ function bindBuilder(){
   if(tVille) tVille.oninput = (e)=>{ b.travauxVille = e.target.value; };
   document.getElementById('add-line').onclick = ()=>{ b.lignes.push({articleId:'',qty:1,pu:0,unite:'Forfait'}); render(); };
   document.getElementById('b-tva').oninput = (e)=>{ b.tva = parseNum(e.target.value)||0; render(); };
+  document.getElementById('b-remise-type').onchange = (e)=>{ b.remiseType = e.target.value; render(); };
+  document.getElementById('b-remise-valeur').oninput = (e)=>{ b.remiseValeur = e.target.value; render(); };
   document.querySelectorAll('[data-line-ref]').forEach(inp=>{
     inp.oninput = (e)=>{
       const i = +inp.dataset.lineRef;
@@ -1246,6 +1272,8 @@ function bindBuilder(){
         existing.travauxVille = b.travauxVille||'';
         existing.lignes = JSON.parse(JSON.stringify(b.lignes));
         existing.tva = b.tva;
+        existing.remiseType = b.remiseType||'percent';
+        existing.remiseValeur = b.remiseValeur||0;
         await sset('documents', state.documents);
         showToast(existing.numero + ' mis \u00e0 jour');
         state.viewingDoc = existing.id;
@@ -1261,7 +1289,7 @@ function bindBuilder(){
       date: b.date || todayStr(), clientId: b.clientId, companyId: b.companyId, objet: b.objet, infoComp: b.infoComp||'', auteur: state.currentUser,
       travauxSameAsClient: b.travauxSameAsClient!==false,
       travauxNom: b.travauxNom||'', travauxAdresse: b.travauxAdresse||'', travauxCp: b.travauxCp||'', travauxVille: b.travauxVille||'',
-      lignes: JSON.parse(JSON.stringify(b.lignes)), tva: b.tva, notes: '',
+      lignes: JSON.parse(JSON.stringify(b.lignes)), tva: b.tva, remiseType: b.remiseType||'percent', remiseValeur: b.remiseValeur||0, notes: '',
     };
     state.documents.push(doc);
     showToast('Devis ' + numero + ' enregistr\u00e9');
@@ -2760,6 +2788,13 @@ function renderDocView(id){
         }).join('')}
         </tbody>
       </table>
+      ${t.remise ? `<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <table style="width:auto;min-width:280px;border-collapse:collapse">
+          <tr><td style="padding:.35rem .6rem;text-align:right;color:var(--muted)">Total HT brut</td><td style="padding:.35rem .6rem;text-align:right" class="num">${eur(t.htBrut)}</td></tr>
+          <tr><td style="padding:.35rem .6rem;text-align:right;color:var(--muted)">Remise commerciale ${t.remiseType==='percent' ? `(${t.remiseValeur}%)` : ''}</td><td style="padding:.35rem .6rem;text-align:right" class="num">-${eur(t.remise)}</td></tr>
+          <tr style="border-top:1px solid var(--line-strong)"><td style="padding:.35rem .6rem;text-align:right;font-weight:bold">Total HT apr\u00e8s remise</td><td style="padding:.35rem .6rem;text-align:right;font-weight:bold" class="num">${eur(t.ht)}</td></tr>
+        </table>
+      </div>` : ''}
       ${d.infoComp && d.infoComp.trim() ? `<div class="p2-objet" style="margin-bottom:16px">
         <span class="tag">INFORMATIONS COMPL\u00c9MENTAIRES :</span>
         <div class="txt" id="infocomp-text" style="white-space:pre-line">${d.infoComp}</div>
@@ -3060,7 +3095,7 @@ function bindDocView(){
       date: d.date,
       travauxSameAsClient: d.travauxSameAsClient!==false,
       travauxNom: d.travauxNom||'', travauxAdresse: d.travauxAdresse||'', travauxCp: d.travauxCp||'', travauxVille: d.travauxVille||'',
-      lignes: JSON.parse(JSON.stringify(d.lignes)), tva: d.tva, notes: '',
+      lignes: JSON.parse(JSON.stringify(d.lignes)), tva: d.tva, remiseType: d.remiseType||'percent', remiseValeur: d.remiseValeur||0, notes: '',
       editingDocId: d.id,
     };
     state.viewingDoc = null;
