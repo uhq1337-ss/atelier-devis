@@ -2895,6 +2895,7 @@ function renderDocView(id){
     ${d.type==='devis' ? `<button class="btn secondary" id="edit-devis-btn">Modifier ce devis</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-facture-btn">Transformer en facture</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-commande-btn">Transformer en commande Toshiba</button>` : ''}
+    <button class="btn secondary" id="duplicate-doc-btn">${d.type==='devis' ? 'Dupliquer le devis' : 'Dupliquer la facture'}</button>
     <button class="btn secondary" id="delete-doc-btn" style="border-color:var(--danger);color:var(--danger)">Supprimer</button>
   </div>
   ${d.type==='facture' ? `
@@ -3124,6 +3125,29 @@ function bindDocView(){
     };
     state.viewingDoc = null;
     state.tab = 'nouveau';
+    render();
+  };
+  const duplicateBtn = document.getElementById('duplicate-doc-btn');
+  if(duplicateBtn) duplicateBtn.onclick = async ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    if(!d) return;
+    let numero;
+    if(d.type==='devis'){
+      state.counters.devis += 1;
+      numero = 'D-' + new Date().getFullYear() + '-' + String(state.counters.devis).padStart(4,'0');
+    } else {
+      state.counters.facture += 1;
+      numero = 'F-' + new Date().getFullYear() + '-' + String(state.counters.facture).padStart(3,'0');
+    }
+    const copy = Object.assign(JSON.parse(JSON.stringify(d)), {
+      id: uid(), numero, date: todayStr(), auteur: state.currentUser,
+      montantPaye: 0, parentDevisId: d.type==='facture' ? d.parentDevisId : undefined,
+    });
+    state.documents.push(copy);
+    await sset('documents', state.documents);
+    await sset('counters', state.counters);
+    showToast((d.type==='devis' ? 'Devis' : 'Facture') + ' ' + numero + ' cr\u00e9\u00e9e \u00e0 partir de ' + d.numero);
+    state.viewingDoc = copy.id;
     render();
   };
   const deleteBtn = document.getElementById('delete-doc-btn');
