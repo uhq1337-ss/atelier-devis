@@ -1634,7 +1634,13 @@ function renderSauvegarde(){
     <p class="hint" style="margin-bottom:.75rem">Un fichier .zip \u00e0 t\u00e9l\u00e9charger, avec un dossier Devis, un dossier Factures et un dossier Commandes Toshiba \u2014 chacun contenant un PDF s\u00e9par\u00e9 par document, comme un vrai classeur. Tu peux l'ouvrir et chercher directement le fichier voulu.</p>
     <p class="hint" style="margin-bottom:.75rem;color:var(--danger)">\u26a0\ufe0f G\u00e9n\u00e8re un PDF pour chaque document un par un : peut prendre plusieurs minutes s'il y en a beaucoup. Ne ferme pas la page pendant la g\u00e9n\u00e9ration.</p>
     <button class="btn" id="export-backup-zip">T\u00e9l\u00e9charger tous les documents (ZIP)</button>
-    <p class="hint" id="zip-progress" style="margin-top:.5rem"></p>
+    <p class="hint" id="zip-progress" style="margin-top:.5rem">${state.zipProgress||''}</p>
+    ${state.zipFailedItems && state.zipFailedItems.length ? `<div style="margin-top:.5rem;font-size:12.5px;color:var(--danger)">
+      <strong>\u00c9chec sur ${state.zipFailedItems.length} document(s) :</strong>
+      <ul style="margin:.35rem 0 0;padding-left:1.2rem">
+        ${state.zipFailedItems.map(f=>`<li>${f}</li>`).join('')}
+      </ul>
+    </div>` : ''}
   </div>`;
 }
 function bindSauvegarde(){
@@ -1720,6 +1726,7 @@ function bindSauvegarde(){
   const zipBtn = document.getElementById('export-backup-zip');
   const progressEl = document.getElementById('zip-progress');
   if(zipBtn) zipBtn.onclick = async ()=>{
+    state.zipFailedItems = null;
     if(typeof JSZip === 'undefined' || !window.html2canvas || !window.jspdf){
       showToast("Une biblioth\u00e8que n\u00e9cessaire n'a pas pu se charger (v\u00e9rifie ta connexion internet)");
       return;
@@ -1810,16 +1817,14 @@ function bindSauvegarde(){
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast(`ZIP t\u00e9l\u00e9charg\u00e9 : ${ok} document(s)${failedItems.length? `, ${failedItems.length} en \u00e9chec` : ''}`);
-      if(failedItems.length){
-        console.warn('Documents en \u00e9chec lors de la g\u00e9n\u00e9ration du ZIP :', failedItems);
-        if(progressEl) progressEl.innerHTML = `<span style="color:var(--danger)">\u00c9checs (${failedItems.length})\u00a0: ${failedItems.join(', ')}</span>`;
-      }
+      if(failedItems.length) console.warn('Documents en \u00e9chec lors de la g\u00e9n\u00e9ration du ZIP :', failedItems);
+      state.zipFailedItems = failedItems;
+      state.zipProgress = '';
+      showToast(`ZIP t\u00e9l\u00e9charg\u00e9 : ${ok} document(s)${failedItems.length? `, ${failedItems.length} en \u00e9chec (d\u00e9tail ci-dessous)` : ''}`);
     }catch(err){
       console.error('Erreur cr\u00e9ation ZIP', err);
       showToast("La cr\u00e9ation du fichier ZIP a \u00e9chou\u00e9.");
     }
-    if(progressEl && !failedItems.length) progressEl.textContent = '';
     zipBtn.disabled = false;
     zipBtn.textContent = originalLabel;
   };
