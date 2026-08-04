@@ -621,6 +621,7 @@ function renderShell(){
     ['commandes','Commandes Toshiba'],
     ['entreprise','Entreprises'],
     ['compta','Comptabilit\u00e9'],
+    ['corbeille','Corbeille'],
   ];
   return `
   <div class="shell">
@@ -671,6 +672,7 @@ function renderTab(){
   if(state.tab==='commandes') return renderCommandes();
   if(state.tab==='entreprise') return renderEntreprise();
   if(state.tab==='compta') return renderCompta();
+  if(state.tab==='corbeille') return renderCorbeille();
   return '';
 }
 function bindTab(){
@@ -684,6 +686,7 @@ function bindTab(){
   if(state.tab==='commandes') return bindCommandes();
   if(state.tab==='entreprise') return bindEntreprise();
   if(state.tab==='compta') return bindCompta();
+  if(state.tab==='corbeille') return bindCorbeille();
 }
 
 function renderClients(){
@@ -1309,7 +1312,7 @@ function bindBuilder(){
 }
 
 function renderDevisListe(){
-  const docs = state.documents.filter(d=>d.type==='devis').reverse();
+  const docs = state.documents.filter(d=>d.type==='devis' && !d.deleted).reverse();
   return `
   <h1 class="page-title">Devis</h1>
   <p class="page-sub">Tous les devis cr\u00e9\u00e9s par l'\u00e9quipe.</p>
@@ -1456,7 +1459,7 @@ function renderDevisListe(){
   </table>`;
 }
 function renderFacturesListe(){
-  const docs = state.documents.filter(d=>d.type==='facture').reverse();
+  const docs = state.documents.filter(d=>d.type==='facture' && !d.deleted).reverse();
   const totTTC = docs.reduce((s,d)=>s+calcTotals(d).ttc,0);
   return `
   <h1 class="page-title">Factures</h1>
@@ -1491,16 +1494,18 @@ function bindDevisListe(){
     b.onclick = async ()=>{
       const d = state.documents.find(x=>x.id===b.dataset.delDoc);
       if(!d) return;
-      if(!confirm(`Supprimer d\u00e9finitivement le ${d.type} ${d.numero} ? Cette action est irr\u00e9versible.`)) return;
-      state.documents = state.documents.filter(x=>x.id!==d.id);
+      if(!confirm(`D\u00e9placer le ${d.type} ${d.numero} vers la corbeille ? Tu pourras le restaurer depuis la corbeille.`)) return;
+      d.deleted = true;
+      d.deletedAt = todayStr();
+      d.deletedBy = state.currentUser;
       await sset('documents', state.documents);
-      showToast(d.numero + ' supprim\u00e9');
+      showToast(d.numero + ' d\u00e9plac\u00e9 vers la corbeille');
       render();
     };
   });
   const exp = document.getElementById('export-overview');
   if(exp) exp.onclick = ()=>{
-    const docs = state.documents.filter(d=>d.type==='devis').reverse();
+    const docs = state.documents.filter(d=>d.type==='devis' && !d.deleted).reverse();
     const rows = docs.map(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
       const co = state.companies.find(co=>co.id===d.companyId);
@@ -1526,7 +1531,7 @@ function bindDevisListe(){
   };
   const expSynth = document.getElementById('export-synthese');
   if(expSynth) expSynth.onclick = ()=>{
-    const docs2 = state.documents.filter(d=>d.type==='devis').reverse();
+    const docs2 = state.documents.filter(d=>d.type==='devis' && !d.deleted).reverse();
     let rows = [];
     docs2.forEach(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
@@ -1570,15 +1575,108 @@ function bindFacturesListe(){
     b.onclick = async ()=>{
       const d = state.documents.find(x=>x.id===b.dataset.delDoc);
       if(!d) return;
-      if(!confirm(`Supprimer d\u00e9finitivement la facture ${d.numero} ? Cette action est irr\u00e9versible.`)) return;
-      state.documents = state.documents.filter(x=>x.id!==d.id);
+      if(!confirm(`D\u00e9placer la facture ${d.numero} vers la corbeille ? Tu pourras la restaurer depuis la corbeille.`)) return;
+      d.deleted = true;
+      d.deletedAt = todayStr();
+      d.deletedBy = state.currentUser;
       await sset('documents', state.documents);
-      showToast(d.numero + ' supprim\u00e9e');
+      showToast(d.numero + ' d\u00e9plac\u00e9e vers la corbeille');
       render();
     };
   });
 }
 
+function renderCorbeille(){
+  const docs = state.documents.filter(d=>d.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
+  const cmds = state.commandes.filter(c=>c.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
+  return `
+  <h1 class="page-title">Corbeille</h1>
+  <p class="page-sub">Devis, factures et commandes supprim\u00e9s. Rien n'est effac\u00e9 d\u00e9finitivement tant que tu ne le fais pas explicitement ici.</p>
+  <h2 style="font-size:16px;margin:1.5rem 0 .5rem">Devis et factures</h2>
+  <table>
+    <tr><th>N\u00b0</th><th>Type</th><th>Client</th><th>Supprim\u00e9 le</th><th>Par</th><th></th></tr>
+    ${docs.length ? docs.map(d=>{
+      const c = state.clients.find(c=>c.id===d.clientId);
+      return `<tr>
+        <td class="num">${d.numero}</td>
+        <td><span class="badge ${d.type==='facture'?'facture':''}">${d.type}</span></td>
+        <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
+        <td>${d.deletedAt||''}</td>
+        <td>${d.deletedBy||''}</td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-restore-doc="${d.id}">Restaurer</button>
+          <button class="rm-btn" data-purge-doc="${d.id}" title="Supprimer d\u00e9finitivement">&times;</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="6" class="empty">Corbeille vide.</td></tr>`}
+  </table>
+
+  <h2 style="font-size:16px;margin:1.5rem 0 .5rem">Commandes Toshiba</h2>
+  <table>
+    <tr><th>N\u00b0</th><th>Client</th><th>Supprim\u00e9e le</th><th>Par</th><th></th></tr>
+    ${cmds.length ? cmds.map(cmd=>{
+      const c = state.clients.find(c=>c.id===cmd.clientId);
+      return `<tr>
+        <td class="num">${cmd.numero}</td>
+        <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
+        <td>${cmd.deletedAt||''}</td>
+        <td>${cmd.deletedBy||''}</td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-restore-cmd="${cmd.id}">Restaurer</button>
+          <button class="rm-btn" data-purge-cmd="${cmd.id}" title="Supprimer d\u00e9finitivement">&times;</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="5" class="empty">Corbeille vide.</td></tr>`}
+  </table>`;
+}
+function bindCorbeille(){
+  document.querySelectorAll('[data-restore-doc]').forEach(b=>{
+    b.onclick = async ()=>{
+      const d = state.documents.find(x=>x.id===b.dataset.restoreDoc);
+      if(!d) return;
+      d.deleted = false;
+      delete d.deletedAt;
+      delete d.deletedBy;
+      await sset('documents', state.documents);
+      showToast(d.numero + ' restaur\u00e9');
+      render();
+    };
+  });
+  document.querySelectorAll('[data-purge-doc]').forEach(b=>{
+    b.onclick = async ()=>{
+      const d = state.documents.find(x=>x.id===b.dataset.purgeDoc);
+      if(!d) return;
+      if(!confirm(`Supprimer D\u00c9FINITIVEMENT le ${d.type} ${d.numero} ? Cette action est irr\u00e9versible, m\u00eame la corbeille ne pourra plus le r\u00e9cup\u00e9rer.`)) return;
+      state.documents = state.documents.filter(x=>x.id!==d.id);
+      await sset('documents', state.documents);
+      showToast(d.numero + ' supprim\u00e9 d\u00e9finitivement');
+      render();
+    };
+  });
+  document.querySelectorAll('[data-restore-cmd]').forEach(b=>{
+    b.onclick = async ()=>{
+      const cmd = state.commandes.find(x=>x.id===b.dataset.restoreCmd);
+      if(!cmd) return;
+      cmd.deleted = false;
+      delete cmd.deletedAt;
+      delete cmd.deletedBy;
+      await sset('commandes', state.commandes);
+      showToast(cmd.numero + ' restaur\u00e9e');
+      render();
+    };
+  });
+  document.querySelectorAll('[data-purge-cmd]').forEach(b=>{
+    b.onclick = async ()=>{
+      const cmd = state.commandes.find(x=>x.id===b.dataset.purgeCmd);
+      if(!cmd) return;
+      if(!confirm(`Supprimer D\u00c9FINITIVEMENT la commande ${cmd.numero} ? Cette action est irr\u00e9versible.`)) return;
+      state.commandes = state.commandes.filter(x=>x.id!==cmd.id);
+      await sset('commandes', state.commandes);
+      showToast(cmd.numero + ' supprim\u00e9e d\u00e9finitivement');
+      render();
+    };
+  });
+}
 function commandeTotalAchat(cmd){
   return cmd.lignes.reduce((s,l)=>{
     const art = state.articles.find(a=>a.id===l.articleId);
@@ -1587,7 +1685,7 @@ function commandeTotalAchat(cmd){
 }
 const COMMANDE_STATUTS = ['En attente','Envoy\u00e9e','Re\u00e7ue'];
 function renderCommandes(){
-  const list = [...state.commandes].reverse();
+  const list = [...state.commandes].filter(c=>!c.deleted).reverse();
   return `
   <h1 class="page-title">Commandes Toshiba</h1>
   <p class="page-sub">Commandes fournisseur g\u00e9n\u00e9r\u00e9es depuis vos devis, partag\u00e9es avec toute l'\u00e9quipe.</p>
@@ -1631,9 +1729,14 @@ function bindCommandes(){
   });
   document.querySelectorAll('[data-del-cmd]').forEach(b=>{
     b.onclick = async ()=>{
-      if(!confirm('Supprimer d\u00e9finitivement cette commande ?')) return;
-      state.commandes = state.commandes.filter(c=>c.id!==b.dataset.delCmd);
+      const cmd = state.commandes.find(c=>c.id===b.dataset.delCmd);
+      if(!cmd) return;
+      if(!confirm(`D\u00e9placer la commande ${cmd.numero} vers la corbeille ? Tu pourras la restaurer depuis la corbeille.`)) return;
+      cmd.deleted = true;
+      cmd.deletedAt = todayStr();
+      cmd.deletedBy = state.currentUser;
       await sset('commandes', state.commandes);
+      showToast(cmd.numero + ' d\u00e9plac\u00e9e vers la corbeille');
       render();
     };
   });
@@ -3174,10 +3277,12 @@ function bindDocView(){
   if(deleteBtn) deleteBtn.onclick = async ()=>{
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     if(!d) return;
-    if(!confirm(`Supprimer d\u00e9finitivement le ${d.type} ${d.numero} ? Cette action est irr\u00e9versible.`)) return;
-    state.documents = state.documents.filter(x=>x.id!==d.id);
+    if(!confirm(`D\u00e9placer le ${d.type} ${d.numero} vers la corbeille ? Tu pourras le restaurer depuis la corbeille.`)) return;
+    d.deleted = true;
+    d.deletedAt = todayStr();
+    d.deletedBy = state.currentUser;
     await sset('documents', state.documents);
-    showToast(d.numero + ' supprim\u00e9');
+    showToast(d.numero + ' d\u00e9plac\u00e9 vers la corbeille');
     state.viewingDoc = null;
     render();
   };
