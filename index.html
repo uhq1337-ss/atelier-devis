@@ -1737,7 +1737,22 @@ function bindSauvegarde(){
     container.style.cssText = 'position:fixed;left:-10000px;top:0;width:0;height:0;overflow:hidden;';
     document.body.appendChild(container);
     const zip = new JSZip();
-    let ok = 0, failed = 0;
+    let ok = 0;
+    const failedItems = [];
+
+    const waitForImages = (root, timeoutMs)=>{
+      const imgs = Array.from(root.querySelectorAll('img'));
+      if(!imgs.length) return Promise.resolve();
+      return Promise.all(imgs.map(img=>{
+        if(img.complete && img.naturalWidth>0) return Promise.resolve();
+        return new Promise(resolve=>{
+          const done = ()=>{ img.removeEventListener('load', done); img.removeEventListener('error', done); resolve(); };
+          img.addEventListener('load', done);
+          img.addEventListener('error', done);
+          setTimeout(done, timeoutMs);
+        });
+      }));
+    };
 
     for(let i=0;i<items.length;i++){
       const it = items[i];
@@ -1749,6 +1764,12 @@ function bindSauvegarde(){
         else { state.viewingCommande = it.id; container.innerHTML = renderCommandeView(it.id); }
         state.viewingDoc = savedViewingDoc; state.viewingCommande = savedViewingCmd;
 
+        // Attend que le logo et toute autre image soient r\u00e9ellement charg\u00e9s avant de capturer,
+        // sinon la capture peut \u00e9chouer silencieusement si elle part trop t\u00f4t.
+        await waitForImages(container, 4000);
+        // Laisse le navigateur souffler un instant entre deux documents (\u00e9vite de le saturer)
+        await new Promise(r=>setTimeout(r, 30));
+
         fitDocToOnePage(container);
         const pdf = await buildDocPdf(container);
         if(pdf){
@@ -1757,11 +1778,11 @@ function bindSauvegarde(){
           zip.file(`${it.folder}/${safeName}.pdf`, blob);
           ok++;
         } else {
-          failed++;
+          failedItems.push(`${it.numero} (${it.folder}) \u2014 aucune page g\u00e9n\u00e9r\u00e9e`);
         }
       }catch(err){
         console.error('Erreur g\u00e9n\u00e9ration PDF pour', it.numero, err);
-        failed++;
+        failedItems.push(`${it.numero} (${it.folder}) \u2014 ${err && err.message ? err.message : 'erreur inconnue'}`);
       }
     }
 
@@ -1779,12 +1800,16 @@ function bindSauvegarde(){
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast(`ZIP t\u00e9l\u00e9charg\u00e9 : ${ok} document(s)${failed? `, ${failed} en \u00e9chec` : ''}`);
+      showToast(`ZIP t\u00e9l\u00e9charg\u00e9 : ${ok} document(s)${failedItems.length? `, ${failedItems.length} en \u00e9chec` : ''}`);
+      if(failedItems.length){
+        console.warn('Documents en \u00e9chec lors de la g\u00e9n\u00e9ration du ZIP :', failedItems);
+        if(progressEl) progressEl.innerHTML = `<span style="color:var(--danger)">\u00c9checs (${failedItems.length})\u00a0: ${failedItems.join(', ')}</span>`;
+      }
     }catch(err){
       console.error('Erreur cr\u00e9ation ZIP', err);
       showToast("La cr\u00e9ation du fichier ZIP a \u00e9chou\u00e9.");
     }
-    if(progressEl) progressEl.textContent = '';
+    if(progressEl && !failedItems.length) progressEl.textContent = '';
     zipBtn.disabled = false;
     zipBtn.textContent = originalLabel;
   };
