@@ -1764,6 +1764,11 @@ function bindSauvegarde(){
         else { state.viewingCommande = it.id; container.innerHTML = renderCommandeView(it.id); }
         state.viewingDoc = savedViewingDoc; state.viewingCommande = savedViewingCmd;
 
+        // Retire les pages CGV avant capture : elles sont identiques \u00e0 chaque document,
+        // les recalculer/recapturer \u00e0 chaque fois multiplie \u00e9norm\u00e9ment le travail pour rien
+        // et sature vite la m\u00e9moire du navigateur en g\u00e9n\u00e9ration en masse.
+        container.querySelectorAll('.cgv-page').forEach(el=>el.remove());
+
         // Attend que le logo et toute autre image soient r\u00e9ellement charg\u00e9s avant de capturer,
         // sinon la capture peut \u00e9chouer silencieusement si elle part trop t\u00f4t.
         await waitForImages(container, 4000);
