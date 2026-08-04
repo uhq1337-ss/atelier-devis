@@ -1592,6 +1592,17 @@ function renderCorbeille(){
   return `
   <h1 class="page-title">Corbeille</h1>
   <p class="page-sub">Devis, factures et commandes supprim\u00e9s. Rien n'est effac\u00e9 d\u00e9finitivement tant que tu ne le fais pas explicitement ici.</p>
+
+  <div class="card" style="margin-bottom:1.5rem;max-width:520px">
+    <p class="subhead" style="margin-bottom:.35rem">Num\u00e9rotation (avanc\u00e9)</p>
+    <p class="hint" style="margin:0 0 .75rem">Le prochain devis/facture/commande cr\u00e9\u00e9 prendra le num\u00e9ro juste apr\u00e8s la valeur ci-dessous. Par exemple, mets 22 pour que le prochain devis soit le n\u00b0 23.</p>
+    <div class="row" style="align-items:flex-end">
+      <div class="field" style="width:140px"><label>Dernier n\u00b0 devis</label><input type="text" inputmode="numeric" id="counter-devis" value="${state.counters.devis||0}"></div>
+      <div class="field" style="width:140px"><label>Derni\u00e8re facture</label><input type="text" inputmode="numeric" id="counter-facture" value="${state.counters.facture||0}"></div>
+      <div class="field" style="width:140px"><label>Derni\u00e8re commande</label><input type="text" inputmode="numeric" id="counter-commande" value="${state.counters.commande||0}"></div>
+      <button class="btn small" id="save-counters">Enregistrer</button>
+    </div>
+  </div>
   <h2 style="font-size:16px;margin:1.5rem 0 .5rem">Devis et factures</h2>
   <table>
     <tr><th>N\u00b0</th><th>Type</th><th>Client</th><th>Supprim\u00e9 le</th><th>Par</th><th></th></tr>
@@ -1630,6 +1641,18 @@ function renderCorbeille(){
   </table>`;
 }
 function bindCorbeille(){
+  const saveCountersBtn = document.getElementById('save-counters');
+  if(saveCountersBtn) saveCountersBtn.onclick = async ()=>{
+    const dv = Math.max(0, Math.round(parseNum(document.getElementById('counter-devis').value)));
+    const fc = Math.max(0, Math.round(parseNum(document.getElementById('counter-facture').value)));
+    const cm = Math.max(0, Math.round(parseNum(document.getElementById('counter-commande').value)));
+    state.counters.devis = dv;
+    state.counters.facture = fc;
+    state.counters.commande = cm;
+    await sset('counters', state.counters);
+    showToast('Compteurs mis \u00e0 jour');
+    render();
+  };
   document.querySelectorAll('[data-restore-doc]').forEach(b=>{
     b.onclick = async ()=>{
       const d = state.documents.find(x=>x.id===b.dataset.restoreDoc);
