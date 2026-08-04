@@ -1741,7 +1741,7 @@ function bindSauvegarde(){
     zipBtn.disabled = true;
     const originalLabel = zipBtn.textContent;
     const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:0;height:0;overflow:hidden;';
+    container.style.cssText = 'position:absolute;left:-99999px;top:0;';
     document.body.appendChild(container);
     const zip = new JSZip();
     let ok = 0;
