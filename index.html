@@ -296,6 +296,22 @@ function parseNum(v){
   return isNaN(n) ? 0 : n;
 }
 function todayStr(){ const d=new Date(); return d.toLocaleDateString('fr-FR'); }
+function nextNumero(kind){
+  // kind: 'devis' | 'facture' | 'commande'
+  const prefixes = { devis:'D-', facture:'F-', commande:'CT-' };
+  const pad = kind==='facture' ? 3 : 4;
+  const prefix = prefixes[kind];
+  let maxExisting = 0;
+  const source = kind==='commande' ? state.commandes : state.documents.filter(d=>d.type===kind);
+  source.forEach(item=>{
+    if(!item.numero) return;
+    const m = item.numero.match(new RegExp('^'+prefix+'\\\\d{4}-(\\\\d+)$'));
+    if(m){ const n = parseInt(m[1],10); if(n>maxExisting) maxExisting = n; }
+  });
+  const next = Math.max(state.counters[kind]||0, maxExisting) + 1;
+  state.counters[kind] = next; // garde le compteur align\u00e9, au cas o\u00f9 on le consulte ailleurs
+  return prefix + new Date().getFullYear() + '-' + String(next).padStart(pad,'0');
+}
 function frDateToIso(s){
   const parts = (s||'').split('/');
   if(parts.length!==3) return '';
@@ -622,6 +638,7 @@ function renderShell(){
     ['entreprise','Entreprises'],
     ['compta','Comptabilit\u00e9'],
     ['corbeille','Corbeille'],
+    ['sauvegarde','Sauvegarde'],
   ];
   return `
   <div class="shell">
@@ -673,6 +690,7 @@ function renderTab(){
   if(state.tab==='entreprise') return renderEntreprise();
   if(state.tab==='compta') return renderCompta();
   if(state.tab==='corbeille') return renderCorbeille();
+  if(state.tab==='sauvegarde') return renderSauvegarde();
   return '';
 }
 function bindTab(){
@@ -687,6 +705,7 @@ function bindTab(){
   if(state.tab==='entreprise') return bindEntreprise();
   if(state.tab==='compta') return bindCompta();
   if(state.tab==='corbeille') return bindCorbeille();
+  if(state.tab==='sauvegarde') return bindSauvegarde();
 }
 
 function renderClients(){
@@ -1285,8 +1304,7 @@ function bindBuilder(){
       }
       return;
     }
-    state.counters.devis += 1;
-    const numero = 'D-' + new Date().getFullYear() + '-' + String(state.counters.devis).padStart(4,'0');
+    const numero = nextNumero('devis');
     const doc = {
       id: uid(), type:'devis', numero,
       date: b.date || todayStr(), clientId: b.clientId, companyId: b.companyId, objet: b.objet, infoComp: b.infoComp||'', auteur: state.currentUser,
@@ -1586,6 +1604,110 @@ function bindFacturesListe(){
   });
 }
 
+function renderSauvegarde(){
+  const nbDevis = state.documents.filter(d=>d.type==='devis' && !d.deleted).length;
+  const nbFactures = state.documents.filter(d=>d.type==='facture' && !d.deleted).length;
+  return `
+  <h1 class="page-title">Sauvegarde</h1>
+  <p class="page-sub">T\u00e9l\u00e9charge une copie compl\u00e8te de toutes les donn\u00e9es de l'app (devis, factures, clients, articles, commandes Toshiba, comptabilit\u00e9). \u00c0 faire r\u00e9guli\u00e8rement et \u00e0 garder ailleurs (ordinateur, cl\u00e9 USB, drive) \u2014 ind\u00e9pendant de ce site.</p>
+
+  <div class="card" style="max-width:560px">
+    <p class="subhead">\u00c9tat actuel</p>
+    <p class="hint">${nbDevis} devis \u00b7 ${nbFactures} facture(s) \u00b7 ${state.clients.length} client(s) \u00b7 ${state.articles.length} article(s) \u00b7 ${state.commandes.filter(c=>!c.deleted).length} commande(s) Toshiba \u00b7 ${state.entries.length} \u00e9criture(s) comptables</p>
+  </div>
+
+  <div class="card" style="max-width:560px;margin-top:1.25rem">
+    <p class="subhead">Sauvegarde compl\u00e8te (Excel, lisible)</p>
+    <p class="hint" style="margin-bottom:.75rem">Un seul fichier .xlsx avec un onglet par cat\u00e9gorie (Devis, Factures, Clients, Articles, Commandes Toshiba, Plan comptable, \u00c9critures). Pratique pour consulter ou imprimer en cas de besoin.</p>
+    <button class="btn" id="export-backup-excel">T\u00e9l\u00e9charger la sauvegarde compl\u00e8te (Excel)</button>
+  </div>
+
+  <div class="card" style="max-width:560px;margin-top:1.25rem">
+    <p class="subhead">Sauvegarde technique (JSON)</p>
+    <p class="hint" style="margin-bottom:.75rem">Une copie brute et compl\u00e8te de toutes les donn\u00e9es, y compris le d\u00e9tail de chaque ligne de devis. Moins lisible directement, mais c'est la copie la plus fid\u00e8le \u2014 \u00e0 garder pr\u00e9cieusement au cas o\u00f9.</p>
+    <button class="btn secondary" id="export-backup-json">T\u00e9l\u00e9charger la sauvegarde technique (JSON)</button>
+  </div>`;
+}
+function bindSauvegarde(){
+  const excelBtn = document.getElementById('export-backup-excel');
+  if(excelBtn) excelBtn.onclick = ()=>{
+    if(typeof XLSX === 'undefined'){ showToast("Biblioth\u00e8que Excel non charg\u00e9e (v\u00e9rifiez la connexion internet)"); return; }
+    const wb = XLSX.utils.book_new();
+    const addSheet = (rows, name)=>{
+      const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
+      XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31));
+    };
+
+    addSheet(state.clients.map(c=>({
+      Nom:c.nom, Prenom:c.prenom||'', Email:c.email||'', Telephone:c.tel||'',
+      Adresse:c.adresse||'', Complement:c.comp||'', CP:c.cp||'', Ville:c.ville||'', Categorie:c.categorie||'',
+    })), 'Clients');
+
+    addSheet(state.articles.map(a=>({
+      Code:a.code, Libelle:a.nom, Fournisseur:a.fournisseur||'', 'Prix achat':a.achat, 'Prix vente':a.vente, 'Eco participation':a.eco||0,
+    })), 'Articles');
+
+    addSheet(state.documents.filter(d=>d.type==='devis').map(d=>{
+      const c = state.clients.find(c=>c.id===d.clientId);
+      const t = calcTotals(d);
+      return { Numero:d.numero, Date:d.date, Client: c? clientFullName(c):'', Objet:d.objet||'', 'Total HT':Math.round(t.ht*100)/100, 'Total TTC':Math.round(t.ttc*100)/100, Auteur:d.auteur||'', Supprime: d.deleted? 'Oui':'Non' };
+    }), 'Devis');
+
+    addSheet(state.documents.filter(d=>d.type==='facture').map(d=>{
+      const c = state.clients.find(c=>c.id===d.clientId);
+      const t = calcTotals(d);
+      return { Numero:d.numero, Date:d.date, Client: c? clientFullName(c):'', 'Total TTC':Math.round(t.ttc*100)/100, 'Montant paye':d.montantPaye||0, Auteur:d.auteur||'', Supprime: d.deleted? 'Oui':'Non' };
+    }), 'Factures');
+
+    addSheet(state.commandes.map(cmd=>{
+      const c = state.clients.find(c=>c.id===cmd.clientId);
+      return { Numero:cmd.numero, Date:cmd.date, 'Devis origine':cmd.devisNumero||'', Client: c? clientFullName(c):'', 'Total achat':Math.round(commandeTotalAchat(cmd)*100)/100, Statut:cmd.statut||'', Supprime: cmd.deleted? 'Oui':'Non' };
+    }), 'Commandes Toshiba');
+
+    addSheet(state.accounts.map(a=>({ Code:a.code, Libelle:a.label })), 'Plan comptable');
+
+    const ecrituresRows = [];
+    state.entries.forEach(en=>{
+      const journal = state.journals.find(j=>j.id===en.journalId);
+      en.lignes.forEach(l=>{
+        const acc = state.accounts.find(a=>a.id===l.compte);
+        ecrituresRows.push({ Journal: journal?journal.code:'', Compte: acc?acc.code:'', Libelle: l.libelle||(acc?acc.label:''), Date:en.date, 'N facture':en.factureNum||'', 'N piece':en.pieceNum, Debit: parseNum(l.debit)||0, Credit: parseNum(l.credit)||0 });
+      });
+    });
+    addSheet(ecrituresRows, 'Ecritures');
+
+    const dateStr = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `sauvegarde-atelier-devis-${dateStr}.xlsx`);
+    showToast('Sauvegarde Excel t\u00e9l\u00e9charg\u00e9e');
+  };
+
+  const jsonBtn = document.getElementById('export-backup-json');
+  if(jsonBtn) jsonBtn.onclick = ()=>{
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      clients: state.clients,
+      articles: state.articles,
+      documents: state.documents,
+      commandes: state.commandes,
+      companies: state.companies,
+      accounts: state.accounts,
+      journals: state.journals,
+      entries: state.entries,
+      counters: state.counters,
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `sauvegarde-atelier-devis-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Sauvegarde JSON t\u00e9l\u00e9charg\u00e9e');
+  };
+}
 function renderCorbeille(){
   const docs = state.documents.filter(d=>d.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
   const cmds = state.commandes.filter(c=>c.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
@@ -3259,11 +3381,9 @@ function bindDocView(){
     if(!d) return;
     let numero;
     if(d.type==='devis'){
-      state.counters.devis += 1;
-      numero = 'D-' + new Date().getFullYear() + '-' + String(state.counters.devis).padStart(4,'0');
+      numero = nextNumero('devis');
     } else {
-      state.counters.facture += 1;
-      numero = 'F-' + new Date().getFullYear() + '-' + String(state.counters.facture).padStart(3,'0');
+      numero = nextNumero('facture');
     }
     const copy = Object.assign(JSON.parse(JSON.stringify(d)), {
       id: uid(), numero, date: todayStr(), auteur: state.currentUser,
@@ -3312,8 +3432,7 @@ function bindDocView(){
   const tfb = document.getElementById('to-facture-btn');
   if(tfb) tfb.onclick = async ()=>{
     const d = state.documents.find(x=>x.id===state.viewingDoc);
-    state.counters.facture += 1;
-    const numero = 'F-' + new Date().getFullYear() + '-' + String(state.counters.facture).padStart(3,'0');
+    const numero = nextNumero('facture');
     const facture = Object.assign(JSON.parse(JSON.stringify(d)), { id: uid(), type:'facture', numero, date: todayStr(), parentDevisId: d.id });
     state.documents.push(facture);
     await sset('documents', state.documents);
@@ -3327,8 +3446,7 @@ function bindDocView(){
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     if(!d.lignes || !d.lignes.length){ showToast('Ce devis ne contient aucune ligne'); return; }
     const client = state.clients.find(c=>c.id===d.clientId);
-    state.counters.commande = (state.counters.commande||0) + 1;
-    const numero = 'CT-' + new Date().getFullYear() + '-' + String(state.counters.commande).padStart(4,'0');
+    const numero = nextNumero('commande');
     const commande = {
       id: uid(), numero, date: todayStr(),
       devisId: d.id, devisNumero: d.numero,
