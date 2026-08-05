@@ -244,13 +244,28 @@ const FIREBASE_COLLECTION = 'atelier-devis-shared';
 let fbDb = null;
 let fbAuth = null;
 function firebaseReady(){ return FIREBASE_CONFIG.apiKey !== "REMPLACE_MOI"; }
-function initFirebase(){
+async function initFirebase(){
   if(!firebaseReady()) return;
   try{
     if(typeof firebase === 'undefined'){ console.warn('SDK Firebase non charg\u00e9'); return; }
     firebase.initializeApp(FIREBASE_CONFIG);
     fbDb = firebase.firestore();
     fbAuth = firebase.auth();
+    // Active le mode hors-ligne : les donn\u00e9es sont gard\u00e9es en cache local (IndexedDB) sur l'appareil.
+    // Les lectures deviennent instantan\u00e9es m\u00eame sans r\u00e9seau, et les \u00e9critures faites hors-ligne
+    // sont mises en file d'attente et envoy\u00e9es automatiquement d\u00e8s qu'une connexion revient \u2014
+    // beaucoup plus fiable qu'un simple d\u00e9lai d'attente sur une connexion faible/instable.
+    try{
+      await fbDb.enablePersistence({synchronizeTabs:true});
+    }catch(err){
+      if(err && err.code === 'failed-precondition'){
+        console.warn('Persistance hors-ligne d\u00e9sactiv\u00e9e : plusieurs onglets Firestore ouverts sans synchronizeTabs.');
+      } else if(err && err.code === 'unimplemented'){
+        console.warn('Persistance hors-ligne non support\u00e9e par ce navigateur.');
+      } else {
+        console.warn('Persistance hors-ligne non activ\u00e9e', err);
+      }
+    }
   }catch(e){ console.error('Erreur init Firebase', e); fbDb = null; fbAuth = null; }
 }
 
@@ -3662,7 +3677,7 @@ function importFromExcel(file, cb){
 }
 
 (async function init(){
-  initFirebase();
+  await initFirebase();
   if(fbAuth){
     await new Promise(resolve=>{
       const unsub = fbAuth.onAuthStateChanged(user=>{
