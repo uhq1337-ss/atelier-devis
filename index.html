@@ -318,6 +318,33 @@ async function sset(key, value){
   return false;
 }
 function uid(){ return Math.random().toString(36).slice(2,10); }
+async function sgetMerged(key, fallback){
+  const remote = await sget(key, fallback);
+  // V\u00e9rifie s'il existe une copie locale sur CET appareil (par exemple suite \u00e0 une sauvegarde
+  // qui avait \u00e9chou\u00e9 vers la base partag\u00e9e \u00e0 cause d'une connexion faible) et qui contiendrait
+  // des \u00e9l\u00e9ments absents de la base partag\u00e9e \u2014 pour ne plus jamais les perdre silencieusement.
+  let local = null;
+  try{
+    const raw = localStorage.getItem(LS_PREFIX+key);
+    if(raw) local = JSON.parse(raw);
+  }catch(e){}
+  if(!Array.isArray(remote) || !Array.isArray(local) || !local.length) return remote;
+
+  const remoteIds = new Set(remote.map(x=>x && x.id));
+  const missing = local.filter(x=>x && x.id && !remoteIds.has(x.id));
+  if(!missing.length) return remote;
+
+  console.warn(`R\u00e9cup\u00e9ration de ${missing.length} \u00e9l\u00e9ment(s) "${key}" trouv\u00e9(s) en local mais absent(s) de la base partag\u00e9e \u2014 fusion et re-synchronisation.`, missing);
+  const merged = [...remote, ...missing];
+  try{
+    await sset(key, merged);
+  }catch(e){ console.error('\u00c9chec de la resynchronisation', e); }
+  if(typeof showConnectionWarning === 'function'){
+    state.dataRecovered = state.dataRecovered || [];
+    state.dataRecovered.push({ key, count: missing.length });
+  }
+  return merged;
+}
 async function pushAndSave(key, newItem){
   // Recharge la version la plus \u00e0 jour juste avant d'ajouter et de sauvegarder,
   // pour ne jamais \u00e9craser ce qu'une autre personne/appareil vient de cr\u00e9er entre-temps.
@@ -382,6 +409,7 @@ let state = {
   currentUser: null,
   authenticated: false,
   connectionWarning: false,
+  dataRecovered: null,
   team: [],
   clients: [],
   articles: [],
@@ -497,10 +525,10 @@ const DEFAULT_COMPANIES = [
 
 async function loadAll(){
   state.team = await sget('team', []);
-  state.clients = await sget('clients', []);
-  state.articles = await sget('articles', []);
-  state.documents = await sget('documents', []);
-  state.commandes = await sget('commandes', []);
+  state.clients = await sgetMerged('clients', []);
+  state.articles = await sgetMerged('articles', []);
+  state.documents = await sgetMerged('documents', []);
+  state.commandes = await sgetMerged('commandes', []);
   state.counters = await sget('counters', {devis:0, facture:0, commande:0});
   if(state.counters.commande === undefined) state.counters.commande = 0;
   const co = await sget('companies', null);
@@ -702,6 +730,10 @@ function renderShell(){
         <span>\u26a0\ufe0f <strong>Connexion instable</strong> \u2014 ta derni\u00e8re sauvegarde n'a atteint que cet appareil, pas encore l'\u00e9quipe. D\u00e8s que tu as une meilleure connexion, rouvre ce que tu viens de cr\u00e9er/modifier et enregistre \u00e0 nouveau pour \u00eatre s\u00fbr que \u00e7a soit bien partag\u00e9.</span>
         <button id="dismiss-connection-warning" style="background:#fff;color:#7A1F1F;border:none;border-radius:4px;padding:.4rem .8rem;cursor:pointer;white-space:nowrap;font-weight:bold">OK</button>
       </div>` : ''}
+      ${state.dataRecovered && state.dataRecovered.length ? `<div style="background:#1F6B3A;color:#fff;padding:.85rem 1.25rem;border-radius:6px;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;gap:1rem">
+        <span>\u2705 <strong>Donn\u00e9es r\u00e9cup\u00e9r\u00e9es</strong> \u2014 ${state.dataRecovered.map(r=>`${r.count} \u00e9l\u00e9ment(s) "${r.key}"`).join(', ')} qui n'\u00e9taient rest\u00e9(s) que sur cet appareil viennent d'\u00eatre resynchronis\u00e9(s) avec toute l'\u00e9quipe.</span>
+        <button id="dismiss-recovery-notice" style="background:#fff;color:#1F6B3A;border:none;border-radius:4px;padding:.4rem .8rem;cursor:pointer;white-space:nowrap;font-weight:bold">OK</button>
+      </div>` : ''}
       ${renderTab()}
     </div>
   </div>
@@ -715,6 +747,8 @@ function showConnectionWarning(){
 function bindShell(){
   const dismissWarning = document.getElementById('dismiss-connection-warning');
   if(dismissWarning) dismissWarning.onclick = ()=>{ state.connectionWarning = false; render(); };
+  const dismissRecovery = document.getElementById('dismiss-recovery-notice');
+  if(dismissRecovery) dismissRecovery.onclick = ()=>{ state.dataRecovered = null; render(); };
   document.querySelectorAll('[data-tab]').forEach(b=>{
     b.onclick = ()=>{
       if(b.dataset.tab==='nouveau' && state.builder.editingDocId){
