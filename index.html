@@ -288,6 +288,20 @@ async function sset(key, value){
   try{ localStorage.setItem(LS_PREFIX+key, JSON.stringify(value)); }catch(e2){ console.error(e2); }
 }
 function uid(){ return Math.random().toString(36).slice(2,10); }
+async function pushAndSave(key, newItem){
+  // Recharge la version la plus \u00e0 jour juste avant d'ajouter et de sauvegarder,
+  // pour ne jamais \u00e9craser ce qu'une autre personne/appareil vient de cr\u00e9er entre-temps.
+  let fresh;
+  try{
+    fresh = await sget(key, state[key]);
+  }catch(e){
+    fresh = state[key]; // repli : on utilise ce qu'on a localement si le rechargement \u00e9choue
+  }
+  if(!Array.isArray(fresh)) fresh = [];
+  fresh.push(newItem);
+  state[key] = fresh;
+  await sset(key, state[key]);
+}
 function clientFullName(c){ return c ? (c.nom + (c.prenom ? ' '+c.prenom : '')) : ''; }
 function eur(n){ return (Math.round((n||0)*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' \u20ac'; }
 function parseNum(v){
@@ -775,7 +789,7 @@ function bindClients(){
   document.getElementById('add-client').onclick = async ()=>{
     const nom = document.getElementById('c-nom').value.trim();
     if(!nom){ showToast('Le nom du client est requis'); return; }
-    state.clients.push({
+    const newClient = {
       id: uid(), nom,
       prenom: document.getElementById('c-prenom').value.trim(),
       email: document.getElementById('c-email').value.trim(),
@@ -785,8 +799,8 @@ function bindClients(){
       cp: document.getElementById('c-cp').value.trim(),
       ville: document.getElementById('c-ville').value.trim(),
       categorie: document.getElementById('c-cat').value,
-    });
-    await sset('clients', state.clients);
+    };
+    await pushAndSave('clients', newClient);
     showToast('Client ajout\u00e9');
     render();
   };
@@ -977,7 +991,7 @@ function bindArticles(){
   document.getElementById('add-article').onclick = async ()=>{
     const nom = document.getElementById('a-nom').value.trim();
     if(!nom){ showToast("Le nom de l'article est requis"); return; }
-    state.articles.push({
+    const newArticle = {
       id: uid(),
       code: document.getElementById('a-code').value.trim() || ('ART-'+(state.articles.length+1)),
       nom,
@@ -985,8 +999,8 @@ function bindArticles(){
       achat: parseNum(document.getElementById('a-achat').value)||0,
       vente: parseNum(document.getElementById('a-vente').value)||0,
       eco: parseNum(document.getElementById('a-eco').value)||0,
-    });
-    await sset('articles', state.articles);
+    };
+    await pushAndSave('articles', newArticle);
     showToast('Article ajout\u00e9');
     render();
   };
@@ -1313,12 +1327,11 @@ function bindBuilder(){
       travauxNom: b.travauxNom||'', travauxAdresse: b.travauxAdresse||'', travauxCp: b.travauxCp||'', travauxVille: b.travauxVille||'',
       lignes: JSON.parse(JSON.stringify(b.lignes)), tva: b.tva, remiseType: b.remiseType||'percent', remiseValeur: b.remiseValeur||0, notes: '',
     };
-    state.documents.push(doc);
+    await pushAndSave('documents', doc);
     showToast('Devis ' + numero + ' enregistr\u00e9');
     state.builder = { clientId:'', companyId: b.companyId, objet:'', infoComp:'', lignes:[], tva: b.tva, notes:'' };
     state.viewingDoc = doc.id;
     render();
-    sset('documents', state.documents).catch(()=>{});
     sset('counters', state.counters).catch(()=>{});
   };
   const cancelEditBtn = document.getElementById('cancel-edit-devis');
@@ -3517,8 +3530,7 @@ function bindDocView(){
       id: uid(), numero, date: todayStr(), auteur: state.currentUser,
       montantPaye: 0, parentDevisId: d.type==='facture' ? d.parentDevisId : undefined,
     });
-    state.documents.push(copy);
-    await sset('documents', state.documents);
+    await pushAndSave('documents', copy);
     await sset('counters', state.counters);
     showToast((d.type==='devis' ? 'Devis' : 'Facture') + ' ' + numero + ' cr\u00e9\u00e9e \u00e0 partir de ' + d.numero);
     state.viewingDoc = copy.id;
@@ -3562,8 +3574,7 @@ function bindDocView(){
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     const numero = nextNumero('facture');
     const facture = Object.assign(JSON.parse(JSON.stringify(d)), { id: uid(), type:'facture', numero, date: todayStr(), parentDevisId: d.id });
-    state.documents.push(facture);
-    await sset('documents', state.documents);
+    await pushAndSave('documents', facture);
     await sset('counters', state.counters);
     showToast('Facture ' + numero + ' cr\u00e9\u00e9e');
     state.viewingDoc = facture.id;
@@ -3584,8 +3595,7 @@ function bindDocView(){
       auteur: state.currentUser,
       commentaire: `Il est joignable au ${client && client.tel ? client.tel : '[num\u00e9ro de t\u00e9l\u00e9phone]'} pour d\u00e9finir l'horaire de livraison.`,
     };
-    state.commandes.push(commande);
-    await sset('commandes', state.commandes);
+    await pushAndSave('commandes', commande);
     await sset('counters', state.counters);
     showToast('Commande Toshiba ' + numero + ' cr\u00e9\u00e9e');
     state.viewingDoc = null;
