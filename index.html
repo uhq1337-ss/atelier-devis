@@ -330,8 +330,9 @@ async function sgetMerged(key, fallback){
   }catch(e){}
   if(!Array.isArray(remote) || !Array.isArray(local) || !local.length) return remote;
 
-  const remoteIds = new Set(remote.map(x=>x && x.id));
-  const missing = local.filter(x=>x && x.id && !remoteIds.has(x.id));
+  const keyOf = x => (x && typeof x === 'object' && 'id' in x) ? x.id : x;
+  const remoteKeys = new Set(remote.map(keyOf));
+  const missing = local.filter(x=> x!=null && !remoteKeys.has(keyOf(x)));
   if(!missing.length) return remote;
 
   console.warn(`R\u00e9cup\u00e9ration de ${missing.length} \u00e9l\u00e9ment(s) "${key}" trouv\u00e9(s) en local mais absent(s) de la base partag\u00e9e \u2014 fusion et re-synchronisation.`, missing);
@@ -524,7 +525,7 @@ const DEFAULT_COMPANIES = [
 ];
 
 async function loadAll(){
-  state.team = await sget('team', []);
+  state.team = await sgetMerged('team', []);
   state.clients = await sgetMerged('clients', []);
   state.articles = await sgetMerged('articles', []);
   state.documents = await sgetMerged('documents', []);
@@ -694,8 +695,7 @@ function bindLanding(){
     const inp = document.getElementById('new-member');
     const name = inp.value.trim();
     if(!name) return;
-    if(!state.team.includes(name)) state.team.push(name);
-    await sset('team', state.team);
+    if(!state.team.includes(name)) await pushAndSave('team', name);
     state.currentUser = name;
     render();
   };
