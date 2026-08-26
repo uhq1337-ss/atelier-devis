@@ -561,13 +561,14 @@ async function loadAll(){
   // (arriv\u00e9 par le pass\u00e9 si le plan comptable/journaux \u00e9taient r\u00e9g\u00e9n\u00e9r\u00e9s avec de nouveaux identifiants).
   // Se base sur la plage du num\u00e9ro de pi\u00e8ce, qui est fiable et stable (100001=AC, 200001=CM, 300001=OD, 400001=VE, 900001=AN).
   let journalRepaired = 0;
-  const journalRanges = [
-    ['jr-AN', 900000], ['jr-VE', 400000], ['jr-OD', 300000], ['jr-CM', 200000], ['jr-AC', 100000],
+  const journalCodeRanges = [
+    ['AN', 900000], ['VE', 400000], ['OD', 300000], ['CM', 200000], ['AC', 100000],
   ];
   state.entries.forEach(en=>{
     if(state.journals.some(j=>j.id===en.journalId)) return; // d\u00e9j\u00e0 valide
-    const guess = journalRanges.find(([id,min])=> en.pieceNum >= min && state.journals.some(j=>j.id===id));
-    if(guess){ en.journalId = guess[0]; journalRepaired++; }
+    const guess = journalCodeRanges.find(([code,min])=> en.pieceNum >= min);
+    const journal = guess ? state.journals.find(j=>j.code===guess[0]) : null;
+    if(journal){ en.journalId = journal.id; journalRepaired++; }
   });
   if(journalRepaired){
     console.warn(`${journalRepaired} \u00e9criture(s) recoll\u00e9e(s) \u00e0 leur journal d'origine.`);
@@ -2772,16 +2773,30 @@ function bindSaisieEcriture(){
   };
 }
 
-function renderEcritures(){
-  // D\u00e9tecte les lignes d'\u00e9criture dont le compte ne correspond plus \u00e0 rien dans le plan comptable actuel
+const KNOWN_RAN = [
+  [0, 1000, '101000'], [5574.14, 0, '119000'], [1009.03, 0, '120000'], [2861.60, 0, '205100'],
+  [15, 0, '271000'], [64.80, 0, '275100'], [0, 1716.96, '280510'], [0, 2126.78, '401000'],
+  [201, 0, '445510'], [55.41, 0, '445660'], [0, 5028.77, '451200'], [0, 0.09, '445710'], [91.62, 0, '512100'],
+];
+function computeOrphanAccounts(){
   const orphanMap = {};
   state.entries.forEach(en=>{
     en.lignes.forEach(l=>{
       if(!l.compte || state.accounts.some(a=>a.id===l.compte)) return;
-      if(!orphanMap[l.compte]) orphanMap[l.compte] = { count:0, exemple: l.libelle||'' };
+      if(!orphanMap[l.compte]) orphanMap[l.compte] = { count:0, exemple: l.libelle||'', debit: parseNum(l.debit), credit: parseNum(l.credit) };
       orphanMap[l.compte].count++;
     });
   });
+  return orphanMap;
+}
+function suggestAccountId(o){
+  const match = KNOWN_RAN.find(([d,c])=> Math.abs(d-o.debit)<0.01 && Math.abs(c-o.credit)<0.01);
+  if(!match) return '';
+  const acc = state.accounts.find(a=>a.code===match[2]);
+  return acc ? acc.id : '';
+}
+function renderEcritures(){
+  const orphanMap = computeOrphanAccounts();
   const orphanIds = Object.keys(orphanMap);
 
   const sortKey = state.ecrituresSort.key, sortDir = state.ecrituresSort.dir;
@@ -2824,18 +2839,24 @@ function renderEcritures(){
   return `
   ${orphanIds.length ? `<div class="card" style="border-color:var(--danger);margin-bottom:1.25rem">
     <p class="subhead" style="color:var(--danger)">\u26a0\ufe0f ${orphanIds.length} compte(s) \u00e0 recoller (${orphanIds.reduce((s,id)=>s+orphanMap[id].count,0)} ligne(s) d'\u00e9criture concern\u00e9e(s))</p>
-    <p class="hint" style="margin-bottom:.75rem">Ces lignes r\u00e9f\u00e9rencent un compte qui n'existe plus dans le plan comptable actuel (probablement suite \u00e0 une resynchronisation). Choisis le vrai compte pour chacune, puis clique "R\u00e9parer" \u2014 \u00e7a corrigera toutes les lignes concern\u00e9es d'un coup, pas besoin de tout ressaisir.</p>
-    ${orphanIds.map(id=>`
+    <p class="hint" style="margin-bottom:.75rem">Ces lignes r\u00e9f\u00e9rencent un compte qui n'existe plus dans le plan comptable actuel (probablement suite \u00e0 une resynchronisation). J'ai <strong>pr\u00e9-rempli ma meilleure suggestion</strong> pour les lignes que je reconnais \u2014 v\u00e9rifie et corrige si besoin, puis clique "R\u00e9parer".</p>
+    ${orphanIds.map(id=>{
+      const o = orphanMap[id];
+      const suggestion = suggestAccountId(o);
+      const montant = o.debit ? `D\u00e9bit ${eur(o.debit)}` : (o.credit ? `Cr\u00e9dit ${eur(o.credit)}` : '');
+      return `
       <div class="row" style="align-items:flex-end;margin-bottom:.5rem">
         <div class="field" style="flex:1;min-width:220px">
-          <label>${orphanMap[id].count} ligne(s) \u2014 ex.\u00a0: "${orphanMap[id].exemple||'(sans libell\u00e9)'}"</label>
+          <label>${o.count} ligne(s) \u2014 "${o.exemple||'(sans libell\u00e9)'}" \u2014 ${montant}${suggestion?' \u2014 <span style="color:var(--brass)">suggestion automatique</span>':''}</label>
           <select data-orphan-account="${id}">
             <option value="">\u2014 Choisir le bon compte \u2014</option>
-            ${state.accounts.slice().sort((a,b)=>a.code.localeCompare(b.code)).map(a=>`<option value="${a.id}">${a.code} \u2014 ${a.label}</option>`).join('')}
+            ${state.accounts.slice().sort((a,b)=>a.code.localeCompare(b.code)).map(a=>`<option value="${a.id}" ${suggestion===a.id?'selected':''}>${a.code} \u2014 ${a.label}</option>`).join('')}
           </select>
         </div>
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
     <button class="btn small" id="repair-orphan-accounts" style="margin-top:.5rem">R\u00e9parer les comptes s\u00e9lectionn\u00e9s</button>
+    <button class="btn secondary small" id="repair-all-suggested" style="margin-top:.5rem">Tout r\u00e9parer avec les suggestions</button>
   </div>` : ''}
   <button class="btn secondary small" id="export-ecritures" style="margin-bottom:1rem">Exporter les \u00e9critures (Excel)</button>
   <div class="row" style="margin-bottom:1rem;align-items:flex-end">
@@ -2891,6 +2912,26 @@ function bindEcritures(){
     });
     await sset('entries', state.entries);
     showToast(`${fixedLines} ligne(s) r\u00e9par\u00e9e(s)`);
+    render();
+  };
+  const repairAllBtn = document.getElementById('repair-all-suggested');
+  if(repairAllBtn) repairAllBtn.onclick = async ()=>{
+    const orphanMap = computeOrphanAccounts();
+    const mapping = {};
+    Object.keys(orphanMap).forEach(id=>{
+      const suggestion = suggestAccountId(orphanMap[id]);
+      if(suggestion) mapping[id] = suggestion;
+    });
+    const keys = Object.keys(mapping);
+    if(!keys.length){ showToast("Aucune suggestion automatique disponible pour l'instant"); return; }
+    let fixedLines = 0;
+    state.entries.forEach(en=>{
+      en.lignes.forEach(l=>{
+        if(mapping[l.compte]){ l.compte = mapping[l.compte]; fixedLines++; }
+      });
+    });
+    await sset('entries', state.entries);
+    showToast(`${fixedLines} ligne(s) r\u00e9par\u00e9e(s) automatiquement`);
     render();
   };
   const search = document.getElementById('ec-search');
