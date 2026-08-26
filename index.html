@@ -532,7 +532,7 @@ async function loadAll(){
   state.commandes = await sgetMerged('commandes', []);
   state.counters = await sget('counters', {devis:0, facture:0, commande:0});
   if(state.counters.commande === undefined) state.counters.commande = 0;
-  const co = await sget('companies', null);
+  const co = await sgetMerged('companies', null);
   if(co && co.length){
     state.companies = co.map(c=>{
       const def = DEFAULT_COMPANIES.find(d=>d.id===c.id);
@@ -541,21 +541,21 @@ async function loadAll(){
   }else{
     state.companies = JSON.parse(JSON.stringify(DEFAULT_COMPANIES));
   }
-  const acc = await sget('accounts', null);
+  const acc = await sgetMerged('accounts', null);
   if(acc && acc.length){
     state.accounts = acc;
   } else {
     state.accounts = JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
     await sset('accounts', state.accounts);
   }
-  const jr = await sget('journals', null);
+  const jr = await sgetMerged('journals', null);
   if(jr && jr.length){
     state.journals = jr;
   } else {
     state.journals = JSON.parse(JSON.stringify(DEFAULT_JOURNALS));
     await sset('journals', state.journals);
   }
-  state.entries = await sget('entries', []);
+  state.entries = await sgetMerged('entries', []);
 }
 
 function showToast(msg){
@@ -920,6 +920,8 @@ function bindClients(){
   };
   document.getElementById('c-import').onchange = (e)=>{
     importFromExcel(e.target.files[0], async (rows)=>{
+      const fresh = await sget('clients', state.clients);
+      state.clients = Array.isArray(fresh) ? fresh : state.clients;
       let n=0;
       rows.forEach(r=>{
         const get = (keys)=> findVal(r, keys);
@@ -1117,6 +1119,8 @@ function bindArticles(){
   };
   document.getElementById('a-import').onchange = (e)=>{
     importFromExcel(e.target.files[0], async (rows)=>{
+      const fresh = await sget('articles', state.articles);
+      state.articles = Array.isArray(fresh) ? fresh : state.articles;
       let n=0;
       rows.forEach(r=>{
         const get = (keys)=> findVal(r, keys);
@@ -2377,8 +2381,7 @@ function bindEntreprise(){
       interventionText:'', paymentText:'',
       footerTagline:'', footerSub:'', disclaimerText:'Cette offre de prix est \u00e9tablie \u00e0 titre informatif. Elle ne constitue pas une proposition technique susceptible d\'engager notre responsabilit\u00e9.',
     };
-    state.companies.push(nc);
-    await sset('companies', state.companies);
+    await pushAndSave('companies', nc);
     state.editingCompanyId = nc.id;
     render();
   };
@@ -2531,8 +2534,7 @@ function bindPlanComptable(){
     const code = document.getElementById('acc-code').value.trim();
     const label = document.getElementById('acc-label').value.trim();
     if(!code || !label){ showToast('Code et libell\u00e9 requis'); return; }
-    state.accounts.push({id: uid(), code, label});
-    await sset('accounts', state.accounts);
+    await pushAndSave('accounts', {id: uid(), code, label});
     showToast('Compte ajout\u00e9');
     render();
   };
@@ -2600,8 +2602,7 @@ function bindJournaux(){
     const name = document.getElementById('jr-name').value.trim();
     const next = parseInt(document.getElementById('jr-next').value)||100001;
     if(!code || !name){ showToast('Code et nom requis'); return; }
-    state.journals.push({id: uid(), code, name, nextPiece: next});
-    await sset('journals', state.journals);
+    await pushAndSave('journals', {id: uid(), code, name, nextPiece: next});
     showToast('Journal ajout\u00e9');
     render();
   };
@@ -2743,9 +2744,8 @@ function bindSaisieEcriture(){
       id: uid(), journalId: journal.id, date: b.date, factureNum: b.factureNum, pieceNum,
       lignes: JSON.parse(JSON.stringify(b.lignes)), auteur: state.currentUser,
     };
-    state.entries.push(entry);
     journal.nextPiece += 1;
-    await sset('entries', state.entries);
+    await pushAndSave('entries', entry);
     await sset('journals', state.journals);
     showToast('\u00c9criture n\u00b0 ' + pieceNum + ' enregistr\u00e9e');
     state.entryBuilder = { journal: b.journal, date: b.date, factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null };
