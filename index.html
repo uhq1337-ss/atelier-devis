@@ -3407,7 +3407,7 @@ function renderDocView(id){
           ${d.type==='facture' ? `
           <div class="r"><span>Montant d\u00e9j\u00e0 pay\u00e9</span><span class="num">${d.montantPaye ? eur(parseNum(d.montantPaye)) : '\u00c0 renseigner'}</span></div>
           <div class="r ttc" style="background:${color}"><span>Net \u00e0 payer</span><span class="num">${eur(t.ttc - parseNum(d.montantPaye||0))}</span></div>` : ''}
-          <div class="p2-signbox">Bon pour accord<br><span style="font-weight:normal">Date et signature</span></div>
+          ${d.type==='devis' ? `<div class="p2-signbox">Bon pour accord<br><span style="font-weight:normal">Date et signature</span></div>` : ''}
         </div>
       </div>
       ${d.type==='devis' ? `<div class="p2-icons-row">
