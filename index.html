@@ -2782,9 +2782,13 @@ function computeOrphanAccounts(){
   const orphanMap = {};
   state.entries.forEach(en=>{
     en.lignes.forEach(l=>{
-      if(!l.compte || state.accounts.some(a=>a.id===l.compte)) return;
-      if(!orphanMap[l.compte]) orphanMap[l.compte] = { count:0, exemple: l.libelle||'', debit: parseNum(l.debit), credit: parseNum(l.credit) };
-      orphanMap[l.compte].count++;
+      if(state.accounts.some(a=>a.id===l.compte)) return; // compte valide, rien \u00e0 faire
+      // Compte cass\u00e9 (identifiant qui ne correspond plus \u00e0 rien) OU compte totalement vide :
+      // dans les deux cas on regroupe par libell\u00e9 pour ne pas m\u00e9langer des lignes diff\u00e9rentes
+      // qui auraient toutes un compte vide.
+      const key = l.compte ? l.compte : ('vide:'+normalizeText(l.libelle||'')+':'+parseNum(l.debit)+':'+parseNum(l.credit));
+      if(!orphanMap[key]) orphanMap[key] = { count:0, exemple: l.libelle||'', debit: parseNum(l.debit), credit: parseNum(l.credit) };
+      orphanMap[key].count++;
     });
   });
   return orphanMap;
@@ -2928,7 +2932,8 @@ function bindEcritures(){
     let fixedLines = 0;
     state.entries.forEach(en=>{
       en.lignes.forEach(l=>{
-        if(mapping[l.compte]){ l.compte = mapping[l.compte]; fixedLines++; }
+        const key = l.compte ? l.compte : ('vide:'+normalizeText(l.libelle||'')+':'+parseNum(l.debit)+':'+parseNum(l.credit));
+        if(mapping[key]){ l.compte = mapping[key]; fixedLines++; }
       });
     });
     await sset('entries', state.entries);
