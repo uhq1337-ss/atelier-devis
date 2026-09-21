@@ -3497,29 +3497,51 @@ async function buildDocPdf(root, captureScale){
       pages.push({ imgData, x:0, y:0, w:pageW, h:imgH, sheetIndex:i, multi:false });
     } else {
       // Contenu trop long : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille.
-      // On calcule d'abord le nombre de pages n\u00e9cessaires, puis on r\u00e9partit le contenu \u00e9quitablement
-      // entre elles (plut\u00f4t que de remplir chaque page au maximum et de laisser un petit reliquat
-      // presque vide tout seul sur la derni\u00e8re page).
+      // Rep\u00e8re d'abord les limites de chaque ligne du tableau (et des autres blocs) pour ne JAMAIS
+      // couper au milieu d'une ligne \u2014 on ajuste chaque point de coupure pour tomber juste avant.
+      const sheetRect = sheets[i].getBoundingClientRect();
+      const domToCanvasRatio = canvas.width / sheetRect.width;
+      const breakPoints = Array.from(sheets[i].querySelectorAll('.p2-table tr, .p2-bottom-row, .p2-icons-row, .p2-objet, .p2-parties'))
+        .map(el=>{
+          const r = el.getBoundingClientRect();
+          return { top: (r.top - sheetRect.top) * domToCanvasRatio, bottom: (r.bottom - sheetRect.top) * domToCanvasRatio };
+        })
+        .filter(b=> b.bottom > b.top && b.top >= 0);
+
       const marginMm = 10;
       const usableHmm = pageH - marginMm*2;
       const usableWmm = pageW - marginMm*2;
       const maxSliceHeightPx = Math.floor(usableHmm * pxPerMm);
-      const numPages = Math.max(1, Math.ceil(canvas.height / maxSliceHeightPx));
-      const sliceHeightPx = Math.ceil(canvas.height / numPages);
-      let renderedPx = 0;
-      while(renderedPx < canvas.height){
-        const thisSliceH = Math.min(sliceHeightPx, canvas.height - renderedPx);
+
+      // Calcule les points de coupure : avance par pas de taille maximale, mais recule
+      // jusqu'au d\u00e9but du bloc si le point tombe en plein milieu d'une ligne/bloc.
+      const cuts = [0];
+      let cursor = 0;
+      while(cursor < canvas.height){
+        let target = Math.min(cursor + maxSliceHeightPx, canvas.height);
+        if(target < canvas.height){
+          const collision = breakPoints.find(b=> b.top < target && b.bottom > target && b.top > cursor);
+          if(collision && collision.top > cursor) target = collision.top;
+        }
+        if(target <= cursor) target = Math.min(cursor + maxSliceHeightPx, canvas.height); // s\u00e9curit\u00e9 anti-boucle infinie
+        cuts.push(target);
+        cursor = target;
+      }
+
+      for(let p=0; p<cuts.length-1; p++){
+        const sliceStart = cuts[p];
+        const thisSliceH = cuts[p+1] - sliceStart;
+        if(thisSliceH<=0) continue;
         const sliceCanvas = document.createElement('canvas');
         sliceCanvas.width = canvas.width;
         sliceCanvas.height = thisSliceH;
         const ctx = sliceCanvas.getContext('2d');
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0,0,sliceCanvas.width, sliceCanvas.height);
-        ctx.drawImage(canvas, 0, renderedPx, canvas.width, thisSliceH, 0, 0, canvas.width, thisSliceH);
+        ctx.drawImage(canvas, 0, sliceStart, canvas.width, thisSliceH, 0, 0, canvas.width, thisSliceH);
         const imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
         const imgHmm = thisSliceH / pxPerMm;
         pages.push({ imgData, x:marginMm, y:marginMm, w:usableWmm, h:imgHmm, sheetIndex:i, multi:true });
-        renderedPx += thisSliceH;
       }
     }
     // Lib\u00e8re explicitement la m\u00e9moire du canvas d\u00e8s qu'on n'en a plus besoin
