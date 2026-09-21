@@ -3658,24 +3658,34 @@ function bindDocView(){
   document.getElementById('print-btn').onclick = async (e)=>{
     const btn = e.currentTarget;
     const original = btn.textContent;
+    // Ouvre la fen\u00eatre TOUT DE SUITE (dans le m\u00eame geste que le clic) : si on attend la fin de la
+    // g\u00e9n\u00e9ration du PDF avant d'ouvrir, le navigateur ne consid\u00e8re plus \u00e7a comme un clic direct
+    // et bloque silencieusement la fen\u00eatre, sans aucun message.
+    const win = window.open('', '_blank');
+    if(win){
+      win.document.write('<p style="font-family:sans-serif;padding:2rem">G\u00e9n\u00e9ration du PDF\u2026</p>');
+    }
     btn.disabled = true;
     btn.textContent = 'Pr\u00e9paration\u2026';
     try{
       const pdf = await buildDocPdf();
       if(!pdf){
+        if(win) win.close();
         showToast("La g\u00e9n\u00e9ration a \u00e9chou\u00e9 \u2014 v\u00e9rifie ta connexion internet et r\u00e9essaie.");
         return;
       }
-      const blobUrl = pdf.output('bloburl');
-      const win = window.open(blobUrl, '_blank');
       if(!win){
         showToast("Le navigateur a bloqu\u00e9 l'ouverture \u2014 autorise les fen\u00eatres pop-up pour ce site puis r\u00e9essaie.");
         return;
       }
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      win.location.href = blobUrl;
       // Lance l'impression une fois le PDF affich\u00e9 (le d\u00e9lai laisse le temps au visualiseur de charger)
       setTimeout(()=>{ try{ win.print(); }catch(e){} }, 800);
     }catch(err){
       console.error('Erreur g\u00e9n\u00e9ration PDF pour impression:', err);
+      if(win) win.close();
       showToast("La g\u00e9n\u00e9ration a \u00e9chou\u00e9.");
     }finally{
       btn.disabled = false;
