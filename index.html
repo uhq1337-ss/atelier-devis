@@ -163,6 +163,15 @@
     @page devis-print-page{ size:A4; margin:14mm; }
     .paper2.multi-page{ page:devis-print-page; }
     .paper2.multi-page .p2-body{ padding:0; }
+    /* transform:scale() est purement visuel et n'est pas pris en compte par la pagination
+       d'impression : le navigateur continue de compter le nombre de pages comme si le
+       contenu n'\u00e9tait pas r\u00e9duit, ce qui donnait des impressions sur 5-6 pages vides.
+       zoom, lui, modifie vraiment la mise en page, donc la pagination le prend en compte. */
+    .paper2:not(.multi-page) #p2-scale-inner{
+      transform:none !important;
+      width:100% !important;
+      zoom: var(--fit-scale, 1);
+    }
   }
 
   .paper2, .p2-banner, .p2-section-title, .p2-totals .r.ttc, .p2-tagline{
@@ -3640,6 +3649,7 @@ function fitDocToOnePage(root){
   inner.style.width = (100/scale) + '%';
   inner.style.transformOrigin = 'top left';
   inner.style.transform = `scale(${scale})`;
+  inner.style.setProperty('--fit-scale', scale);
   mainSheet.style.height = '297mm';
   mainSheet.style.overflow = 'hidden';
 }
