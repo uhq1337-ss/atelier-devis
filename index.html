@@ -3655,7 +3655,33 @@ function fitDocToOnePage(root){
 }
 function bindDocView(){
   document.getElementById('back-btn').onclick = ()=>{ state.viewingDoc=null; render(); };
-  document.getElementById('print-btn').onclick = ()=>{ window.print(); };
+  document.getElementById('print-btn').onclick = async (e)=>{
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Pr\u00e9paration\u2026';
+    try{
+      const pdf = await buildDocPdf();
+      if(!pdf){
+        showToast("La g\u00e9n\u00e9ration a \u00e9chou\u00e9 \u2014 v\u00e9rifie ta connexion internet et r\u00e9essaie.");
+        return;
+      }
+      const blobUrl = pdf.output('bloburl');
+      const win = window.open(blobUrl, '_blank');
+      if(!win){
+        showToast("Le navigateur a bloqu\u00e9 l'ouverture \u2014 autorise les fen\u00eatres pop-up pour ce site puis r\u00e9essaie.");
+        return;
+      }
+      // Lance l'impression une fois le PDF affich\u00e9 (le d\u00e9lai laisse le temps au visualiseur de charger)
+      setTimeout(()=>{ try{ win.print(); }catch(e){} }, 800);
+    }catch(err){
+      console.error('Erreur g\u00e9n\u00e9ration PDF pour impression:', err);
+      showToast("La g\u00e9n\u00e9ration a \u00e9chou\u00e9.");
+    }finally{
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  };
   document.getElementById('pdf-btn').onclick = async (e)=>{
     const btn = e.currentTarget;
     const original = btn.textContent;
