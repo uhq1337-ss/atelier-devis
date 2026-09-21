@@ -3611,7 +3611,9 @@ function fitDocToOnePage(root){
 
   // Si le contenu est vraiment trop long pour tenir de fa\u00e7on lisible sur une page,
   // on pr\u00e9f\u00e8re plusieurs pages (comme un vrai devis fournisseur) plut\u00f4t qu'un texte minuscule.
-  const MULTI_PAGE_THRESHOLD = 1.35;
+  // Seuil \u00e9lev\u00e9 volontairement : la r\u00e9duction automatique descend jusqu'\u00e0 35% et reste lisible,
+  // donc on privil\u00e9gie une seule page tant que c'est raisonnablement possible.
+  const MULTI_PAGE_THRESHOLD = 2.7;
   if(naturalHeight > pageHeightPx * MULTI_PAGE_THRESHOLD){
     mainSheet.style.height = 'auto';
     mainSheet.classList.add('multi-page');
