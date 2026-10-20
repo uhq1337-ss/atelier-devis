@@ -488,8 +488,8 @@ const DEFAULT_COMPANIES = [
     name:'BAWS',
     tagline:'Business Aircon Web System',
     subtagline:'Expertise \u2022 Performance \u2022 Fiabilit\u00e9',
-    color:'#8E1F3B',
-    color2:'#1B3A5C',
+    color:'#12253B',
+    color2:'#12253B',
     logo: DEFAULT_LOGO_BAWS,
     street:'231 Rue Saint Honor\u00e9',
     cp:'75001', ville:'PARIS',
@@ -556,6 +556,20 @@ async function loadAll(){
     });
   }else{
     state.companies = JSON.parse(JSON.stringify(DEFAULT_COMPANIES));
+  }
+  // Passe BAWS au bleu marine du modèle "Devis estimatif" (#12253B), une seule fois :
+  // si la couleur enregistrée est encore l'ancienne couleur par défaut (jamais personnalisée à la main),
+  // on la met à jour automatiquement sans écraser un choix que l'utilisateur aurait fait depuis.
+  let companiesColorFixed = false;
+  state.companies.forEach(c=>{
+    if(c.id==='baws' && (c.color==='#8E1F3B' || c.color2==='#1B3A5C')){
+      c.color = '#12253B';
+      c.color2 = '#12253B';
+      companiesColorFixed = true;
+    }
+  });
+  if(companiesColorFixed){
+    await sset('companies', state.companies);
   }
   const acc = await sgetMerged('accounts', null);
   if(acc && acc.length){
