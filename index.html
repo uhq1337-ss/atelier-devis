@@ -4095,6 +4095,29 @@ function fitDocToOnePage(root){
     return inner.scrollHeight * s; // hauteur r\u00e9elle qu'occuperait le contenu \u00e0 cette \u00e9chelle
   };
 
+  // Les devis travaux restent \u00e0 taille naturelle : on ne les \u00e9tire jamais pour remplir toute la
+  // page comme les devis/factures climatisation \u2014 la feuille s'arr\u00eate juste apr\u00e8s le pied de page.
+  if(mainSheet.classList.contains('travaux-doc')){
+    if(naturalHeight <= pageHeightPx){
+      mainSheet.style.height = (naturalHeight / pxPerMm) + 'mm';
+      mainSheet.style.overflow = 'hidden';
+      return;
+    }
+    let lowT = 0.35, highT = 1;
+    for(let i=0;i<10;i++){
+      const mid = (lowT+highT)/2;
+      if(visualHeightAt(mid) <= pageHeightPx) lowT = mid; else highT = mid;
+    }
+    const scaleT = lowT;
+    const finalHeightPx = visualHeightAt(scaleT);
+    inner.style.transformOrigin = 'top left';
+    inner.style.transform = `scale(${scaleT})`;
+    inner.style.setProperty('--fit-scale', scaleT);
+    mainSheet.style.height = (finalHeightPx / pxPerMm) + 'mm';
+    mainSheet.style.overflow = 'hidden';
+    return;
+  }
+
   // Recherche par dichotomie du plus grand facteur d'\u00e9chelle qui tient encore sur une page.
   // Plus fiable qu'un calcul direct : la largeur change le nombre de retours \u00e0 la ligne du texte,
   // donc la relation entre \u00e9chelle et hauteur finale n'est pas parfaitement lin\u00e9aire.
