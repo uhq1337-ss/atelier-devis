@@ -145,6 +145,34 @@
   .p2-tagline .s{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin-top:4px;opacity:.9;}
   .p2-legal-footer{text-align:center;font-size:9.5px;color:var(--muted);line-height:1.6;padding:10px 20px;border-top:1px solid var(--line);}
 
+  /* Devis travaux — mise en page sobre type "devis estimatif" papier, sans bandeau coloré */
+  .paper2.travaux-doc{font-size:13px;}
+  .paper2.travaux-doc .tv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:30px 32px 18px;}
+  .paper2.travaux-doc .tv-logo-img{max-height:70px;max-width:220px;object-fit:contain;margin-bottom:8px;}
+  .paper2.travaux-doc .tv-company-name{font-family:var(--font-display);font-size:30px;font-weight:bold;color:var(--tv-color);line-height:1;margin-bottom:8px;}
+  .paper2.travaux-doc .tv-company-info{font-size:11.5px;line-height:1.6;color:var(--text);}
+  .paper2.travaux-doc .tv-doc-info{text-align:right;font-size:12.5px;line-height:1.65;color:var(--text);white-space:nowrap;}
+  .paper2.travaux-doc .tv-doc-title{font-size:13.5px;font-weight:bold;letter-spacing:.02em;color:var(--tv-color);text-transform:uppercase;margin-bottom:2px;}
+  .paper2.travaux-doc .tv-rule{height:2px;background:var(--tv-gold,#C49B56);margin:0 32px 22px;}
+  .paper2.travaux-doc .tv-body{padding:0 32px 18px;flex:1;}
+  .paper2.travaux-doc .tv-section-title{font-size:15.5px;font-weight:bold;letter-spacing:.02em;color:var(--tv-color);text-transform:uppercase;margin-bottom:12px;}
+  .paper2.travaux-doc .p2-table{font-size:11.5px;border-collapse:collapse;}
+  .paper2.travaux-doc .p2-table thead th{background:var(--tv-color);color:#fff;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;padding:.7rem .8rem;border:none;text-align:left;white-space:normal;}
+  .paper2.travaux-doc .p2-table tbody td{border:none;border-bottom:1px solid var(--line);padding:.75rem .8rem;vertical-align:top;background:#fff;}
+  .paper2.travaux-doc .p2-table tbody tr:nth-child(even) td{background:var(--paper);}
+  .paper2.travaux-doc .tv-line-desc{font-size:11px;color:var(--muted);margin-top:.25rem;white-space:pre-line;line-height:1.5;}
+  .paper2.travaux-doc .tv-totalrow{display:flex;justify-content:space-between;padding:.75rem 1rem;margin-top:4px;background:var(--paper);border-top:2px solid var(--tv-gold,#C49B56);font-weight:bold;font-size:13px;}
+  .paper2.travaux-doc .tv-tvarow{display:flex;justify-content:space-between;padding:.55rem 1rem;font-size:12px;}
+  .paper2.travaux-doc .tv-note-title{font-weight:bold;margin:1.1rem 0 .3rem;font-size:12.5px;color:var(--text);}
+  .paper2.travaux-doc .tv-note-text{font-size:12px;line-height:1.55;color:var(--text);margin:0;}
+  .paper2.travaux-doc .tv-sign{margin-top:1.75rem;font-size:12.5px;color:var(--text);}
+  .paper2.travaux-doc .tv-footer{display:flex;justify-content:space-between;padding:10px 32px;border-top:1px solid var(--line);font-size:9.5px;color:var(--muted);}
+  @media print{
+    .paper2.travaux-doc .tv-header{padding:16px 32px 10px;}
+    .paper2.travaux-doc .tv-rule{margin-bottom:14px;}
+    .paper2.travaux-doc .tv-body{padding:0 32px 10px;}
+  }
+
   .cgv-page{margin-top:1.5rem;}
   .cgv-sheet{padding:16mm;font-size:12px;line-height:1.55;color:var(--text);}
   .cgv-header{display:flex;align-items:center;gap:.75rem;justify-content:space-between;border-bottom:1px solid var(--line-strong);padding-bottom:.75rem;margin-bottom:1.5rem;}
@@ -557,12 +585,11 @@ async function loadAll(){
   }else{
     state.companies = JSON.parse(JSON.stringify(DEFAULT_COMPANIES));
   }
-  // Passe BAWS au bleu marine du modèle "Devis estimatif" (#12253B), une seule fois :
-  // si la couleur enregistrée est encore l'ancienne couleur par défaut (jamais personnalisée à la main),
-  // on la met à jour automatiquement sans écraser un choix que l'utilisateur aurait fait depuis.
+  // Force BAWS au bleu marine du modèle "Devis estimatif" (#12253B), quelle que soit la couleur
+  // actuellement enregistrée (certaines bases partagées avaient encore l'ancien rouge/bordeaux).
   let companiesColorFixed = false;
   state.companies.forEach(c=>{
-    if(c.id==='baws' && (c.color==='#8E1F3B' || c.color2==='#1B3A5C')){
+    if(c.id==='baws' && (c.color!=='#12253B' || c.color2!=='#12253B')){
       c.color = '#12253B';
       c.color2 = '#12253B';
       companiesColorFixed = true;
@@ -1963,74 +1990,61 @@ function renderTravauxView(id){
   const c = state.clients.find(c=>c.id===t.clientId);
   const co = state.companies.find(co=>co.id===t.companyId) || state.companies[0] || {};
   const tot = calcTotalsTravaux(t);
-  const color = co.color || '#1B2A4A';
-  const color2 = co.color2 || color;
+  const color = co.color || '#12253B';
+  const gold = '#C49B56';
   return `
   <button class="btn secondary small" id="back-btn-trav" style="margin-bottom:1rem">&larr; Retour</button>
   <div id="print-area">
-  <div class="paper-wrap"><div class="paper2" style="--p2-color:${color}"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
-    <div class="p2-banner" style="--p2-color:${color};border-bottom:3px solid ${color}">
-      ${co.logo ? `<img class="p2-logo-img" src="${co.logo}" alt="${co.name}">` : `<div class="p2-logo-text"><div class="nm">${co.name}</div><div class="tg">${co.tagline||''}</div></div>`}
-      <div class="p2-devis-box">
-        <div class="ttl">DEVIS ESTIMATIF</div>
-        <div class="num">N\u00b0 ${t.numero}</div>
-        <div class="dt">Date : ${t.date}</div>
+  <div class="paper-wrap"><div class="paper2 travaux-doc" style="--tv-color:${color};--tv-gold:${gold}"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
+    <div class="tv-header">
+      <div class="tv-emetteur">
+        ${co.logo ? `<img class="tv-logo-img" src="${co.logo}" alt="${co.name}">` : `<div class="tv-company-name">${co.name}</div>`}
+        <div class="tv-company-info">
+          ${co.tagline||''}<br>
+          ${co.street||''} \u00b7 ${co.cp||''} ${co.ville||''}<br>
+          ${co.siret? `SIRET : ${co.siret}<br>`:''}
+          ${co.phone? `T\u00e9l. : ${co.phone}<br>`:''}
+          ${co.email||''}
+        </div>
+      </div>
+      <div class="tv-doc-info">
+        <div class="tv-doc-title">Devis estimatif</div>
+        <div>N\u00b0 ${t.numero}</div>
+        <div style="height:.6rem"></div>
+        <div>Date : ${t.date}</div>
+        ${c? `<div>Client : ${clientFullName(c)}</div>` : ''}
+        ${t.objet ? `<div>Objet : ${t.objet}</div>` : ''}
       </div>
     </div>
-    <div class="p2-body">
-      <div class="p2-parties">
-        <div class="p2-party" style="--p2-color:${color2}">
-          <div class="lbl">\u00c9metteur</div>
-          <strong>${co.name}</strong><br>${co.tagline||''}<br><br>
-          ${co.street||''}<br>${co.cp||''} ${co.ville||''}<br>
-          ${co.phone||''}<br>${co.email||''}
-          ${co.showLegalInEmetteur!==false ? `<br><br>SAS au capital de ${co.capital||''} \u20ac<br>Siret : ${co.siret||''}<br>RCS Paris ${co.rcs||''}<br>TVA ${co.tva||''}` : ''}
-        </div>
-        <div class="p2-party" style="--p2-color:${color}">
-          <div class="lbl">Client</div>
-          ${c? `<strong>${clientFullName(c)}</strong><br>${c.adresse||''}${c.comp? ', '+c.comp:''}<br>${c.cp||''} ${c.ville||''}${c.email? '<br>'+c.email : ''}` : '(client supprim\u00e9)'}
-        </div>
-      </div>
-      ${t.objet ? `<div class="p2-objet">
-        <span class="tag">OBJET :</span>
-        <div class="txt">${t.objet}</div>
-      </div>` : ''}
-      <div class="p2-section-title" style="background:${color}">D\u00c9TAIL DES TRAVAUX</div>
+    <div class="tv-rule"></div>
+    <div class="tv-body">
+      <div class="tv-section-title">D\u00e9tail des travaux</div>
       <table class="p2-table">
-        <thead><tr><th style="width:40px">POS</th><th>D\u00c9SIGNATION / PRESTATIONS</th><th style="text-align:right;width:120px">MONTANT</th></tr></thead>
+        <thead><tr><th style="width:48px">Pos.</th><th>D\u00e9signation / prestations</th><th style="text-align:right;width:110px">Montant</th></tr></thead>
         <tbody>
         ${t.lignes.map((l,i)=>`<tr>
             <td>${String(i+1).padStart(2,'0')}</td>
-            <td><strong>${(l.titre||'').toUpperCase()}</strong>${l.description ? `<div style="font-size:12px;color:var(--muted);margin-top:.2rem;white-space:pre-line">${l.description}</div>` : ''}</td>
+            <td><strong>${(l.titre||'').toUpperCase()}</strong>${l.description ? `<div class="tv-line-desc">${l.description}</div>` : ''}</td>
             <td style="text-align:right" class="num">${eur(parseNum(l.montant))}</td>
           </tr>`).join('')}
         </tbody>
       </table>
-      <div class="p2-bottom-row">
-        <div class="p2-conditions">
-          <div class="lbl" style="color:${color}">Dur\u00e9e pr\u00e9visionnelle</div>
-          <p style="margin:0 0 .75rem">${t.dureePrevisionnelle || '\u2014'}</p>
-          <div class="lbl" style="color:${color}">Conditions et r\u00e9serves</div>
-          <p style="margin:0">${t.conditionsReserves || ''}</p>
-        </div>
-        <div class="p2-totals">
-          <div class="r"><span>Montant estimatif HT</span><span class="num">${eur(tot.ht)}</span></div>
-          ${tot.ttc!=null ? `
-          <div class="r"><span>TVA (${tot.tauxTva}%)</span><span class="num">${eur(tot.tva)}</span></div>
-          <div class="r ttc" style="background:${color}"><span>Total TTC</span><span class="num">${eur(tot.ttc)}</span></div>` : `
-          <div class="r"><span>TVA</span><span class="num">\u00c0 d\u00e9terminer</span></div>`}
-          <div class="p2-signbox">Bon pour accord<br><span style="font-weight:normal">Date et signature</span></div>
-        </div>
-      </div>
+      <div class="tv-totalrow"><span>Montant estimatif HT</span><span class="num">${eur(tot.ht)}</span></div>
+      ${tot.ttc!=null ? `
+      <div class="tv-tvarow"><span>TVA (${tot.tauxTva}%)</span><span class="num">${eur(tot.tva)}</span></div>
+      <div class="tv-tvarow" style="font-weight:bold"><span>Total TTC</span><span class="num">${eur(tot.ttc)}</span></div>` : `
+      <div class="tv-tvarow"><span>TVA</span><span class="num">\u00c0 d\u00e9terminer selon le r\u00e9gime applicable</span></div>`}
+
+      <div class="tv-note-title">Dur\u00e9e pr\u00e9visionnelle</div>
+      <p class="tv-note-text">${t.dureePrevisionnelle || '\u2014'}</p>
+      <div class="tv-note-title">Conditions et r\u00e9serves</div>
+      <p class="tv-note-text">${t.conditionsReserves || ''}</p>
+
+      <div class="tv-sign">Bon pour accord \u2014 Date et signature du client : ________________________________</div>
     </div>
-    <div class="p2-tagline" style="background:${color}">
-      <div class="q">\u00ab ${co.footerTagline||''} \u00bb</div>
-      <div class="s">${co.footerSub||''}</div>
-    </div>
-    <div class="p2-legal-footer">
-      Si\u00e8ge Administratif et Commercial : ${co.street||''}, ${co.cp||''} ${co.ville||''} - T\u00e9l : ${co.phone||''} - ${co.name}<br>
-      SAS au capital de ${co.capital||''} \u20ac - Siret : ${co.siret||''} - RCS Paris ${co.rcs||''} - N.TVA : ${co.tva||''}<br>
-      ${co.disclaimerText||''}
+    <div class="tv-footer">
+      <span>${co.name} \u00b7 ${co.tagline||''}</span>
+      <span>Devis ${t.numero} \u00b7 Page 1</span>
     </div>
   </div></div></div>
   </div>
