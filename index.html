@@ -380,11 +380,11 @@ function parseNum(v){
 function todayStr(){ const d=new Date(); return d.toLocaleDateString('fr-FR'); }
 function nextNumero(kind){
   // kind: 'devis' | 'facture' | 'commande'
-  const prefixes = { devis:'D-', facture:'F-', commande:'CT-' };
+  const prefixes = { devis:'D-', facture:'F-', commande:'CT-', travaux:'TR-' };
   const pad = kind==='facture' ? 3 : 4;
   const prefix = prefixes[kind];
   let maxExisting = 0;
-  const source = kind==='commande' ? state.commandes : state.documents.filter(d=>d.type===kind);
+  const source = kind==='commande' ? state.commandes : kind==='travaux' ? state.travaux : state.documents.filter(d=>d.type===kind);
   source.forEach(item=>{
     if(!item.numero) return;
     const m = item.numero.match(new RegExp('^'+prefix+'\\\\d{4}-(\\\\d+)$'));
@@ -415,6 +415,8 @@ function shadeColor(hex, percent){
   }catch(e){ return hex; }
 }
 
+const DEFAULT_TRAVAUX_CONDITIONS = "Estimation à confirmer après vérification des dimensions, de l'état des supports et des conditions d'accès. Échafaudage ou moyen d'accès spécifique non compris. Seules les surfaces indiquées sont incluses. Teinte à valider sur place. TVA et total TTC à compléter avant acceptation définitive.";
+
 let state = {
   currentUser: null,
   authenticated: false,
@@ -425,7 +427,8 @@ let state = {
   articles: [],
   documents: [],
   commandes: [],
-  counters: {devis:0, facture:0, commande:0},
+  travaux: [],
+  counters: {devis:0, facture:0, commande:0, travaux:0},
   companies: [],
   accounts: [],
   journals: [],
@@ -450,8 +453,10 @@ let state = {
   viewingCommande: null,
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
   builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, remiseType:'percent', remiseValeur:0, notes:'', editingDocId:null, clientSearchOpen:false, clientSearchText:null },
+  travauxBuilder: { clientId:'', companyId:'', date:'', objet:'Remise en état après installation de climatisation', lignes:[], dureePrevisionnelle:'', conditionsReserves: DEFAULT_TRAVAUX_CONDITIONS, tvaMode:'determiner', tauxTva:20, editingId:null },
   toast: null,
   viewingDoc: null,
+  viewingTravaux: null,
 };
 
 const DEFAULT_ACCOUNTS = [
@@ -539,8 +544,10 @@ async function loadAll(){
   state.articles = await sgetMerged('articles', []);
   state.documents = await sgetMerged('documents', []);
   state.commandes = await sgetMerged('commandes', []);
-  state.counters = await sget('counters', {devis:0, facture:0, commande:0});
+  state.travaux = await sgetMerged('travaux', []);
+  state.counters = await sget('counters', {devis:0, facture:0, commande:0, travaux:0});
   if(state.counters.commande === undefined) state.counters.commande = 0;
+  if(state.counters.travaux === undefined) state.counters.travaux = 0;
   const co = await sgetMerged('companies', null);
   if(co && co.length){
     state.companies = co.map(c=>{
@@ -737,6 +744,7 @@ function renderShell(){
     ['nouveau','Nouveau devis'],
     ['devis-liste','Devis'],
     ['factures-liste','Factures'],
+    ['travaux-liste','Travaux'],
     ['commandes','Commandes Toshiba'],
     ['entreprise','Entreprises'],
     ['compta','Comptabilit\u00e9'],
@@ -783,7 +791,7 @@ function bindShell(){
       if(b.dataset.tab==='nouveau' && state.builder.editingDocId){
         state.builder = { clientId:'', companyId: state.builder.companyId, objet:'', lignes:[], tva:20, notes:'', editingDocId:null };
       }
-      state.tab=b.dataset.tab; state.viewingDoc=null; state.viewingCommande=null; render();
+      state.tab=b.dataset.tab; state.viewingDoc=null; state.viewingCommande=null; state.viewingTravaux=null; render();
     };
   });
   document.getElementById('switch-user').onclick = ()=>{ state.currentUser=null; render(); };
@@ -800,11 +808,14 @@ function bindShell(){
 function renderTab(){
   if(state.viewingDoc) return renderDocView(state.viewingDoc);
   if(state.viewingCommande) return renderCommandeView(state.viewingCommande);
+  if(state.viewingTravaux) return renderTravauxView(state.viewingTravaux);
   if(state.tab==='clients') return renderClients();
   if(state.tab==='articles') return renderArticles();
   if(state.tab==='nouveau') return renderBuilder();
   if(state.tab==='devis-liste') return renderDevisListe();
   if(state.tab==='factures-liste') return renderFacturesListe();
+  if(state.tab==='travaux-liste') return renderTravauxListe();
+  if(state.tab==='travaux-nouveau') return renderTravauxBuilder();
   if(state.tab==='commandes') return renderCommandes();
   if(state.tab==='entreprise') return renderEntreprise();
   if(state.tab==='compta') return renderCompta();
@@ -815,11 +826,14 @@ function renderTab(){
 function bindTab(){
   if(state.viewingDoc){ bindDocView(); return; }
   if(state.viewingCommande){ bindCommandeView(); return; }
+  if(state.viewingTravaux){ bindTravauxView(); return; }
   if(state.tab==='clients') return bindClients();
   if(state.tab==='articles') return bindArticles();
   if(state.tab==='nouveau') return bindBuilder();
   if(state.tab==='devis-liste') return bindDevisListe();
   if(state.tab==='factures-liste') return bindFacturesListe();
+  if(state.tab==='travaux-liste') return bindTravauxListe();
+  if(state.tab==='travaux-nouveau') return bindTravauxBuilder();
   if(state.tab==='commandes') return bindCommandes();
   if(state.tab==='entreprise') return bindEntreprise();
   if(state.tab==='compta') return bindCompta();
@@ -1726,21 +1740,383 @@ function bindFacturesListe(){
   });
 }
 
+function calcTotalsTravaux(t){
+  const ht = (t.lignes||[]).reduce((s,l)=> s + parseNum(l.montant), 0);
+  const tvaMode = t.tvaMode || 'determiner';
+  const tauxTva = parseNum(t.tauxTva||0);
+  const tva = tvaMode==='taux' ? ht * (tauxTva/100) : 0;
+  const ttc = tvaMode==='taux' ? ht + tva : null;
+  return { ht, tvaMode, tauxTva, tva, ttc };
+}
+
+function renderTravauxListe(){
+  const docs = state.travaux.filter(t=>!t.deleted).slice().reverse();
+  return `
+  <h1 class="page-title">Travaux</h1>
+  <p class="page-sub">Devis estimatifs pour des travaux annexes (remise en \u00e9tat, ma\u00e7onnerie, peinture\u2026), s\u00e9par\u00e9s des devis climatisation.</p>
+  <button class="btn" id="new-travaux-btn" style="margin-bottom:1rem">+ Nouveau devis travaux</button>
+  <table>
+    <tr><th>N\u00b0</th><th>Client</th><th>Objet</th><th>Date</th><th>Montant estimatif HT</th><th>Auteur</th><th></th></tr>
+    ${docs.length ? docs.map(t=>{
+      const c = state.clients.find(c=>c.id===t.clientId);
+      const tot = calcTotalsTravaux(t);
+      return `<tr>
+        <td class="num">${t.numero}</td>
+        <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
+        <td>${t.objet||''}</td>
+        <td>${t.date}</td>
+        <td class="num">${eur(tot.ht)}</td>
+        <td>${t.auteur||''}</td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-view-trav="${t.id}">Voir</button>
+          <button class="rm-btn" data-del-trav="${t.id}" aria-label="Supprimer">&times;</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty">Aucun devis travaux pour l'instant.</td></tr>`}
+  </table>`;
+}
+function bindTravauxListe(){
+  const newBtn = document.getElementById('new-travaux-btn');
+  if(newBtn) newBtn.onclick = ()=>{ state.tab = 'travaux-nouveau'; render(); };
+  document.querySelectorAll('[data-view-trav]').forEach(b=>{
+    b.onclick = ()=>{ state.viewingTravaux = b.dataset.viewTrav; render(); };
+  });
+  document.querySelectorAll('[data-del-trav]').forEach(b=>{
+    b.onclick = async ()=>{
+      const t = state.travaux.find(x=>x.id===b.dataset.delTrav);
+      if(!t) return;
+      if(!confirm(`D\u00e9placer le devis travaux ${t.numero} vers la corbeille ? Tu pourras le restaurer depuis la corbeille.`)) return;
+      t.deleted = true;
+      t.deletedAt = todayStr();
+      t.deletedBy = state.currentUser;
+      await sset('travaux', state.travaux);
+      showToast(t.numero + ' d\u00e9plac\u00e9 vers la corbeille');
+      render();
+    };
+  });
+}
+
+function emptyTravauxBuilder(companyId){
+  return { clientId:'', companyId: companyId||'', date:'', objet:'', lignes:[], dureePrevisionnelle:'', conditionsReserves: DEFAULT_TRAVAUX_CONDITIONS, tvaMode:'determiner', tauxTva:20, editingId:null };
+}
+
+function renderTravauxBuilder(){
+  const b = state.travauxBuilder;
+  if(!b.companyId && state.companies.length) b.companyId = state.companies[0].id;
+  const tot = calcTotalsTravaux(b);
+  const editing = b.editingId ? state.travaux.find(t=>t.id===b.editingId) : null;
+  return `
+  <h1 class="page-title">${editing ? 'Modifier le devis travaux '+editing.numero : 'Nouveau devis travaux'}</h1>
+  <p class="page-sub">Devis estimatif au format \u00ab DEVIS ESTIMATIF \u00bb pour des travaux annexes (remise en \u00e9tat apr\u00e8s installation, ma\u00e7onnerie, peinture\u2026), ind\u00e9pendant des devis climatisation.</p>
+  <div class="card">
+    <p class="subhead" style="margin-bottom:.6rem">Entreprise \u00e9mettrice</p>
+    <div>
+      ${state.companies.map(co=>`<button class="company-pill ${b.companyId===co.id?'active':''}" data-pick-trav-company="${co.id}"><span class="dot" style="background:${co.color}"></span>${co.name}</button>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="row">
+      <div class="field" style="min-width:220px">
+        <label>Client</label>
+        <select id="tb-client">
+          <option value="">\u2014 Choisir un client \u2014</option>
+          ${state.clients.map(c=>`<option value="${c.id}" ${b.clientId===c.id?'selected':''}>${clientFullName(c)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="width:200px"><label>Date</label><input type="date" id="tb-date" value="${frDateToIso(b.date||todayStr())}"></div>
+    </div>
+    ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
+    <div class="field">
+      <label>Objet</label>
+      <input id="tb-objet" placeholder="Ex : Remise en \u00e9tat apr\u00e8s installation de climatisation" value="${b.objet||''}">
+    </div>
+  </div>
+  <div class="card">
+    <p class="subhead" style="margin-bottom:.3rem">D\u00e9tail des travaux</p>
+    <p class="hint" style="margin:0 0 .75rem">Chaque ligne a un titre, une description (optionnelle) et un montant forfaitaire \u2014 comme sur un devis estimatif classique.</p>
+    ${b.lignes.map((l,i)=>`
+      <div style="border:1px solid var(--line-strong);border-radius:8px;padding:.75rem;margin-bottom:.6rem">
+        <div class="row" style="margin-bottom:.4rem">
+          <div class="field" style="flex:2;min-width:220px;margin-bottom:0"><label>Titre (ex : CHAMBRE R+2 \u2014 PLAFOND 3,50 \u00d7 2,50 m)</label><input data-trav-titre="${i}" value="${l.titre||''}"></div>
+          <div class="field" style="width:140px;margin-bottom:0"><label>Montant (\u20ac)</label><input type="text" inputmode="decimal" data-trav-montant="${i}" value="${l.montant||''}" placeholder="0.00"></div>
+          <button class="rm-btn" data-trav-del="${i}" aria-label="Retirer la ligne" style="align-self:flex-end;margin-bottom:.4rem">&times;</button>
+        </div>
+        <div class="field" style="margin-bottom:0"><label>Description (optionnelle)</label><textarea rows="2" data-trav-desc="${i}" placeholder="D\u00e9tail des travaux pour cette ligne">${l.description||''}</textarea></div>
+      </div>
+    `).join('')}
+    <button class="btn secondary small" id="add-trav-line">+ Ajouter une ligne</button>
+  </div>
+  <div class="card">
+    <div class="field"><label>Dur\u00e9e pr\u00e9visionnelle</label><input id="tb-duree" value="${b.dureePrevisionnelle||''}" placeholder="Ex : 3 journ\u00e9es de travail, sous r\u00e9serve des temps de s\u00e9chage et de l'\u00e9tat r\u00e9el des supports."></div>
+    <div class="field"><label>Conditions et r\u00e9serves</label><textarea rows="3" id="tb-conditions">${b.conditionsReserves||''}</textarea></div>
+    <div class="row" style="align-items:flex-end">
+      <div class="field" style="width:260px">
+        <label>TVA</label>
+        <select id="tb-tva-mode">
+          <option value="determiner" ${b.tvaMode!=='taux'?'selected':''}>\u00c0 d\u00e9terminer selon le r\u00e9gime applicable</option>
+          <option value="taux" ${b.tvaMode==='taux'?'selected':''}>Taux connu</option>
+        </select>
+      </div>
+      ${b.tvaMode==='taux' ? `<div class="field" style="width:120px"><label>Taux (%)</label><input type="text" inputmode="decimal" id="tb-taux-tva" value="${b.tauxTva||20}"></div>` : ''}
+    </div>
+    <div class="totals-box">
+      <div class="totals-row"><span>Montant estimatif HT</span><span class="num">${eur(tot.ht)}</span></div>
+      ${tot.ttc!=null ? `<div class="totals-row"><span>TVA (${tot.tauxTva}%)</span><span class="num">${eur(tot.tva)}</span></div>
+      <div class="totals-row ttc"><span>Total TTC</span><span class="num">${eur(tot.ttc)}</span></div>` : `<p class="hint">TVA \u00e0 d\u00e9terminer selon le r\u00e9gime applicable \u2014 pas de total TTC affich\u00e9 sur ce devis.</p>`}
+    </div>
+    <button class="btn" id="save-travaux" style="margin-top:.5rem">${editing ? 'Enregistrer les modifications' : 'Enregistrer le devis travaux'}</button>
+    ${editing ? `<button class="btn secondary" id="cancel-edit-travaux" style="margin-top:.5rem">Annuler la modification</button>` : ''}
+  </div>`;
+}
+function bindTravauxBuilder(){
+  const b = state.travauxBuilder;
+  document.querySelectorAll('[data-pick-trav-company]').forEach(btn=>{
+    btn.onclick = ()=>{ b.companyId = btn.dataset.pickTravCompany; render(); };
+  });
+  document.getElementById('tb-client').onchange = (e)=>{ b.clientId = e.target.value; };
+  document.getElementById('tb-date').onchange = (e)=>{ b.date = isoDateToFr(e.target.value); };
+  document.getElementById('tb-objet').oninput = (e)=>{ b.objet = e.target.value; };
+  document.getElementById('add-trav-line').onclick = ()=>{ b.lignes.push({titre:'',description:'',montant:''}); render(); };
+  document.querySelectorAll('[data-trav-titre]').forEach(inp=>{
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.travTitre].titre = e.target.value; };
+  });
+  document.querySelectorAll('[data-trav-desc]').forEach(ta=>{
+    ta.oninput = (e)=>{ b.lignes[+ta.dataset.travDesc].description = e.target.value; };
+  });
+  document.querySelectorAll('[data-trav-montant]').forEach(inp=>{
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.travMontant].montant = e.target.value; render(); };
+  });
+  document.querySelectorAll('[data-trav-del]').forEach(btn=>{
+    btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.travDel,1); render(); };
+  });
+  document.getElementById('tb-duree').oninput = (e)=>{ b.dureePrevisionnelle = e.target.value; };
+  document.getElementById('tb-conditions').oninput = (e)=>{ b.conditionsReserves = e.target.value; };
+  document.getElementById('tb-tva-mode').onchange = (e)=>{ b.tvaMode = e.target.value; render(); };
+  const tauxInp = document.getElementById('tb-taux-tva');
+  if(tauxInp) tauxInp.oninput = (e)=>{ b.tauxTva = e.target.value; render(); };
+  document.getElementById('save-travaux').onclick = async ()=>{
+    if(!b.clientId){ showToast('Choisissez un client'); return; }
+    if(!b.companyId){ showToast('Choisissez une entreprise \u00e9mettrice'); return; }
+    if(!b.lignes.length || b.lignes.some(l=>!l.titre || !parseNum(l.montant))){ showToast('Ajoutez au moins une ligne avec un titre et un montant'); return; }
+    if(b.editingId){
+      const existing = state.travaux.find(t=>t.id===b.editingId);
+      if(existing){
+        existing.clientId = b.clientId;
+        existing.date = b.date || existing.date;
+        existing.companyId = b.companyId;
+        existing.objet = b.objet;
+        existing.lignes = JSON.parse(JSON.stringify(b.lignes));
+        existing.dureePrevisionnelle = b.dureePrevisionnelle||'';
+        existing.conditionsReserves = b.conditionsReserves||'';
+        existing.tvaMode = b.tvaMode||'determiner';
+        existing.tauxTva = b.tauxTva||20;
+        await sset('travaux', state.travaux);
+        showToast(existing.numero + ' mis \u00e0 jour');
+        state.viewingTravaux = existing.id;
+        state.travauxBuilder = emptyTravauxBuilder(b.companyId);
+        render();
+      }
+      return;
+    }
+    const numero = nextNumero('travaux');
+    const doc = {
+      id: uid(), numero,
+      date: b.date || todayStr(), clientId: b.clientId, companyId: b.companyId, objet: b.objet,
+      lignes: JSON.parse(JSON.stringify(b.lignes)),
+      dureePrevisionnelle: b.dureePrevisionnelle||'', conditionsReserves: b.conditionsReserves||'',
+      tvaMode: b.tvaMode||'determiner', tauxTva: b.tauxTva||20,
+      auteur: state.currentUser,
+    };
+    await pushAndSave('travaux', doc);
+    showToast('Devis travaux ' + numero + ' enregistr\u00e9');
+    state.travauxBuilder = emptyTravauxBuilder(b.companyId);
+    state.viewingTravaux = doc.id;
+    render();
+    sset('counters', state.counters).catch(()=>{});
+  };
+  const cancelBtn = document.getElementById('cancel-edit-travaux');
+  if(cancelBtn) cancelBtn.onclick = ()=>{
+    const backId = b.editingId;
+    state.travauxBuilder = emptyTravauxBuilder(b.companyId);
+    state.viewingTravaux = backId;
+    render();
+  };
+}
+
+function renderTravauxView(id){
+  const t = state.travaux.find(x=>x.id===id);
+  if(!t) return `<p class="empty">Document introuvable.</p>`;
+  const c = state.clients.find(c=>c.id===t.clientId);
+  const co = state.companies.find(co=>co.id===t.companyId) || state.companies[0] || {};
+  const tot = calcTotalsTravaux(t);
+  const color = co.color || '#1B2A4A';
+  const color2 = co.color2 || color;
+  return `
+  <button class="btn secondary small" id="back-btn-trav" style="margin-bottom:1rem">&larr; Retour</button>
+  <div id="print-area">
+  <div class="paper-wrap"><div class="paper2" style="--p2-color:${color}"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
+    <div class="p2-banner" style="--p2-color:${color};border-bottom:3px solid ${color}">
+      ${co.logo ? `<img class="p2-logo-img" src="${co.logo}" alt="${co.name}">` : `<div class="p2-logo-text"><div class="nm">${co.name}</div><div class="tg">${co.tagline||''}</div></div>`}
+      <div class="p2-devis-box">
+        <div class="ttl">DEVIS ESTIMATIF</div>
+        <div class="num">N\u00b0 ${t.numero}</div>
+        <div class="dt">Date : ${t.date}</div>
+      </div>
+    </div>
+    <div class="p2-body">
+      <div class="p2-parties">
+        <div class="p2-party" style="--p2-color:${color2}">
+          <div class="lbl">\u00c9metteur</div>
+          <strong>${co.name}</strong><br>${co.tagline||''}<br><br>
+          ${co.street||''}<br>${co.cp||''} ${co.ville||''}<br>
+          ${co.phone||''}<br>${co.email||''}
+          ${co.showLegalInEmetteur!==false ? `<br><br>SAS au capital de ${co.capital||''} \u20ac<br>Siret : ${co.siret||''}<br>RCS Paris ${co.rcs||''}<br>TVA ${co.tva||''}` : ''}
+        </div>
+        <div class="p2-party" style="--p2-color:${color}">
+          <div class="lbl">Client</div>
+          ${c? `<strong>${clientFullName(c)}</strong><br>${c.adresse||''}${c.comp? ', '+c.comp:''}<br>${c.cp||''} ${c.ville||''}${c.email? '<br>'+c.email : ''}` : '(client supprim\u00e9)'}
+        </div>
+      </div>
+      ${t.objet ? `<div class="p2-objet">
+        <span class="tag">OBJET :</span>
+        <div class="txt">${t.objet}</div>
+      </div>` : ''}
+      <div class="p2-section-title" style="background:${color}">D\u00c9TAIL DES TRAVAUX</div>
+      <table class="p2-table">
+        <thead><tr><th style="width:40px">POS</th><th>D\u00c9SIGNATION / PRESTATIONS</th><th style="text-align:right;width:120px">MONTANT</th></tr></thead>
+        <tbody>
+        ${t.lignes.map((l,i)=>`<tr>
+            <td>${String(i+1).padStart(2,'0')}</td>
+            <td><strong>${(l.titre||'').toUpperCase()}</strong>${l.description ? `<div style="font-size:12px;color:var(--muted);margin-top:.2rem;white-space:pre-line">${l.description}</div>` : ''}</td>
+            <td style="text-align:right" class="num">${eur(parseNum(l.montant))}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="p2-bottom-row">
+        <div class="p2-conditions">
+          <div class="lbl" style="color:${color}">Dur\u00e9e pr\u00e9visionnelle</div>
+          <p style="margin:0 0 .75rem">${t.dureePrevisionnelle || '\u2014'}</p>
+          <div class="lbl" style="color:${color}">Conditions et r\u00e9serves</div>
+          <p style="margin:0">${t.conditionsReserves || ''}</p>
+        </div>
+        <div class="p2-totals">
+          <div class="r"><span>Montant estimatif HT</span><span class="num">${eur(tot.ht)}</span></div>
+          ${tot.ttc!=null ? `
+          <div class="r"><span>TVA (${tot.tauxTva}%)</span><span class="num">${eur(tot.tva)}</span></div>
+          <div class="r ttc" style="background:${color}"><span>Total TTC</span><span class="num">${eur(tot.ttc)}</span></div>` : `
+          <div class="r"><span>TVA</span><span class="num">\u00c0 d\u00e9terminer</span></div>`}
+          <div class="p2-signbox">Bon pour accord<br><span style="font-weight:normal">Date et signature</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="p2-tagline" style="background:${color}">
+      <div class="q">\u00ab ${co.footerTagline||''} \u00bb</div>
+      <div class="s">${co.footerSub||''}</div>
+    </div>
+    <div class="p2-legal-footer">
+      Si\u00e8ge Administratif et Commercial : ${co.street||''}, ${co.cp||''} ${co.ville||''} - T\u00e9l : ${co.phone||''} - ${co.name}<br>
+      SAS au capital de ${co.capital||''} \u20ac - Siret : ${co.siret||''} - RCS Paris ${co.rcs||''} - N.TVA : ${co.tva||''}<br>
+      ${co.disclaimerText||''}
+    </div>
+  </div></div></div>
+  </div>
+  <div class="row" style="margin-top:1.25rem">
+    <button class="btn" id="print-btn-trav">Imprimer</button>
+    <button class="btn" id="pdf-btn-trav">Enregistrer en PDF</button>
+    <button class="btn secondary" id="edit-travaux-btn">Modifier ce devis travaux</button>
+    <button class="btn secondary" id="delete-trav-btn" style="border-color:var(--danger);color:var(--danger)">Supprimer</button>
+  </div>`;
+}
+function bindTravauxView(){
+  document.getElementById('back-btn-trav').onclick = ()=>{ state.viewingTravaux=null; render(); };
+  document.getElementById('print-btn-trav').onclick = async (e)=>{
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    const win = window.open('', '_blank');
+    if(win){ win.document.write('<p style="font-family:sans-serif;padding:2rem">G\u00e9n\u00e9ration du PDF\u2026</p>'); }
+    btn.disabled = true;
+    btn.textContent = 'Pr\u00e9paration\u2026';
+    try{
+      const pdf = await buildDocPdf();
+      if(!pdf){
+        if(win) win.close();
+        showToast("La g\u00e9n\u00e9ration a \u00e9chou\u00e9 \u2014 v\u00e9rifie ta connexion internet et r\u00e9essaie.");
+        return;
+      }
+      if(!win){
+        showToast("Le navigateur a bloqu\u00e9 l'ouverture \u2014 autorise les fen\u00eatres pop-up pour ce site puis r\u00e9essaie.");
+        return;
+      }
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      win.location.href = blobUrl;
+      setTimeout(()=>{ try{ win.print(); }catch(e){} }, 800);
+    }catch(err){
+      console.error('Erreur g\u00e9n\u00e9ration PDF pour impression:', err);
+      if(win) win.close();
+      showToast("La g\u00e9n\u00e9ration a \u00e9chou\u00e9.");
+    }finally{
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  };
+  document.getElementById('pdf-btn-trav').onclick = async (e)=>{
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'G\u00e9n\u00e9ration en cours\u2026';
+    const t = state.travaux.find(x=>x.id===state.viewingTravaux);
+    const filename = `Devis_travaux_${t.numero}.pdf`.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const ok = await downloadDocAsPdf(filename);
+    btn.disabled = false;
+    btn.textContent = original;
+    if(ok) showToast('PDF t\u00e9l\u00e9charg\u00e9 !');
+  };
+  document.getElementById('edit-travaux-btn').onclick = ()=>{
+    const t = state.travaux.find(x=>x.id===state.viewingTravaux);
+    if(!t) return;
+    state.travauxBuilder = {
+      clientId: t.clientId, companyId: t.companyId, date: t.date, objet: t.objet,
+      lignes: JSON.parse(JSON.stringify(t.lignes)),
+      dureePrevisionnelle: t.dureePrevisionnelle||'', conditionsReserves: t.conditionsReserves||'',
+      tvaMode: t.tvaMode||'determiner', tauxTva: t.tauxTva||20,
+      editingId: t.id,
+    };
+    state.viewingTravaux = null;
+    state.tab = 'travaux-nouveau';
+    render();
+  };
+  document.getElementById('delete-trav-btn').onclick = async ()=>{
+    const t = state.travaux.find(x=>x.id===state.viewingTravaux);
+    if(!t) return;
+    if(!confirm(`D\u00e9placer le devis travaux ${t.numero} vers la corbeille ? Tu pourras le restaurer depuis la corbeille.`)) return;
+    t.deleted = true;
+    t.deletedAt = todayStr();
+    t.deletedBy = state.currentUser;
+    await sset('travaux', state.travaux);
+    showToast(t.numero + ' d\u00e9plac\u00e9 vers la corbeille');
+    state.viewingTravaux = null;
+    render();
+  };
+  fitDocToOnePage();
+}
+
 function renderSauvegarde(){
   const nbDevis = state.documents.filter(d=>d.type==='devis' && !d.deleted).length;
   const nbFactures = state.documents.filter(d=>d.type==='facture' && !d.deleted).length;
+  const nbTravaux = state.travaux.filter(t=>!t.deleted).length;
   return `
   <h1 class="page-title">Sauvegarde</h1>
-  <p class="page-sub">T\u00e9l\u00e9charge une copie compl\u00e8te de toutes les donn\u00e9es de l'app (devis, factures, clients, articles, commandes Toshiba, comptabilit\u00e9). \u00c0 faire r\u00e9guli\u00e8rement et \u00e0 garder ailleurs (ordinateur, cl\u00e9 USB, drive) \u2014 ind\u00e9pendant de ce site.</p>
+  <p class="page-sub">T\u00e9l\u00e9charge une copie compl\u00e8te de toutes les donn\u00e9es de l'app (devis, factures, devis travaux, clients, articles, commandes Toshiba, comptabilit\u00e9). \u00c0 faire r\u00e9guli\u00e8rement et \u00e0 garder ailleurs (ordinateur, cl\u00e9 USB, drive) \u2014 ind\u00e9pendant de ce site.</p>
 
   <div class="card" style="max-width:560px">
     <p class="subhead">\u00c9tat actuel</p>
-    <p class="hint">${nbDevis} devis \u00b7 ${nbFactures} facture(s) \u00b7 ${state.clients.length} client(s) \u00b7 ${state.articles.length} article(s) \u00b7 ${state.commandes.filter(c=>!c.deleted).length} commande(s) Toshiba \u00b7 ${state.entries.length} \u00e9criture(s) comptables</p>
+    <p class="hint">${nbDevis} devis \u00b7 ${nbFactures} facture(s) \u00b7 ${nbTravaux} devis travaux \u00b7 ${state.clients.length} client(s) \u00b7 ${state.articles.length} article(s) \u00b7 ${state.commandes.filter(c=>!c.deleted).length} commande(s) Toshiba \u00b7 ${state.entries.length} \u00e9criture(s) comptables</p>
   </div>
 
   <div class="card" style="max-width:560px;margin-top:1.25rem">
     <p class="subhead">Sauvegarde compl\u00e8te (Excel, lisible)</p>
-    <p class="hint" style="margin-bottom:.75rem">Un seul fichier .xlsx avec un onglet par cat\u00e9gorie (Devis, Factures, Clients, Articles, Commandes Toshiba, Plan comptable, \u00c9critures). Pratique pour consulter ou imprimer en cas de besoin.</p>
+    <p class="hint" style="margin-bottom:.75rem">Un seul fichier .xlsx avec un onglet par cat\u00e9gorie (Devis, Factures, Travaux, Clients, Articles, Commandes Toshiba, Plan comptable, \u00c9critures). Pratique pour consulter ou imprimer en cas de besoin.</p>
     <button class="btn" id="export-backup-excel">T\u00e9l\u00e9charger la sauvegarde compl\u00e8te (Excel)</button>
   </div>
 
@@ -1800,6 +2176,12 @@ function bindSauvegarde(){
       return { Numero:cmd.numero, Date:cmd.date, 'Devis origine':cmd.devisNumero||'', Client: c? clientFullName(c):'', 'Total achat':Math.round(commandeTotalAchat(cmd)*100)/100, Statut:cmd.statut||'', Supprime: cmd.deleted? 'Oui':'Non' };
     }), 'Commandes Toshiba');
 
+    addSheet(state.travaux.map(t=>{
+      const c = state.clients.find(c=>c.id===t.clientId);
+      const tot = calcTotalsTravaux(t);
+      return { Numero:t.numero, Date:t.date, Client: c? clientFullName(c):'', Objet:t.objet||'', 'Montant estimatif HT':Math.round(tot.ht*100)/100, Auteur:t.auteur||'', Supprime: t.deleted? 'Oui':'Non' };
+    }), 'Travaux');
+
     addSheet(state.accounts.map(a=>({ Code:a.code, Libelle:a.label })), 'Plan comptable');
 
     const ecrituresRows = [];
@@ -1825,6 +2207,7 @@ function bindSauvegarde(){
       articles: state.articles,
       documents: state.documents,
       commandes: state.commandes,
+      travaux: state.travaux,
       companies: state.companies,
       accounts: state.accounts,
       journals: state.journals,
@@ -1856,6 +2239,7 @@ function bindSauvegarde(){
       ...state.documents.filter(d=>d.type==='devis' && !d.deleted).map(d=>({ id:d.id, numero:d.numero, folder:'Devis', kind:'doc' })),
       ...state.documents.filter(d=>d.type==='facture' && !d.deleted).map(d=>({ id:d.id, numero:d.numero, folder:'Factures', kind:'doc' })),
       ...state.commandes.filter(c=>!c.deleted).map(c=>({ id:c.id, numero:c.numero, folder:'Commandes Toshiba', kind:'cmd' })),
+      ...state.travaux.filter(t=>!t.deleted).map(t=>({ id:t.id, numero:t.numero, folder:'Travaux', kind:'trav' })),
     ];
     if(!items.length){ showToast('Aucun document \u00e0 exporter.'); return; }
 
@@ -1887,10 +2271,11 @@ function bindSauvegarde(){
       zipBtn.textContent = `G\u00e9n\u00e9ration\u2026 (${i+1}/${items.length})`;
       if(progressEl) progressEl.textContent = `${it.folder} \u2014 ${it.numero} (${i+1}/${items.length})`;
       try{
-        const savedViewingDoc = state.viewingDoc, savedViewingCmd = state.viewingCommande;
+        const savedViewingDoc = state.viewingDoc, savedViewingCmd = state.viewingCommande, savedViewingTrav = state.viewingTravaux;
         if(it.kind==='doc'){ state.viewingDoc = it.id; container.innerHTML = renderDocView(it.id); }
+        else if(it.kind==='trav'){ state.viewingTravaux = it.id; container.innerHTML = renderTravauxView(it.id); }
         else { state.viewingCommande = it.id; container.innerHTML = renderCommandeView(it.id); }
-        state.viewingDoc = savedViewingDoc; state.viewingCommande = savedViewingCmd;
+        state.viewingDoc = savedViewingDoc; state.viewingCommande = savedViewingCmd; state.viewingTravaux = savedViewingTrav;
 
         // Retire les pages CGV avant capture : elles sont identiques \u00e0 chaque document,
         // les recalculer/recapturer \u00e0 chaque fois multiplie \u00e9norm\u00e9ment le travail pour rien
@@ -1953,17 +2338,19 @@ function bindSauvegarde(){
 function renderCorbeille(){
   const docs = state.documents.filter(d=>d.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
   const cmds = state.commandes.filter(c=>c.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
+  const travs = state.travaux.filter(t=>t.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
   return `
   <h1 class="page-title">Corbeille</h1>
-  <p class="page-sub">Devis, factures et commandes supprim\u00e9s. Rien n'est effac\u00e9 d\u00e9finitivement tant que tu ne le fais pas explicitement ici.</p>
+  <p class="page-sub">Devis, factures, devis travaux et commandes supprim\u00e9s. Rien n'est effac\u00e9 d\u00e9finitivement tant que tu ne le fais pas explicitement ici.</p>
 
-  <div class="card" style="margin-bottom:1.5rem;max-width:520px">
+  <div class="card" style="margin-bottom:1.5rem;max-width:560px">
     <p class="subhead" style="margin-bottom:.35rem">Num\u00e9rotation (avanc\u00e9)</p>
-    <p class="hint" style="margin:0 0 .75rem">Le prochain devis/facture/commande cr\u00e9\u00e9 prendra le num\u00e9ro juste apr\u00e8s la valeur ci-dessous. Par exemple, mets 22 pour que le prochain devis soit le n\u00b0 23.</p>
+    <p class="hint" style="margin:0 0 .75rem">Le prochain devis/facture/commande/travaux cr\u00e9\u00e9 prendra le num\u00e9ro juste apr\u00e8s la valeur ci-dessous. Par exemple, mets 22 pour que le prochain devis soit le n\u00b0 23.</p>
     <div class="row" style="align-items:flex-end">
       <div class="field" style="width:140px"><label>Dernier n\u00b0 devis</label><input type="text" inputmode="numeric" id="counter-devis" value="${state.counters.devis||0}"></div>
       <div class="field" style="width:140px"><label>Derni\u00e8re facture</label><input type="text" inputmode="numeric" id="counter-facture" value="${state.counters.facture||0}"></div>
       <div class="field" style="width:140px"><label>Derni\u00e8re commande</label><input type="text" inputmode="numeric" id="counter-commande" value="${state.counters.commande||0}"></div>
+      <div class="field" style="width:140px"><label>Dernier travaux</label><input type="text" inputmode="numeric" id="counter-travaux" value="${state.counters.travaux||0}"></div>
       <button class="btn small" id="save-counters">Enregistrer</button>
     </div>
   </div>
@@ -2002,6 +2389,24 @@ function renderCorbeille(){
         </td>
       </tr>`;
     }).join('') : `<tr><td colspan="5" class="empty">Corbeille vide.</td></tr>`}
+  </table>
+
+  <h2 style="font-size:16px;margin:1.5rem 0 .5rem">Devis travaux</h2>
+  <table>
+    <tr><th>N\u00b0</th><th>Client</th><th>Supprim\u00e9 le</th><th>Par</th><th></th></tr>
+    ${travs.length ? travs.map(t=>{
+      const c = state.clients.find(c=>c.id===t.clientId);
+      return `<tr>
+        <td class="num">${t.numero}</td>
+        <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
+        <td>${t.deletedAt||''}</td>
+        <td>${t.deletedBy||''}</td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary small" data-restore-trav="${t.id}">Restaurer</button>
+          <button class="rm-btn" data-purge-trav="${t.id}" title="Supprimer d\u00e9finitivement">&times;</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="5" class="empty">Corbeille vide.</td></tr>`}
   </table>`;
 }
 function bindCorbeille(){
@@ -2010,13 +2415,38 @@ function bindCorbeille(){
     const dv = Math.max(0, Math.round(parseNum(document.getElementById('counter-devis').value)));
     const fc = Math.max(0, Math.round(parseNum(document.getElementById('counter-facture').value)));
     const cm = Math.max(0, Math.round(parseNum(document.getElementById('counter-commande').value)));
+    const trv = Math.max(0, Math.round(parseNum(document.getElementById('counter-travaux').value)));
     state.counters.devis = dv;
     state.counters.facture = fc;
     state.counters.commande = cm;
+    state.counters.travaux = trv;
     await sset('counters', state.counters);
     showToast('Compteurs mis \u00e0 jour');
     render();
   };
+  document.querySelectorAll('[data-restore-trav]').forEach(b=>{
+    b.onclick = async ()=>{
+      const t = state.travaux.find(x=>x.id===b.dataset.restoreTrav);
+      if(!t) return;
+      t.deleted = false;
+      delete t.deletedAt;
+      delete t.deletedBy;
+      await sset('travaux', state.travaux);
+      showToast(t.numero + ' restaur\u00e9');
+      render();
+    };
+  });
+  document.querySelectorAll('[data-purge-trav]').forEach(b=>{
+    b.onclick = async ()=>{
+      const t = state.travaux.find(x=>x.id===b.dataset.purgeTrav);
+      if(!t) return;
+      if(!confirm(`Supprimer D\u00c9FINITIVEMENT le devis travaux ${t.numero} ? Cette action est irr\u00e9versible.`)) return;
+      state.travaux = state.travaux.filter(x=>x.id!==t.id);
+      await sset('travaux', state.travaux);
+      showToast(t.numero + ' supprim\u00e9 d\u00e9finitivement');
+      render();
+    };
+  });
   document.querySelectorAll('[data-restore-doc]').forEach(b=>{
     b.onclick = async ()=>{
       const d = state.documents.find(x=>x.id===b.dataset.restoreDoc);
