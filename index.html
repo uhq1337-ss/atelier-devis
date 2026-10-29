@@ -445,6 +445,13 @@ function shadeColor(hex, percent){
 
 const DEFAULT_TRAVAUX_CONDITIONS = "Estimation à confirmer après vérification des dimensions, de l'état des supports et des conditions d'accès. Échafaudage ou moyen d'accès spécifique non compris. Seules les surfaces indiquées sont incluses. Teinte à valider sur place. TVA et total TTC à compléter avant acceptation définitive.";
 
+// Clés de brouillon (DOIVENT être déclarées avant `state`, qui les utilise dès sa construction
+// pour restaurer un brouillon au chargement — sinon erreur de zone morte temporelle, avalée
+// silencieusement par le try/catch de loadXDraft(), qui retournait alors toujours vide).
+const BUILDER_DRAFT_KEY = 'atelier-devis-devis-draft-v1';
+const TRAVAUX_DRAFT_KEY = 'atelier-devis-travaux-draft-v1';
+const ENTRY_DRAFT_KEY = 'atelier-devis-ecriture-draft-v1';
+
 let state = {
   currentUser: null,
   authenticated: false,
@@ -1382,7 +1389,6 @@ function renderBuilder(){
     ${editingDoc ? `<button class="btn secondary" id="cancel-edit-devis" style="margin-top:.5rem">Annuler la modification</button>` : ''}
   </div>`;
 }
-const BUILDER_DRAFT_KEY = 'atelier-devis-devis-draft-v1';
 function builderDraftHasContent(b){
   if(!b) return false;
   if(b.editingDocId) return true;
@@ -1401,7 +1407,6 @@ function saveBuilderDraft(){
 function clearBuilderDraft(){
   try{ localStorage.removeItem(BUILDER_DRAFT_KEY); }catch(e){}
 }
-const ENTRY_DRAFT_KEY = 'atelier-devis-ecriture-draft-v1';
 function entryDraftHasContent(b){
   if(!b) return false;
   if(b.editingId) return true;
@@ -2031,7 +2036,6 @@ function bindBrouillons(){
 function emptyTravauxBuilder(companyId){
   return { clientId:'', companyId: companyId||'', date:'', objet:'', lignes:[], dureePrevisionnelle:'', conditionsReserves: DEFAULT_TRAVAUX_CONDITIONS, tvaMode:'determiner', tauxTva:20, editingId:null };
 }
-const TRAVAUX_DRAFT_KEY = 'atelier-devis-travaux-draft-v1';
 function travauxDraftHasContent(b){
   if(!b) return false;
   if(b.editingId) return true;
