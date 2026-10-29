@@ -1906,7 +1906,21 @@ function renderTravauxListe(){
 }
 function bindTravauxListe(){
   const newBtn = document.getElementById('new-travaux-btn');
-  if(newBtn) newBtn.onclick = ()=>{ state.tab = 'travaux-nouveau'; render(); };
+  if(newBtn) newBtn.onclick = ()=>{
+    // « Nouveau » doit toujours repartir d'une feuille vierge — sinon on retombe sur
+    // l'ancien document en cours de modification au lieu d'un formulaire vide.
+    if(state.travauxBuilder.editingId){
+      // On quitte une modification en cours sans avoir cliqué « Annuler » : le document
+      // d'origine est déjà enregistré tel quel, rien n'est perdu à effacer ce brouillon-là.
+      clearTravauxDraft();
+    }
+    // Si c'était un brouillon de NOUVEAU devis (jamais encore enregistré), on ne le supprime
+    // pas du stockage — il reste récupérable depuis l'onglet « Brouillons » tant qu'on n'a
+    // rien retapé ici par-dessus.
+    state.travauxBuilder = emptyTravauxBuilder(state.travauxBuilder.companyId);
+    state.tab = 'travaux-nouveau';
+    render();
+  };
   document.querySelectorAll('[data-view-trav]').forEach(b=>{
     b.onclick = ()=>{ state.viewingTravaux = b.dataset.viewTrav; render(); };
   });
