@@ -480,8 +480,8 @@ let state = {
   expandedCommandeId: null,
   viewingCommande: null,
   entryBuilder: { journal:'', date:'', factureNum:'', lignes:[{compte:'', libelle:'', debit:'', credit:''}], editingId:null },
-  builder: { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, remiseType:'percent', remiseValeur:0, notes:'', editingDocId:null, clientSearchOpen:false, clientSearchText:null },
-  travauxBuilder: { clientId:'', companyId:'', date:'', objet:'Remise en état après installation de climatisation', lignes:[], dureePrevisionnelle:'', conditionsReserves: DEFAULT_TRAVAUX_CONDITIONS, tvaMode:'determiner', tauxTva:20, editingId:null },
+  builder: loadBuilderDraft() || { clientId:'', companyId:'', objet:'', infoComp:'', lignes:[], tva:20, remiseType:'percent', remiseValeur:0, notes:'', editingDocId:null, clientSearchOpen:false, clientSearchText:null },
+  travauxBuilder: loadTravauxDraft() || { clientId:'', companyId:'', date:'', objet:'Remise en état après installation de climatisation', lignes:[], dureePrevisionnelle:'', conditionsReserves: DEFAULT_TRAVAUX_CONDITIONS, tvaMode:'determiner', tauxTva:20, editingId:null },
   toast: null,
   viewingDoc: null,
   viewingTravaux: null,
@@ -830,6 +830,7 @@ function bindShell(){
   document.querySelectorAll('[data-tab]').forEach(b=>{
     b.onclick = ()=>{
       if(b.dataset.tab==='nouveau' && state.builder.editingDocId){
+        clearBuilderDraft();
         state.builder = { clientId:'', companyId: state.builder.companyId, objet:'', lignes:[], tva:20, notes:'', editingDocId:null };
       }
       state.tab=b.dataset.tab; state.viewingDoc=null; state.viewingCommande=null; state.viewingTravaux=null; render();
@@ -1370,10 +1371,38 @@ function renderBuilder(){
     ${editingDoc ? `<button class="btn secondary" id="cancel-edit-devis" style="margin-top:.5rem">Annuler la modification</button>` : ''}
   </div>`;
 }
+const BUILDER_DRAFT_KEY = 'atelier-devis-devis-draft-v1';
+function builderDraftHasContent(b){
+  if(!b) return false;
+  if(b.editingDocId) return true;
+  return !!(b.clientId || b.objet || b.infoComp || (b.lignes && b.lignes.some(l=>l.articleId || (l.qty && l.qty!==1) || l.pu)));
+}
+function saveBuilderDraft(){
+  try{
+    const b = state.builder;
+    if(builderDraftHasContent(b)){
+      localStorage.setItem(BUILDER_DRAFT_KEY, JSON.stringify(b));
+    } else {
+      localStorage.removeItem(BUILDER_DRAFT_KEY);
+    }
+  }catch(e){}
+}
+function clearBuilderDraft(){
+  try{ localStorage.removeItem(BUILDER_DRAFT_KEY); }catch(e){}
+}
+function loadBuilderDraft(){
+  try{
+    const raw = localStorage.getItem(BUILDER_DRAFT_KEY);
+    if(!raw) return null;
+    const b = JSON.parse(raw);
+    if(!builderDraftHasContent(b)) return null;
+    return b;
+  }catch(e){ return null; }
+}
 function bindBuilder(){
   const b = state.builder;
   document.querySelectorAll('[data-pick-company]').forEach(btn=>{
-    btn.onclick = ()=>{ b.companyId = btn.dataset.pickCompany; render(); };
+    btn.onclick = ()=>{ b.companyId = btn.dataset.pickCompany; saveBuilderDraft(); render(); };
   });
   const clientSearch = document.getElementById('b-client-search');
   const clientDropdown = document.getElementById('client-dropdown');
@@ -1401,6 +1430,7 @@ function bindBuilder(){
     if(!row) return;
     e.preventDefault();
     b.clientId = row.dataset.pickClient;
+    saveBuilderDraft();
     render();
   };
   clientSearch.onblur = ()=>{
@@ -1409,28 +1439,28 @@ function bindBuilder(){
       clientSearch.value = clientFullName(state.clients.find(c=>c.id===b.clientId));
     }, 150);
   };
-  document.getElementById('b-date').onchange = (e)=>{ b.date = isoDateToFr(e.target.value); };
-  document.getElementById('b-objet').oninput = (e)=>{ b.objet = e.target.value; };
-  document.getElementById('b-infocomp').oninput = (e)=>{ b.infoComp = e.target.value; };
-  document.getElementById('b-travaux-same').onchange = (e)=>{ b.travauxSameAsClient = e.target.checked; render(); };
+  document.getElementById('b-date').onchange = (e)=>{ b.date = isoDateToFr(e.target.value); saveBuilderDraft(); };
+  document.getElementById('b-objet').oninput = (e)=>{ b.objet = e.target.value; saveBuilderDraft(); };
+  document.getElementById('b-infocomp').oninput = (e)=>{ b.infoComp = e.target.value; saveBuilderDraft(); };
+  document.getElementById('b-travaux-same').onchange = (e)=>{ b.travauxSameAsClient = e.target.checked; saveBuilderDraft(); render(); };
   const tNom = document.getElementById('b-travaux-nom');
-  if(tNom) tNom.oninput = (e)=>{ b.travauxNom = e.target.value; };
+  if(tNom) tNom.oninput = (e)=>{ b.travauxNom = e.target.value; saveBuilderDraft(); };
   const tAdr = document.getElementById('b-travaux-adresse');
-  if(tAdr) tAdr.oninput = (e)=>{ b.travauxAdresse = e.target.value; };
+  if(tAdr) tAdr.oninput = (e)=>{ b.travauxAdresse = e.target.value; saveBuilderDraft(); };
   const tCp = document.getElementById('b-travaux-cp');
-  if(tCp) tCp.oninput = (e)=>{ b.travauxCp = e.target.value; };
+  if(tCp) tCp.oninput = (e)=>{ b.travauxCp = e.target.value; saveBuilderDraft(); };
   const tVille = document.getElementById('b-travaux-ville');
-  if(tVille) tVille.oninput = (e)=>{ b.travauxVille = e.target.value; };
-  document.getElementById('add-line').onclick = ()=>{ b.lignes.push({articleId:'',qty:1,pu:0,unite:'Forfait'}); render(); };
-  document.getElementById('b-tva').oninput = (e)=>{ b.tva = parseNum(e.target.value)||0; render(); };
-  document.getElementById('b-remise-type').onchange = (e)=>{ b.remiseType = e.target.value; render(); };
-  document.getElementById('b-remise-valeur').oninput = (e)=>{ b.remiseValeur = e.target.value; render(); };
+  if(tVille) tVille.oninput = (e)=>{ b.travauxVille = e.target.value; saveBuilderDraft(); };
+  document.getElementById('add-line').onclick = ()=>{ b.lignes.push({articleId:'',qty:1,pu:0,unite:'Forfait'}); saveBuilderDraft(); render(); };
+  document.getElementById('b-tva').oninput = (e)=>{ b.tva = parseNum(e.target.value)||0; saveBuilderDraft(); render(); };
+  document.getElementById('b-remise-type').onchange = (e)=>{ b.remiseType = e.target.value; saveBuilderDraft(); render(); };
+  document.getElementById('b-remise-valeur').oninput = (e)=>{ b.remiseValeur = e.target.value; saveBuilderDraft(); render(); };
   document.querySelectorAll('[data-line-ref]').forEach(inp=>{
     inp.oninput = (e)=>{
       const i = +inp.dataset.lineRef;
       const val = e.target.value.trim().toLowerCase();
       const art = state.articles.find(a=>a.code.toLowerCase()===val);
-      if(art){ b.lignes[i].articleId = art.id; b.lignes[i].pu = art.vente; render(); }
+      if(art){ b.lignes[i].articleId = art.id; b.lignes[i].pu = art.vente; saveBuilderDraft(); render(); }
     };
   });
   document.querySelectorAll('[data-line-name]').forEach(inp=>{
@@ -1438,25 +1468,32 @@ function bindBuilder(){
       const i = +inp.dataset.lineName;
       const val = e.target.value.trim().toLowerCase();
       const art = state.articles.find(a=>a.nom.toLowerCase()===val);
-      if(art){ b.lignes[i].articleId = art.id; b.lignes[i].pu = art.vente; render(); }
+      if(art){ b.lignes[i].articleId = art.id; b.lignes[i].pu = art.vente; saveBuilderDraft(); render(); }
     };
   });
   document.querySelectorAll('[data-line-qty]').forEach(inp=>{
-    inp.oninput = (e)=>{ b.lignes[+inp.dataset.lineQty].qty = e.target.value; render(); };
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.lineQty].qty = e.target.value; saveBuilderDraft(); render(); };
   });
   document.querySelectorAll('[data-line-unite]').forEach(sel=>{
-    sel.onchange = (e)=>{ b.lignes[+sel.dataset.lineUnite].unite = e.target.value; };
+    sel.onchange = (e)=>{ b.lignes[+sel.dataset.lineUnite].unite = e.target.value; saveBuilderDraft(); };
   });
   document.querySelectorAll('[data-line-pu]').forEach(inp=>{
-    inp.oninput = (e)=>{ b.lignes[+inp.dataset.linePu].pu = e.target.value; render(); };
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.linePu].pu = e.target.value; saveBuilderDraft(); render(); };
   });
   document.querySelectorAll('[data-line-del]').forEach(btn=>{
-    btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.lineDel,1); render(); };
+    btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.lineDel,1); saveBuilderDraft(); render(); };
   });
   document.getElementById('save-devis').onclick = async ()=>{
     if(!b.clientId){ showToast('Choisissez un client'); return; }
     if(!b.companyId){ showToast('Choisissez une entreprise \u00e9mettrice'); return; }
-    if(!b.lignes.length || b.lignes.some(l=>!l.articleId)){ showToast('Ajoutez au moins une ligne compl\u00e8te'); return; }
+    if(!b.lignes.length){ showToast('Ajoutez au moins une ligne'); return; }
+    const badLineIdx = b.lignes.findIndex(l=>!l.articleId);
+    if(badLineIdx !== -1){
+      showToast('Ligne ' + (badLineIdx+1) + ' incompl\u00e8te : choisissez un article (le reste est enregistr\u00e9 en brouillon)');
+      const el = document.querySelector('[data-line-ref="'+badLineIdx+'"]') || document.querySelector('[data-line-name="'+badLineIdx+'"]');
+      if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.style.borderColor = '#c0392b'; el.focus(); }
+      return;
+    }
     if(b.editingDocId){
       const existing = state.documents.find(d=>d.id===b.editingDocId);
       if(existing){
@@ -1477,6 +1514,7 @@ function bindBuilder(){
         await sset('documents', state.documents);
         showToast(existing.numero + ' mis \u00e0 jour');
         state.viewingDoc = existing.id;
+        clearBuilderDraft();
         state.builder = { clientId:'', companyId: b.companyId, objet:'', infoComp:'', lignes:[], tva:20, notes:'', editingDocId:null };
         render();
       }
@@ -1492,6 +1530,7 @@ function bindBuilder(){
     };
     await pushAndSave('documents', doc);
     showToast('Devis ' + numero + ' enregistr\u00e9');
+    clearBuilderDraft();
     state.builder = { clientId:'', companyId: b.companyId, objet:'', infoComp:'', lignes:[], tva: b.tva, notes:'' };
     state.viewingDoc = doc.id;
     render();
@@ -1500,6 +1539,7 @@ function bindBuilder(){
   const cancelEditBtn = document.getElementById('cancel-edit-devis');
   if(cancelEditBtn) cancelEditBtn.onclick = ()=>{
     const backId = b.editingDocId;
+    clearBuilderDraft();
     state.builder = { clientId:'', companyId: b.companyId, objet:'', lignes:[], tva:20, notes:'', editingDocId:null };
     state.viewingDoc = backId;
     render();
@@ -1840,6 +1880,34 @@ function bindTravauxListe(){
 function emptyTravauxBuilder(companyId){
   return { clientId:'', companyId: companyId||'', date:'', objet:'', lignes:[], dureePrevisionnelle:'', conditionsReserves: DEFAULT_TRAVAUX_CONDITIONS, tvaMode:'determiner', tauxTva:20, editingId:null };
 }
+const TRAVAUX_DRAFT_KEY = 'atelier-devis-travaux-draft-v1';
+function travauxDraftHasContent(b){
+  if(!b) return false;
+  if(b.editingId) return true;
+  return !!(b.clientId || b.objet || b.dureePrevisionnelle || (b.lignes && b.lignes.some(l=>l.titre || l.description || l.montant)));
+}
+function saveTravauxDraft(){
+  try{
+    const b = state.travauxBuilder;
+    if(travauxDraftHasContent(b)){
+      localStorage.setItem(TRAVAUX_DRAFT_KEY, JSON.stringify(b));
+    } else {
+      localStorage.removeItem(TRAVAUX_DRAFT_KEY);
+    }
+  }catch(e){}
+}
+function clearTravauxDraft(){
+  try{ localStorage.removeItem(TRAVAUX_DRAFT_KEY); }catch(e){}
+}
+function loadTravauxDraft(){
+  try{
+    const raw = localStorage.getItem(TRAVAUX_DRAFT_KEY);
+    if(!raw) return null;
+    const b = JSON.parse(raw);
+    if(!travauxDraftHasContent(b)) return null;
+    return b;
+  }catch(e){ return null; }
+}
 
 function renderTravauxBuilder(){
   const b = state.travauxBuilder;
@@ -1914,31 +1982,38 @@ function bindTravauxBuilder(){
   document.querySelectorAll('[data-pick-trav-company]').forEach(btn=>{
     btn.onclick = ()=>{ b.companyId = btn.dataset.pickTravCompany; render(); };
   });
-  document.getElementById('tb-client').onchange = (e)=>{ b.clientId = e.target.value; };
-  document.getElementById('tb-date').onchange = (e)=>{ b.date = isoDateToFr(e.target.value); };
-  document.getElementById('tb-objet').oninput = (e)=>{ b.objet = e.target.value; };
-  document.getElementById('add-trav-line').onclick = ()=>{ b.lignes.push({titre:'',description:'',montant:''}); render(); };
+  document.getElementById('tb-client').onchange = (e)=>{ b.clientId = e.target.value; saveTravauxDraft(); };
+  document.getElementById('tb-date').onchange = (e)=>{ b.date = isoDateToFr(e.target.value); saveTravauxDraft(); };
+  document.getElementById('tb-objet').oninput = (e)=>{ b.objet = e.target.value; saveTravauxDraft(); };
+  document.getElementById('add-trav-line').onclick = ()=>{ b.lignes.push({titre:'',description:'',montant:''}); saveTravauxDraft(); render(); };
   document.querySelectorAll('[data-trav-titre]').forEach(inp=>{
-    inp.oninput = (e)=>{ b.lignes[+inp.dataset.travTitre].titre = e.target.value; };
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.travTitre].titre = e.target.value; saveTravauxDraft(); };
   });
   document.querySelectorAll('[data-trav-desc]').forEach(ta=>{
-    ta.oninput = (e)=>{ b.lignes[+ta.dataset.travDesc].description = e.target.value; };
+    ta.oninput = (e)=>{ b.lignes[+ta.dataset.travDesc].description = e.target.value; saveTravauxDraft(); };
   });
   document.querySelectorAll('[data-trav-montant]').forEach(inp=>{
-    inp.oninput = (e)=>{ b.lignes[+inp.dataset.travMontant].montant = e.target.value; render(); };
+    inp.oninput = (e)=>{ b.lignes[+inp.dataset.travMontant].montant = e.target.value; saveTravauxDraft(); render(); };
   });
   document.querySelectorAll('[data-trav-del]').forEach(btn=>{
-    btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.travDel,1); render(); };
+    btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.travDel,1); saveTravauxDraft(); render(); };
   });
-  document.getElementById('tb-duree').oninput = (e)=>{ b.dureePrevisionnelle = e.target.value; };
-  document.getElementById('tb-conditions').oninput = (e)=>{ b.conditionsReserves = e.target.value; };
-  document.getElementById('tb-tva-mode').onchange = (e)=>{ b.tvaMode = e.target.value; render(); };
+  document.getElementById('tb-duree').oninput = (e)=>{ b.dureePrevisionnelle = e.target.value; saveTravauxDraft(); };
+  document.getElementById('tb-conditions').oninput = (e)=>{ b.conditionsReserves = e.target.value; saveTravauxDraft(); };
+  document.getElementById('tb-tva-mode').onchange = (e)=>{ b.tvaMode = e.target.value; saveTravauxDraft(); render(); };
   const tauxInp = document.getElementById('tb-taux-tva');
-  if(tauxInp) tauxInp.oninput = (e)=>{ b.tauxTva = e.target.value; render(); };
+  if(tauxInp) tauxInp.oninput = (e)=>{ b.tauxTva = e.target.value; saveTravauxDraft(); render(); };
   document.getElementById('save-travaux').onclick = async ()=>{
     if(!b.clientId){ showToast('Choisissez un client'); return; }
     if(!b.companyId){ showToast('Choisissez une entreprise \u00e9mettrice'); return; }
-    if(!b.lignes.length || b.lignes.some(l=>!l.titre || !parseNum(l.montant))){ showToast('Ajoutez au moins une ligne avec un titre et un montant'); return; }
+    if(!b.lignes.length){ showToast('Ajoutez au moins une ligne de travaux'); return; }
+    const badIdx = b.lignes.findIndex(l=>!l.titre || !parseNum(l.montant));
+    if(badIdx !== -1){
+      showToast('Ligne ' + (badIdx+1) + ' incompl\u00e8te : titre et montant obligatoires (le reste est enregistr\u00e9 en brouillon)');
+      const el = document.querySelector('[data-trav-titre="'+badIdx+'"]');
+      if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.style.borderColor = '#c0392b'; el.focus(); }
+      return;
+    }
     if(b.editingId){
       const existing = state.travaux.find(t=>t.id===b.editingId);
       if(existing){
@@ -1954,6 +2029,7 @@ function bindTravauxBuilder(){
         await sset('travaux', state.travaux);
         showToast(existing.numero + ' mis \u00e0 jour');
         state.viewingTravaux = existing.id;
+        clearTravauxDraft();
         state.travauxBuilder = emptyTravauxBuilder(b.companyId);
         render();
       }
@@ -1970,6 +2046,7 @@ function bindTravauxBuilder(){
     };
     await pushAndSave('travaux', doc);
     showToast('Devis travaux ' + numero + ' enregistr\u00e9');
+    clearTravauxDraft();
     state.travauxBuilder = emptyTravauxBuilder(b.companyId);
     state.viewingTravaux = doc.id;
     render();
@@ -1978,6 +2055,7 @@ function bindTravauxBuilder(){
   const cancelBtn = document.getElementById('cancel-edit-travaux');
   if(cancelBtn) cancelBtn.onclick = ()=>{
     const backId = b.editingId;
+    clearTravauxDraft();
     state.travauxBuilder = emptyTravauxBuilder(b.companyId);
     state.viewingTravaux = backId;
     render();
@@ -2110,6 +2188,7 @@ function bindTravauxView(){
       tvaMode: t.tvaMode||'determiner', tauxTva: t.tauxTva||20,
       editingId: t.id,
     };
+    saveTravauxDraft();
     state.viewingTravaux = null;
     state.tab = 'travaux-nouveau';
     render();
@@ -4232,6 +4311,7 @@ function bindDocView(){
       lignes: JSON.parse(JSON.stringify(d.lignes)), tva: d.tva, remiseType: d.remiseType||'percent', remiseValeur: d.remiseValeur||0, notes: '',
       editingDocId: d.id,
     };
+    saveBuilderDraft();
     state.viewingDoc = null;
     state.tab = 'nouveau';
     render();
