@@ -210,6 +210,11 @@
        il se réaffiche en haut de CHAQUE page imprimée, jamais une page « nue ». */
     .bilan-print-header{ position:fixed; top:0; left:0; right:0; margin-bottom:0; }
     .bilan-print-body{ padding-top:var(--bilan-header-h, 100px); }
+    /* `transform:scale()` fait chevaucher le texte en impression (bug WebKit/Chromium
+       connu, déjà rencontré sur les devis) : en impression, on bascule sur `zoom`, qui
+       relance une vraie mise en page à la taille réduite au lieu d'une transformation
+       visuelle post-rendu. */
+    #bilan-scale-inner{ transform:none !important; width:100% !important; zoom: var(--fit-scale, 1); }
   }
   @media print{
     .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
@@ -4535,7 +4540,10 @@ function fitBilanToOnePage(){
   const footerH = footer ? footer.offsetHeight : 0;
   const availablePx = (pageContentHeightMm * pxPerMm) - headerH - footerH - 24;
   const naturalHeight = inner.scrollHeight;
-  if(naturalHeight <= 0 || naturalHeight <= availablePx) return;
+  if(naturalHeight <= 0 || naturalHeight <= availablePx){
+    inner.style.setProperty('--fit-scale', 1);
+    return;
+  }
   const visualHeightAt = (s)=>{
     inner.style.width = (100/s) + '%';
     inner.style.transform = 'none';
@@ -4552,7 +4560,11 @@ function fitBilanToOnePage(){
   const scale = low;
   visualHeightAt(scale);
   inner.style.transformOrigin = 'top left';
+  // `transform:scale()` reste utilisé pour l'aperçu à l'écran (parfaitement net) ; en
+  // impression, le CSS bascule sur `zoom: var(--fit-scale)` (voir règle @media print),
+  // qui évite le bug de chevauchement de texte propre à `transform` sur du contenu imprimé.
   inner.style.transform = `scale(${scale})`;
+  inner.style.setProperty('--fit-scale', scale);
 }
 function cropCanvas(src, sx, sy, sw, sh){
   const c = document.createElement('canvas');
