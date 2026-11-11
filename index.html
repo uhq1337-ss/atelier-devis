@@ -184,6 +184,24 @@
   .cgv-art-title{font-family:var(--font-display);font-size:14px;color:var(--ink);margin:1.25rem 0 .5rem;break-after:avoid;page-break-after:avoid;}
   .cgv-par{margin:0 0 .6rem;white-space:pre-line;orphans:3;widows:3;}
   .cgv-footnote{font-size:11px;color:var(--muted);font-style:italic;margin-top:1.5rem;border-top:1px solid var(--line);padding-top:.75rem;}
+
+  .bilan-print-sheet{background:#fff;padding:14mm;max-width:1000px;margin:0 auto;}
+  .bilan-print-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:2px solid var(--line-strong);padding-bottom:.9rem;margin-bottom:1.25rem;}
+  .bilan-print-logo{max-height:52px;max-width:160px;object-fit:contain;}
+  .bilan-print-logo-text{font-family:var(--font-display);font-size:18px;font-weight:bold;color:var(--ink);}
+  .bilan-print-titleblock{text-align:right;}
+  .bilan-print-title{font-family:var(--font-display);font-size:22px;color:var(--ink);}
+  .bilan-print-date{font-size:12.5px;color:var(--muted);margin-top:.15rem;}
+  .bilan-print-tables{display:flex;gap:1.5rem;align-items:flex-start;}
+  .bilan-print-col{flex:1;min-width:0;}
+  .bilan-print-subhead{font-family:var(--font-display);font-size:14px;color:var(--ink);margin-bottom:.5rem;border-bottom:1px solid var(--line);padding-bottom:.3rem;}
+  .bilan-print-table{width:100%;font-size:11px;border-collapse:collapse;}
+  .bilan-print-table td, .bilan-print-table th{padding:.3rem .35rem;}
+  .bilan-print-footer{margin-top:1.75rem;border-top:1px solid var(--line);padding-top:.6rem;font-size:10.5px;color:var(--muted);text-align:center;}
+  @media print{
+    .bilan-print-sheet{padding:0;max-width:none;}
+    .bilan-print-tables{gap:1rem;}
+  }
   @media print{
     .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
     @page cgv-print-page{ size:A4; margin:16mm; }
@@ -3199,6 +3217,21 @@ function bindCompta(){
   if(state.comptaTab==='journaux') return bindJournaux();
   if(state.comptaTab==='saisie') return bindSaisieEcriture();
   if(state.comptaTab==='ecritures') return bindEcritures();
+  if(state.comptaTab==='bilan') return bindBilan();
+}
+
+function bindBilan(){
+  if(state.bilanPrintMode){
+    const backBtn = document.getElementById('bilan-print-back');
+    if(backBtn) backBtn.onclick = ()=>{ state.bilanPrintMode = false; render(); };
+    const goBtn = document.getElementById('bilan-print-go');
+    if(goBtn) goBtn.onclick = ()=>{ window.print(); };
+    return;
+  }
+  const dateInput = document.getElementById('bilan-date-input');
+  if(dateInput) dateInput.onchange = ()=>{ state.bilanDate = isoDateToFr(dateInput.value); render(); };
+  const printBtn = document.getElementById('bilan-print-btn');
+  if(printBtn) printBtn.onclick = ()=>{ if(!state.bilanDate) state.bilanDate = todayFr(); state.bilanPrintMode = true; render(); };
 }
 
 function renderPlanComptable(){
@@ -3974,12 +4007,7 @@ function renderBilan(){
   const totRowP = (label, montant)=> `<tr><td style="font-weight:bold">${label}</td><td class="num" style="text-align:right;font-weight:bold">${eur(montant)}</td></tr>`;
   const sectionRow = (label, span)=> `<tr><td colspan="${span}" style="font-weight:bold;background:var(--paper);padding-top:.8rem">${label}</td></tr>`;
 
-  return `
-  <p class="page-sub">Bilan calcul\u00e9 automatiquement \u00e0 partir des comptes utilis\u00e9s dans vos \u00e9critures, class\u00e9s selon le plan comptable g\u00e9n\u00e9ral.</p>
-  <div class="row" style="align-items:flex-start;gap:1.25rem">
-    <div class="card" style="flex:1.3;min-width:340px">
-      <div class="subhead">Bilan actif</div>
-      <table style="font-size:12.5px">
+  const actifRowsHtml = `
         <tr><th></th><th style="text-align:right">Brut</th><th style="text-align:right">Amort.</th><th style="text-align:right">Net</th></tr>
         ${sectionRow('ACTIF IMMOBILIS\u00c9',4)}
         <tr><td style="font-style:italic;color:var(--muted)">Immobilisations incorporelles</td><td></td><td></td><td></td></tr>
@@ -4019,11 +4047,8 @@ function renderBilan(){
         ${nonClassees.length ? sectionRow('COMPTES NON IDENTIFI\u00c9S',4) : ''}
         ${nonClassees.map(r=>rowA(`${r.label} (${r.code})`, r.solde, null, true)).join('')}
         ${totRowA('TOTAL G\u00c9N\u00c9RAL ACTIF', brutImmo+totalCirculant+totalChargesRepartir+nonClassees.filter(r=>r.solde>0).reduce((s,r)=>s+r.solde,0), totalAmort, totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))}
-      </table>
-    </div>
-    <div class="card" style="flex:1;min-width:300px">
-      <div class="subhead">Bilan passif</div>
-      <table style="font-size:12.5px">
+  `;
+  const passifRowsHtml = `
         <tr><th></th><th style="text-align:right">Montant</th></tr>
         ${sectionRow('CAPITAUX PROPRES',2)}
         ${rowP('Capital', P.capitaux.capital, true)}
@@ -4049,12 +4074,64 @@ function renderBilan(){
         ${rowP("Produits constat\u00e9s d'avance", P.dettes.produits_av, true)}
         ${totRowP('TOTAL III \u2014 Dettes', totalDettes)}
         ${totRowP('TOTAL G\u00c9N\u00c9RAL PASSIF', totalPassifGeneral)}
-      </table>
+  `;
+  const ecartHtml = Math.abs((totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))-totalPassifGeneral) > 0.01
+    ? `<p class="hint" style="color:var(--danger)">\u00c9cart Actif / Passif : ${eur((totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))-totalPassifGeneral)} \u2014 v\u00e9rifiez que chaque \u00e9criture est bien \u00e9quilibr\u00e9e (d\u00e9bit = cr\u00e9dit).</p>`
+    : `<p class="hint">Bilan \u00e9quilibr\u00e9 : Actif = Passif.</p>`;
+
+  const coBilan = state.companies.find(c=>c.id===state.selectedCompanyId) || state.companies[0] || {};
+  const bilanDateDisplay = state.bilanDate || todayFr();
+
+  if(state.bilanPrintMode){
+    return `
+    <div class="row" style="margin-bottom:1.1rem;gap:.6rem">
+      <button class="btn secondary small" id="bilan-print-back">&larr; Retour</button>
+      <button class="btn small" id="bilan-print-go">Imprimer</button>
+    </div>
+    <div id="print-area">
+      <div class="bilan-print-sheet">
+        <div class="bilan-print-header">
+          ${coBilan.logo ? `<img class="bilan-print-logo" src="${coBilan.logo}" alt="${coBilan.name||''}">` : `<div class="bilan-print-logo-text">${coBilan.name||''}</div>`}
+          <div class="bilan-print-titleblock">
+            <div class="bilan-print-title">Bilan ${coBilan.name||''}</div>
+            <div class="bilan-print-date">Au ${bilanDateDisplay}</div>
+          </div>
+        </div>
+        <div class="bilan-print-tables">
+          <div class="bilan-print-col">
+            <div class="bilan-print-subhead">Bilan actif</div>
+            <table class="bilan-print-table">${actifRowsHtml}</table>
+          </div>
+          <div class="bilan-print-col">
+            <div class="bilan-print-subhead">Bilan passif</div>
+            <table class="bilan-print-table">${passifRowsHtml}</table>
+          </div>
+        </div>
+        ${ecartHtml}
+        <div class="bilan-print-footer">${coBilan.name||''}${coBilan.siret ? ' \u2014 SIRET '+coBilan.siret : ''}</div>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <p class="page-sub">Bilan calcul\u00e9 automatiquement \u00e0 partir des comptes utilis\u00e9s dans vos \u00e9critures, class\u00e9s selon le plan comptable g\u00e9n\u00e9ral.</p>
+  <div class="row" style="margin-bottom:1.1rem;gap:1rem;align-items:center">
+    <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:.5rem">Date du bilan
+      <input type="date" id="bilan-date-input" value="${frDateToIso(bilanDateDisplay)}">
+    </label>
+    <button class="btn small" id="bilan-print-btn">Imprimer</button>
+  </div>
+  <div class="row" style="align-items:flex-start;gap:1.25rem">
+    <div class="card" style="flex:1.3;min-width:340px">
+      <div class="subhead">Bilan actif</div>
+      <table style="font-size:12.5px">${actifRowsHtml}</table>
+    </div>
+    <div class="card" style="flex:1;min-width:300px">
+      <div class="subhead">Bilan passif</div>
+      <table style="font-size:12.5px">${passifRowsHtml}</table>
     </div>
   </div>
-  ${Math.abs((totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))-totalPassifGeneral) > 0.01
-    ? `<p class="hint" style="color:var(--danger)">\u00c9cart Actif / Passif : ${eur((totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))-totalPassifGeneral)} \u2014 v\u00e9rifiez que chaque \u00e9criture est bien \u00e9quilibr\u00e9e (d\u00e9bit = cr\u00e9dit).</p>`
-    : `<p class="hint">Bilan \u00e9quilibr\u00e9 : Actif = Passif.</p>`}`;
+  ${ecartHtml}`;
 }
 
 
