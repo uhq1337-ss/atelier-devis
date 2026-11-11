@@ -193,12 +193,14 @@
   .bilan-print-title{font-family:var(--font-display);font-size:22px;color:var(--ink);}
   .bilan-print-date{font-size:12.5px;color:var(--muted);margin-top:.15rem;}
   #bilan-scale-inner{transform-origin:top left;}
-  .bilan-print-tables{display:flex;gap:1.5rem;align-items:flex-start;}
-  .bilan-print-col{flex:1;min-width:0;}
-  .bilan-print-subhead{font-family:var(--font-display);font-size:14px;color:var(--ink);margin-bottom:.5rem;border-bottom:1px solid var(--line);padding-bottom:.3rem;}
+  .bilan-print-tables{display:flex;gap:1.25rem;align-items:stretch;}
+  .bilan-print-col{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:.9rem 1rem 1.1rem;background:#fff;}
+  .bilan-print-subhead{font-family:var(--font-display);font-size:14px;color:var(--ink);margin:0 0 .6rem;border-bottom:1px solid var(--line);padding-bottom:.4rem;}
   .bilan-print-table{width:100%;font-size:11px;border-collapse:collapse;}
-  .bilan-print-table td, .bilan-print-table th{padding:.3rem .35rem;}
-  .bilan-print-footer{margin-top:1.75rem;border-top:1px solid var(--line);padding-top:.6rem;font-size:10.5px;color:var(--muted);text-align:center;}
+  .bilan-print-table td, .bilan-print-table th{padding:.32rem .35rem;vertical-align:top;}
+  .bilan-print-table td:not(:first-child), .bilan-print-table th:not(:first-child){white-space:nowrap;text-align:right;}
+  .bilan-print-table td:first-child, .bilan-print-table th:first-child{width:46%;}
+  .bilan-print-footer{margin-top:1.5rem;border-top:1px solid var(--line);padding-top:.6rem;font-size:10.5px;color:var(--muted);text-align:center;}
   @media print{
     /* Page dédiée avec marges (contrairement à la règle @page globale en margin:0) :
        on retrouve l'espace nécessaire pour un document propre à envoyer à la banque. */
@@ -3232,7 +3234,39 @@ function bindBilan(){
     const backBtn = document.getElementById('bilan-print-back');
     if(backBtn) backBtn.onclick = ()=>{ state.bilanPrintMode = false; render(); };
     const goBtn = document.getElementById('bilan-print-go');
-    if(goBtn) goBtn.onclick = ()=>{ window.print(); };
+    if(goBtn) goBtn.onclick = async (e)=>{
+      const btn = e.currentTarget;
+      const original = btn.textContent;
+      // Ouvre l'onglet TOUT DE SUITE, dans le même geste que le clic (sinon le navigateur ne
+      // considère plus ça comme une ouverture directe et bloque silencieusement la fenêtre).
+      const win = window.open('', '_blank');
+      if(win) win.document.write('<p style="font-family:sans-serif;padding:2rem">Génération du PDF…</p>');
+      btn.disabled = true;
+      btn.textContent = 'Préparation…';
+      try{
+        const pdf = await buildBilanPdf();
+        if(!pdf){
+          if(win) win.close();
+          showToast("La génération a échoué — vérifie ta connexion internet et réessaie, ou utilise Ctrl+P.");
+          return;
+        }
+        if(!win){
+          showToast("Le navigateur a bloqué l'ouverture — autorise les fenêtres pop-up pour ce site puis réessaie.");
+          return;
+        }
+        const blob = pdf.output('blob');
+        const blobUrl = URL.createObjectURL(blob);
+        win.location.href = blobUrl;
+        setTimeout(()=>{ try{ win.print(); }catch(err){} }, 800);
+      }catch(err){
+        console.error('Erreur génération PDF bilan:', err);
+        if(win) win.close();
+        showToast("La génération du PDF a échoué — utilise Ctrl+P puis « Enregistrer en PDF » comme destination.");
+      }finally{
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    };
     fitBilanToOnePage();
     return;
   }
@@ -4519,6 +4553,66 @@ function fitBilanToOnePage(){
   visualHeightAt(scale);
   inner.style.transformOrigin = 'top left';
   inner.style.transform = `scale(${scale})`;
+}
+async function buildBilanPdf(){
+  const sheet = document.querySelector('.bilan-print-sheet');
+  if(!sheet || !window.html2canvas || !window.jspdf) return null;
+  const { jsPDF } = window.jspdf;
+  const pageW = 210, pageH = 297;
+  const canvas = await html2canvas(sheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
+  const pxPerMm = canvas.width / pageW;
+  const singlePageHeightPx = Math.floor(pageH * pxPerMm);
+  const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+
+  if(canvas.height <= singlePageHeightPx){
+    const imgH = canvas.height / pxPerMm;
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, imgH);
+  }else{
+    // Déborde sur plusieurs pages : découpe sans jamais couper une ligne de tableau en deux,
+    // comme pour les devis (voir buildDocPdf).
+    const sheetRect = sheet.getBoundingClientRect();
+    const domToCanvasRatio = canvas.width / sheetRect.width;
+    const breakPoints = Array.from(sheet.querySelectorAll('.bilan-print-table tr'))
+      .map(el=>{
+        const r = el.getBoundingClientRect();
+        return { top:(r.top-sheetRect.top)*domToCanvasRatio, bottom:(r.bottom-sheetRect.top)*domToCanvasRatio };
+      })
+      .filter(b=> b.bottom > b.top && b.top >= 0);
+    const marginMm = 14; // cohérent avec @page bilan-print-page
+    const usableHmm = pageH - marginMm*2;
+    const usableWmm = pageW - marginMm*2;
+    const maxSliceHeightPx = Math.floor(usableHmm * pxPerMm);
+    const cuts = [0];
+    let cursor = 0;
+    while(cursor < canvas.height){
+      let target = Math.min(cursor + maxSliceHeightPx, canvas.height);
+      if(target < canvas.height){
+        const collision = breakPoints.find(b=> b.top < target && b.bottom > target && b.top > cursor);
+        if(collision && collision.top > cursor) target = collision.top;
+      }
+      if(target <= cursor) target = Math.min(cursor + maxSliceHeightPx, canvas.height);
+      cuts.push(target);
+      cursor = target;
+    }
+    for(let p=0; p<cuts.length-1; p++){
+      const sliceStart = cuts[p];
+      const sliceH = cuts[p+1] - sliceStart;
+      if(sliceH<=0) continue;
+      if(p>0) pdf.addPage();
+      const sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = sliceH;
+      const ctx = sliceCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,sliceCanvas.width, sliceCanvas.height);
+      ctx.drawImage(canvas, 0, sliceStart, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+      const imgHmm = sliceH / pxPerMm;
+      pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', marginMm, marginMm, usableWmm, imgHmm);
+      sliceCanvas.width = 0; sliceCanvas.height = 0;
+    }
+  }
+  canvas.width = 0; canvas.height = 0;
+  return pdf;
 }
 function bindDocView(){
   document.getElementById('back-btn').onclick = ()=>{ state.viewingDoc=null; render(); };
