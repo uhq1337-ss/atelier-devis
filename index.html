@@ -185,13 +185,14 @@
   .cgv-par{margin:0 0 .6rem;white-space:pre-line;orphans:3;widows:3;}
   .cgv-footnote{font-size:11px;color:var(--muted);font-style:italic;margin-top:1.5rem;border-top:1px solid var(--line);padding-top:.75rem;}
 
-  .bilan-print-sheet{background:#fff;padding:14mm;max-width:1000px;margin:0 auto;}
-  .bilan-print-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:2px solid var(--line-strong);padding-bottom:.9rem;margin-bottom:1.25rem;}
+  .bilan-print-sheet{background:#fff;padding:14mm;max-width:1000px;margin:0 auto;position:relative;}
+  .bilan-print-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:2px solid var(--line-strong);padding-bottom:.9rem;margin-bottom:1.25rem;min-height:52px;background:#fff;}
   .bilan-print-logo{max-height:52px;max-width:160px;object-fit:contain;}
   .bilan-print-logo-text{font-family:var(--font-display);font-size:18px;font-weight:bold;color:var(--ink);}
   .bilan-print-titleblock{text-align:right;}
   .bilan-print-title{font-family:var(--font-display);font-size:22px;color:var(--ink);}
   .bilan-print-date{font-size:12.5px;color:var(--muted);margin-top:.15rem;}
+  #bilan-scale-inner{transform-origin:top left;}
   .bilan-print-tables{display:flex;gap:1.5rem;align-items:flex-start;}
   .bilan-print-col{flex:1;min-width:0;}
   .bilan-print-subhead{font-family:var(--font-display);font-size:14px;color:var(--ink);margin-bottom:.5rem;border-bottom:1px solid var(--line);padding-bottom:.3rem;}
@@ -199,8 +200,14 @@
   .bilan-print-table td, .bilan-print-table th{padding:.3rem .35rem;}
   .bilan-print-footer{margin-top:1.75rem;border-top:1px solid var(--line);padding-top:.6rem;font-size:10.5px;color:var(--muted);text-align:center;}
   @media print{
-    .bilan-print-sheet{padding:0;max-width:none;}
-    .bilan-print-tables{gap:1rem;}
+    /* Page dédiée avec marges (contrairement à la règle @page globale en margin:0) :
+       on retrouve l'espace nécessaire pour un document propre à envoyer à la banque. */
+    @page bilan-print-page{ size:A4; margin:14mm; }
+    .bilan-print-sheet{ page:bilan-print-page; padding:0; max-width:none; }
+    /* L'en-t\u00ete (logo, titre, date) est fixe : si le contenu déborde sur une 2e page,
+       il se réaffiche en haut de CHAQUE page imprimée, jamais une page « nue ». */
+    .bilan-print-header{ position:fixed; top:0; left:0; right:0; margin-bottom:0; }
+    .bilan-print-body{ padding-top:var(--bilan-header-h, 100px); }
   }
   @media print{
     .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
@@ -3226,6 +3233,7 @@ function bindBilan(){
     if(backBtn) backBtn.onclick = ()=>{ state.bilanPrintMode = false; render(); };
     const goBtn = document.getElementById('bilan-print-go');
     if(goBtn) goBtn.onclick = ()=>{ window.print(); };
+    fitBilanToOnePage();
     return;
   }
   const dateInput = document.getElementById('bilan-date-input');
@@ -4097,18 +4105,22 @@ function renderBilan(){
             <div class="bilan-print-date">Au ${bilanDateDisplay}</div>
           </div>
         </div>
-        <div class="bilan-print-tables">
-          <div class="bilan-print-col">
-            <div class="bilan-print-subhead">Bilan actif</div>
-            <table class="bilan-print-table">${actifRowsHtml}</table>
+        <div class="bilan-print-body">
+          <div id="bilan-scale-inner">
+            <div class="bilan-print-tables">
+              <div class="bilan-print-col">
+                <div class="bilan-print-subhead">Bilan actif</div>
+                <table class="bilan-print-table">${actifRowsHtml}</table>
+              </div>
+              <div class="bilan-print-col">
+                <div class="bilan-print-subhead">Bilan passif</div>
+                <table class="bilan-print-table">${passifRowsHtml}</table>
+              </div>
+            </div>
+            ${ecartHtml}
           </div>
-          <div class="bilan-print-col">
-            <div class="bilan-print-subhead">Bilan passif</div>
-            <table class="bilan-print-table">${passifRowsHtml}</table>
-          </div>
+          <div class="bilan-print-footer">${coBilan.name||''}${coBilan.siret ? ' \u2014 SIRET '+coBilan.siret : ''}</div>
         </div>
-        ${ecartHtml}
-        <div class="bilan-print-footer">${coBilan.name||''}${coBilan.siret ? ' \u2014 SIRET '+coBilan.siret : ''}</div>
       </div>
     </div>`;
   }
@@ -4470,6 +4482,43 @@ function fitDocToOnePage(root){
     mainSheet.style.height = '297mm';
   }
   mainSheet.style.overflow = 'hidden';
+}
+function fitBilanToOnePage(){
+  const sheet = document.querySelector('.bilan-print-sheet');
+  const header = document.querySelector('.bilan-print-header');
+  const body = document.querySelector('.bilan-print-body');
+  const inner = document.getElementById('bilan-scale-inner');
+  const footer = document.querySelector('.bilan-print-footer');
+  if(!sheet || !inner || !body) return;
+  const headerH = header ? header.offsetHeight : 0;
+  // Réserve l'espace de l'en-t\u00ete (logo + titre + date) à chaque page imprimée : il est en
+  // position fixe en impression (voir CSS), donc retiré du flux normal.
+  sheet.style.setProperty('--bilan-header-h', (headerH + 20) + 'px');
+  inner.style.transform = 'none';
+  inner.style.width = '100%';
+  const pxPerMm = mmToPxRatio();
+  const pageContentHeightMm = 297 - 14 - 14; // marges @page bilan-print-page
+  const footerH = footer ? footer.offsetHeight : 0;
+  const availablePx = (pageContentHeightMm * pxPerMm) - headerH - footerH - 24;
+  const naturalHeight = inner.scrollHeight;
+  if(naturalHeight <= 0 || naturalHeight <= availablePx) return;
+  const visualHeightAt = (s)=>{
+    inner.style.width = (100/s) + '%';
+    inner.style.transform = 'none';
+    return inner.scrollHeight * s;
+  };
+  // Seuil plancher volontairement plus haut que pour un devis : un bilan reste un document
+  // chiffré destiné à la banque, donc on préfère déborder sur une 2e page (avec l'en-tête
+  // qui se réaffiche, voir CSS) plutôt que de réduire les chiffres jusqu'à l'illisible.
+  let low = 0.6, high = 1;
+  for(let i=0;i<10;i++){
+    const mid = (low+high)/2;
+    if(visualHeightAt(mid) <= availablePx) low = mid; else high = mid;
+  }
+  const scale = low;
+  visualHeightAt(scale);
+  inner.style.transformOrigin = 'top left';
+  inner.style.transform = `scale(${scale})`;
 }
 function bindDocView(){
   document.getElementById('back-btn').onclick = ()=>{ state.viewingDoc=null; render(); };
