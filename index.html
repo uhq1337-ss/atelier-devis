@@ -4122,7 +4122,7 @@ function renderBilan(){
   `;
   const ecartHtml = Math.abs((totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))-totalPassifGeneral) > 0.01
     ? `<p class="hint" style="color:var(--danger)">\u00c9cart Actif / Passif : ${eur((totalActifGeneral+nonClassees.reduce((s,r)=>s+r.solde,0))-totalPassifGeneral)} \u2014 v\u00e9rifiez que chaque \u00e9criture est bien \u00e9quilibr\u00e9e (d\u00e9bit = cr\u00e9dit).</p>`
-    : `<p class="hint">Bilan \u00e9quilibr\u00e9 : Actif = Passif.</p>`;
+    : '';
 
   const coBilan = state.companies.find(c=>c.id===state.selectedCompanyId) || state.companies[0] || {};
   const bilanDateDisplay = state.bilanDate || todayFr();
