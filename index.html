@@ -218,8 +218,10 @@
        il se réaffiche en haut de CHAQUE page imprimée, jamais une page « nue ». */
     .bilan-print-header{ position:fixed; top:0; left:0; right:0; margin-bottom:0; }
     .bilan-print-body{ padding-top:var(--bilan-header-h, 100px); }
-    /* À l'impression, uniquement l'image (si prête) : jamais les deux superposés. */
-    #bilan-live-sheet.has-img{ display:none !important; }
+    /* À l'impression : uniquement l'image (le tableau vivant reste hors-écran, il ne sert
+       qu'à la capture html2canvas) — sauf en secours (.live-fallback) si la génération a
+       échoué, où le tableau redevient le seul contenu à imprimer. */
+    #bilan-live-sheet:not(.live-fallback){ display:none !important; }
     #bilan-render-img{ max-width:none; }
   }
   @media print{
@@ -3291,31 +3293,39 @@ function bindBilan(){
 async function showBilanImage(){
   // Remplace le tableau "vivant" (HTML/CSS) par une image figée dès qu'elle est prête : plus
   // aucun texte n'est mis en page par le navigateur à l'écran, ce qui évite tout bug de rendu
-  // (espacement, chevauchement) propre à certains navigateurs. Le tableau vivant reste en
-  // place hors-écran (jamais display:none) pour que le bouton Imprimer (buildBilanPdf) puisse
-  // toujours le capturer normalement.
+  // (espacement, chevauchement) propre à certains navigateurs. Le tableau vivant reste TOUJOURS
+  // hors-écran (jamais vu par l'utilisateur, même le temps de générer) pour que le bouton
+  // Imprimer (buildBilanPdf) puisse toujours le capturer normalement.
   const liveSheet = document.getElementById('bilan-live-sheet');
   const imgEl = document.getElementById('bilan-render-img');
   const hint = document.getElementById('bilan-img-hint');
+  const loading = document.getElementById('bilan-img-loading');
   if(!liveSheet || !imgEl) return;
   const applyImg = (url)=>{
     if(!document.getElementById('bilan-live-sheet')) return; // on a quitté l'écran entre-temps
-    liveSheet.classList.add('has-img');
-    liveSheet.style.position = 'absolute';
-    liveSheet.style.left = '-10000px';
-    liveSheet.style.top = '0';
     imgEl.src = url;
     imgEl.style.display = 'block';
     if(hint) hint.style.display = 'block';
+    if(loading) loading.style.display = 'none';
+  };
+  const fallbackToLive = ()=>{
+    // html2canvas indisponible ou échec : on montre quand même le tableau, mieux que rien.
+    if(!document.getElementById('bilan-live-sheet')) return;
+    liveSheet.classList.add('live-fallback');
+    liveSheet.style.position = '';
+    liveSheet.style.left = '';
+    liveSheet.style.top = '';
+    if(loading) loading.style.display = 'none';
   };
   if(bilanImgCache){ applyImg(bilanImgCache); return; }
-  if(!window.html2canvas) return; // pas de script chargé (hors-ligne) : on garde le tableau vivant
+  if(!window.html2canvas){ fallbackToLive(); return; }
   try{
     const canvas = await html2canvas(liveSheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
     bilanImgCache = canvas.toDataURL('image/png');
     applyImg(bilanImgCache);
   }catch(err){
     console.error('Génération image bilan échouée:', err);
+    fallbackToLive();
   }
 }
 
@@ -4174,7 +4184,11 @@ function renderBilan(){
       <button class="btn small" id="bilan-print-go">Imprimer</button>
     </div>
     <div id="print-area">
-      <div class="bilan-print-sheet" id="bilan-live-sheet">
+      <div id="bilan-img-loading" class="card" style="${bilanImgCache?'display:none;':''}text-align:center;padding:3rem 1rem;color:var(--muted)">G\u00e9n\u00e9ration de l'aper\u00e7u\u2026</div>
+      <!-- Le tableau ci-dessous n'est jamais affich\u00e9 \u00e0 l'\u00e9cran : il sert uniquement de
+           source \u00e0 html2canvas pour produire l'image fig\u00e9e ci-dessous, ce qui \u00e9vite tout
+           risque de mise en page de texte en direct par le navigateur. -->
+      <div class="bilan-print-sheet" id="bilan-live-sheet" style="position:absolute;left:-10000px;top:0;">
         <div class="bilan-print-header">
           ${coBilan.logo ? `<img class="bilan-print-logo" src="${coBilan.logo}" alt="${coBilan.name||''}">` : `<div class="bilan-print-logo-text">${coBilan.name||''}</div>`}
           <div class="bilan-print-titleblock">
@@ -4199,9 +4213,9 @@ function renderBilan(){
           <div class="bilan-print-footer">${coBilan.name||''}${coBilan.siret ? ' \u2014 SIRET '+coBilan.siret : ''}</div>
         </div>
       </div>
-      <img id="bilan-render-img" alt="Bilan ${coBilan.name||''}">
+      <img id="bilan-render-img" alt="Bilan ${coBilan.name||''}" style="${bilanImgCache?'display:block;':''}" ${bilanImgCache?`src="${bilanImgCache}"`:''}>
     </div>
-    <p class="hint" id="bilan-img-hint" style="display:none;margin-top:.6rem">Image g\u00e9n\u00e9r\u00e9e \u2014 clic droit dessus pour l'enregistrer ou l'imprimer directement.</p>`;
+    <p class="hint" id="bilan-img-hint" style="${bilanImgCache?'':'display:none;'}margin-top:.6rem">Image g\u00e9n\u00e9r\u00e9e \u2014 clic droit dessus pour l'enregistrer ou l'imprimer directement.</p>`;
   }
 
   return `
