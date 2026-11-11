@@ -192,7 +192,11 @@
   .bilan-print-titleblock{text-align:right;}
   .bilan-print-title{font-family:var(--font-display);font-size:22px;color:var(--ink);}
   .bilan-print-date{font-size:12.5px;color:var(--muted);margin-top:.15rem;}
-  #bilan-scale-inner{transform-origin:top left;}
+  /* `transform:scale()` fait chevaucher le texte (bug WebKit/Chromium connu, déjà
+     rencontré sur les devis) — à l'écran comme à l'impression. `zoom` relance une vraie
+     mise en page à la taille réduite au lieu d'une transformation visuelle post-rendu,
+     donc on l'utilise partout pour ce bloc, jamais `transform`. */
+  #bilan-scale-inner{zoom:var(--fit-scale, 1);}
   .bilan-print-tables{display:flex;gap:1.25rem;align-items:stretch;}
   .bilan-print-col{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:.9rem 1rem 1.1rem;background:#fff;}
   .bilan-print-subhead{font-family:var(--font-display);font-size:14px;color:var(--ink);margin:0 0 .6rem;border-bottom:1px solid var(--line);padding-bottom:.4rem;}
@@ -210,11 +214,6 @@
        il se réaffiche en haut de CHAQUE page imprimée, jamais une page « nue ». */
     .bilan-print-header{ position:fixed; top:0; left:0; right:0; margin-bottom:0; }
     .bilan-print-body{ padding-top:var(--bilan-header-h, 100px); }
-    /* `transform:scale()` fait chevaucher le texte en impression (bug WebKit/Chromium
-       connu, déjà rencontré sur les devis) : en impression, on bascule sur `zoom`, qui
-       relance une vraie mise en page à la taille réduite au lieu d'une transformation
-       visuelle post-rendu. */
-    #bilan-scale-inner{ transform:none !important; width:100% !important; zoom: var(--fit-scale, 1); }
   }
   @media print{
     .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
@@ -4533,20 +4532,20 @@ function fitBilanToOnePage(){
   // Réserve l'espace de l'en-t\u00ete (logo + titre + date) à chaque page imprimée : il est en
   // position fixe en impression (voir CSS), donc retiré du flux normal.
   sheet.style.setProperty('--bilan-header-h', (headerH + 20) + 'px');
-  inner.style.transform = 'none';
+  inner.style.setProperty('--fit-scale', 1);
   inner.style.width = '100%';
   const pxPerMm = mmToPxRatio();
   const pageContentHeightMm = 297 - 14 - 14; // marges @page bilan-print-page
   const footerH = footer ? footer.offsetHeight : 0;
   const availablePx = (pageContentHeightMm * pxPerMm) - headerH - footerH - 24;
   const naturalHeight = inner.scrollHeight;
-  if(naturalHeight <= 0 || naturalHeight <= availablePx){
-    inner.style.setProperty('--fit-scale', 1);
-    return;
-  }
+  if(naturalHeight <= 0 || naturalHeight <= availablePx) return;
+  // Mesure, à chaque facteur testé, la hauteur qu'occuperait le contenu une fois réduit
+  // (en rétrécissant provisoirement la largeur, ce qui change les retours à la ligne comme
+  // le ferait vraiment le zoom final) — jamais via `transform`, qui fait chevaucher le texte
+  // (bug WebKit/Chromium) : seul `zoom` (voir CSS) applique la réduction retenue à la fin.
   const visualHeightAt = (s)=>{
     inner.style.width = (100/s) + '%';
-    inner.style.transform = 'none';
     return inner.scrollHeight * s;
   };
   // Seuil plancher volontairement plus haut que pour un devis : un bilan reste un document
@@ -4558,12 +4557,7 @@ function fitBilanToOnePage(){
     if(visualHeightAt(mid) <= availablePx) low = mid; else high = mid;
   }
   const scale = low;
-  visualHeightAt(scale);
-  inner.style.transformOrigin = 'top left';
-  // `transform:scale()` reste utilisé pour l'aperçu à l'écran (parfaitement net) ; en
-  // impression, le CSS bascule sur `zoom: var(--fit-scale)` (voir règle @media print),
-  // qui évite le bug de chevauchement de texte propre à `transform` sur du contenu imprimé.
-  inner.style.transform = `scale(${scale})`;
+  inner.style.width = '100%';
   inner.style.setProperty('--fit-scale', scale);
 }
 function cropCanvas(src, sx, sy, sw, sh){
@@ -4581,21 +4575,20 @@ async function buildBilanPdf(){
   if(!sheet || !window.html2canvas || !window.jspdf) return null;
   const { jsPDF } = window.jspdf;
   const pageW = 210, pageH = 297;
-  // html2canvas rend très mal un élément avec un `transform: scale()` actif (texte qui se
-  // chevauche) — on neutralise donc temporairement la réduction écran de fitBilanToOnePage()
-  // avant la capture, et on laisse tout dimensionnement se faire ensuite sur l'IMAGE (pixels),
-  // jamais sur le DOM. On restaure l'affichage écran juste après.
+  // html2canvas ne gère pas (ou très mal) le `zoom` CSS utilisé pour la réduction écran — on
+  // neutralise donc temporairement la réduction de fitBilanToOnePage() avant la capture, et on
+  // laisse tout dimensionnement se faire ensuite sur l'IMAGE (pixels), jamais sur le DOM.
+  // On restaure l'affichage écran juste après.
   const inner = document.getElementById('bilan-scale-inner');
-  const prevTransform = inner ? inner.style.transform : '';
-  const prevWidth = inner ? inner.style.width : '';
-  if(inner){ inner.style.transform = 'none'; inner.style.width = '100%'; }
+  const prevScale = inner ? inner.style.getPropertyValue('--fit-scale') : '';
+  if(inner) inner.style.setProperty('--fit-scale', 1);
   const sheetRect = sheet.getBoundingClientRect();
   const headerRect = header ? header.getBoundingClientRect() : null;
   let canvas;
   try{
     canvas = await html2canvas(sheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
   } finally {
-    if(inner){ inner.style.transform = prevTransform; inner.style.width = prevWidth; }
+    if(inner) inner.style.setProperty('--fit-scale', prevScale || 1);
   }
   const domToCanvasRatio = canvas.width / sheetRect.width;
   const pxPerMm = canvas.width / pageW;
