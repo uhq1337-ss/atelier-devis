@@ -204,15 +204,23 @@
   .bilan-print-table td:not(:first-child), .bilan-print-table th:not(:first-child){white-space:nowrap;text-align:right;}
   .bilan-print-table td:first-child, .bilan-print-table th:first-child{width:46%;}
   .bilan-print-footer{margin-top:.7rem;border-top:1px solid var(--line);padding-top:.35rem;font-size:9px;color:var(--muted);text-align:center;}
+  /* Une fois générée, l'image figée remplace le tableau HTML/CSS « vivant » à l'écran :
+     plus aucun texte n'est mis en page en direct par le navigateur à ce moment-là, ce qui
+     évite tout bug de rendu (espacement, chevauchement) propre à certains navigateurs. */
+  #bilan-render-img{display:none;width:100%;max-width:1000px;margin:0 auto;background:#fff;border-radius:8px;}
   @media print{
     /* Page dédiée avec marges (contrairement à la règle @page globale en margin:0) :
        on retrouve l'espace nécessaire pour un document propre à envoyer à la banque. */
     @page bilan-print-page{ size:A4; margin:14mm; }
-    .bilan-print-sheet{ page:bilan-print-page; padding:0; max-width:none; }
+    #print-area{ page:bilan-print-page; }
+    .bilan-print-sheet{ padding:0; max-width:none; }
     /* L'en-t\u00ete (logo, titre, date) est fixe : si le contenu déborde sur une 2e page,
        il se réaffiche en haut de CHAQUE page imprimée, jamais une page « nue ». */
     .bilan-print-header{ position:fixed; top:0; left:0; right:0; margin-bottom:0; }
     .bilan-print-body{ padding-top:var(--bilan-header-h, 100px); }
+    /* À l'impression, uniquement l'image (si prête) : jamais les deux superposés. */
+    #bilan-live-sheet.has-img{ display:none !important; }
+    #bilan-render-img{ max-width:none; }
   }
   @media print{
     .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
@@ -3232,6 +3240,7 @@ function bindCompta(){
   if(state.comptaTab==='bilan') return bindBilan();
 }
 
+let bilanImgCache = null;
 function bindBilan(){
   if(state.bilanPrintMode){
     const backBtn = document.getElementById('bilan-print-back');
@@ -3271,12 +3280,43 @@ function bindBilan(){
       }
     };
     fitBilanToOnePage();
+    showBilanImage();
     return;
   }
   const dateInput = document.getElementById('bilan-date-input');
   if(dateInput) dateInput.onchange = ()=>{ state.bilanDate = isoDateToFr(dateInput.value); render(); };
   const printBtn = document.getElementById('bilan-print-btn');
-  if(printBtn) printBtn.onclick = ()=>{ if(!state.bilanDate) state.bilanDate = todayFr(); state.bilanPrintMode = true; render(); };
+  if(printBtn) printBtn.onclick = ()=>{ if(!state.bilanDate) state.bilanDate = todayFr(); bilanImgCache = null; state.bilanPrintMode = true; render(); };
+}
+async function showBilanImage(){
+  // Remplace le tableau "vivant" (HTML/CSS) par une image figée dès qu'elle est prête : plus
+  // aucun texte n'est mis en page par le navigateur à l'écran, ce qui évite tout bug de rendu
+  // (espacement, chevauchement) propre à certains navigateurs. Le tableau vivant reste en
+  // place hors-écran (jamais display:none) pour que le bouton Imprimer (buildBilanPdf) puisse
+  // toujours le capturer normalement.
+  const liveSheet = document.getElementById('bilan-live-sheet');
+  const imgEl = document.getElementById('bilan-render-img');
+  const hint = document.getElementById('bilan-img-hint');
+  if(!liveSheet || !imgEl) return;
+  const applyImg = (url)=>{
+    if(!document.getElementById('bilan-live-sheet')) return; // on a quitté l'écran entre-temps
+    liveSheet.classList.add('has-img');
+    liveSheet.style.position = 'absolute';
+    liveSheet.style.left = '-10000px';
+    liveSheet.style.top = '0';
+    imgEl.src = url;
+    imgEl.style.display = 'block';
+    if(hint) hint.style.display = 'block';
+  };
+  if(bilanImgCache){ applyImg(bilanImgCache); return; }
+  if(!window.html2canvas) return; // pas de script chargé (hors-ligne) : on garde le tableau vivant
+  try{
+    const canvas = await html2canvas(liveSheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
+    bilanImgCache = canvas.toDataURL('image/png');
+    applyImg(bilanImgCache);
+  }catch(err){
+    console.error('Génération image bilan échouée:', err);
+  }
 }
 
 function renderPlanComptable(){
@@ -4134,7 +4174,7 @@ function renderBilan(){
       <button class="btn small" id="bilan-print-go">Imprimer</button>
     </div>
     <div id="print-area">
-      <div class="bilan-print-sheet">
+      <div class="bilan-print-sheet" id="bilan-live-sheet">
         <div class="bilan-print-header">
           ${coBilan.logo ? `<img class="bilan-print-logo" src="${coBilan.logo}" alt="${coBilan.name||''}">` : `<div class="bilan-print-logo-text">${coBilan.name||''}</div>`}
           <div class="bilan-print-titleblock">
@@ -4159,7 +4199,9 @@ function renderBilan(){
           <div class="bilan-print-footer">${coBilan.name||''}${coBilan.siret ? ' \u2014 SIRET '+coBilan.siret : ''}</div>
         </div>
       </div>
-    </div>`;
+      <img id="bilan-render-img" alt="Bilan ${coBilan.name||''}">
+    </div>
+    <p class="hint" id="bilan-img-hint" style="display:none;margin-top:.6rem">Image g\u00e9n\u00e9r\u00e9e \u2014 clic droit dessus pour l'enregistrer ou l'imprimer directement.</p>`;
   }
 
   return `
