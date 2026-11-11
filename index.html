@@ -186,25 +186,25 @@
   .cgv-footnote{font-size:11px;color:var(--muted);font-style:italic;margin-top:1.5rem;border-top:1px solid var(--line);padding-top:.75rem;}
 
   .bilan-print-sheet{background:#fff;padding:14mm;max-width:1000px;margin:0 auto;position:relative;}
-  .bilan-print-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:2px solid var(--line-strong);padding-bottom:.9rem;margin-bottom:1.25rem;min-height:52px;background:#fff;}
-  .bilan-print-logo{max-height:52px;max-width:160px;object-fit:contain;}
-  .bilan-print-logo-text{font-family:var(--font-display);font-size:18px;font-weight:bold;color:var(--ink);}
+  .bilan-print-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:2px solid var(--line-strong);padding-bottom:.55rem;margin-bottom:.7rem;min-height:40px;background:#fff;}
+  .bilan-print-logo{max-height:40px;max-width:140px;object-fit:contain;}
+  .bilan-print-logo-text{font-family:var(--font-display);font-size:16px;font-weight:bold;color:var(--ink);}
   .bilan-print-titleblock{text-align:right;}
-  .bilan-print-title{font-family:var(--font-display);font-size:22px;color:var(--ink);}
-  .bilan-print-date{font-size:12.5px;color:var(--muted);margin-top:.15rem;}
+  .bilan-print-title{font-family:var(--font-display);font-size:19px;color:var(--ink);}
+  .bilan-print-date{font-size:11px;color:var(--muted);margin-top:.1rem;}
   /* `transform:scale()` fait chevaucher le texte (bug WebKit/Chromium connu, déjà
      rencontré sur les devis) — à l'écran comme à l'impression. `zoom` relance une vraie
      mise en page à la taille réduite au lieu d'une transformation visuelle post-rendu,
      donc on l'utilise partout pour ce bloc, jamais `transform`. */
   #bilan-scale-inner{zoom:var(--fit-scale, 1);}
-  .bilan-print-tables{display:flex;gap:1.25rem;align-items:stretch;}
-  .bilan-print-col{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:.9rem 1rem 1.1rem;background:#fff;}
-  .bilan-print-subhead{font-family:var(--font-display);font-size:14px;color:var(--ink);margin:0 0 .6rem;border-bottom:1px solid var(--line);padding-bottom:.4rem;}
-  .bilan-print-table{width:100%;font-size:11px;border-collapse:collapse;}
-  .bilan-print-table td, .bilan-print-table th{padding:.32rem .35rem;vertical-align:top;}
+  .bilan-print-tables{display:flex;gap:1rem;align-items:stretch;}
+  .bilan-print-col{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:.5rem .65rem .6rem;background:#fff;}
+  .bilan-print-subhead{font-family:var(--font-display);font-size:12.5px;color:var(--ink);margin:0 0 .35rem;border-bottom:1px solid var(--line);padding-bottom:.25rem;}
+  .bilan-print-table{width:100%;font-size:9.5px;line-height:1.2;border-collapse:collapse;}
+  .bilan-print-table td, .bilan-print-table th{padding:.16rem .3rem;vertical-align:top;}
   .bilan-print-table td:not(:first-child), .bilan-print-table th:not(:first-child){white-space:nowrap;text-align:right;}
   .bilan-print-table td:first-child, .bilan-print-table th:first-child{width:46%;}
-  .bilan-print-footer{margin-top:1.5rem;border-top:1px solid var(--line);padding-top:.6rem;font-size:10.5px;color:var(--muted);text-align:center;}
+  .bilan-print-footer{margin-top:.7rem;border-top:1px solid var(--line);padding-top:.35rem;font-size:9px;color:var(--muted);text-align:center;}
   @media print{
     /* Page dédiée avec marges (contrairement à la règle @page globale en margin:0) :
        on retrouve l'espace nécessaire pour un document propre à envoyer à la banque. */
@@ -4522,43 +4522,21 @@ function fitDocToOnePage(root){
   mainSheet.style.overflow = 'hidden';
 }
 function fitBilanToOnePage(){
+  // Toute réduction du texte à l'écran (`transform`, et même `zoom`) s'est avérée provoquer
+  // un chevauchement de texte chez certains utilisateurs. Par sécurité, on n'essaie plus de
+  // réduire quoi que ce soit à l'écran : le contenu s'affiche à taille normale, quitte à
+  // déborder sur plusieurs « pages » visuelles (l'en-t\u00ete reste correctement répété à
+  // l'impression, voir le CSS @media print). Le bouton Imprimer, lui, continue de produire
+  // un PDF tenant sur une page en réduisant l'IMAGE finale (jamais le texte en direct),
+  // ce qui est sans risque et déjà vérifié propre.
   const sheet = document.querySelector('.bilan-print-sheet');
   const header = document.querySelector('.bilan-print-header');
-  const body = document.querySelector('.bilan-print-body');
   const inner = document.getElementById('bilan-scale-inner');
-  const footer = document.querySelector('.bilan-print-footer');
-  if(!sheet || !inner || !body) return;
+  if(!sheet || !inner) return;
   const headerH = header ? header.offsetHeight : 0;
-  // Réserve l'espace de l'en-t\u00ete (logo + titre + date) à chaque page imprimée : il est en
-  // position fixe en impression (voir CSS), donc retiré du flux normal.
   sheet.style.setProperty('--bilan-header-h', (headerH + 20) + 'px');
   inner.style.setProperty('--fit-scale', 1);
   inner.style.width = '100%';
-  const pxPerMm = mmToPxRatio();
-  const pageContentHeightMm = 297 - 14 - 14; // marges @page bilan-print-page
-  const footerH = footer ? footer.offsetHeight : 0;
-  const availablePx = (pageContentHeightMm * pxPerMm) - headerH - footerH - 24;
-  const naturalHeight = inner.scrollHeight;
-  if(naturalHeight <= 0 || naturalHeight <= availablePx) return;
-  // Mesure, à chaque facteur testé, la hauteur qu'occuperait le contenu une fois réduit
-  // (en rétrécissant provisoirement la largeur, ce qui change les retours à la ligne comme
-  // le ferait vraiment le zoom final) — jamais via `transform`, qui fait chevaucher le texte
-  // (bug WebKit/Chromium) : seul `zoom` (voir CSS) applique la réduction retenue à la fin.
-  const visualHeightAt = (s)=>{
-    inner.style.width = (100/s) + '%';
-    return inner.scrollHeight * s;
-  };
-  // Seuil plancher volontairement plus haut que pour un devis : un bilan reste un document
-  // chiffré destiné à la banque, donc on préfère déborder sur une 2e page (avec l'en-tête
-  // qui se réaffiche, voir CSS) plutôt que de réduire les chiffres jusqu'à l'illisible.
-  let low = 0.6, high = 1;
-  for(let i=0;i<10;i++){
-    const mid = (low+high)/2;
-    if(visualHeightAt(mid) <= availablePx) low = mid; else high = mid;
-  }
-  const scale = low;
-  inner.style.width = '100%';
-  inner.style.setProperty('--fit-scale', scale);
 }
 function cropCanvas(src, sx, sy, sw, sh){
   const c = document.createElement('canvas');
