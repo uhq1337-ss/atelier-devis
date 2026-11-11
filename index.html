@@ -434,6 +434,10 @@ function isoDateToFr(s){
   const [yyyy,mm,dd] = parts;
   return `${dd}/${mm}/${yyyy}`;
 }
+function todayFr(){
+  const d = new Date();
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
 function shadeColor(hex, percent){
   try{
     let f=parseInt(hex.slice(1),16), t=percent<0?0:255, p=Math.abs(percent);
@@ -476,6 +480,8 @@ let state = {
   editingJournalId: null,
   tab: 'clients',
   comptaTab: 'plan',
+  bilanDate: '',
+  bilanPrintMode: false,
   articlesSearch: '',
   articlesFournisseurFilter: '',
   articlesSort: { key:'code', dir:'asc' },
@@ -3843,10 +3849,21 @@ function classifyBilanAccount(code){
   if(code.startsWith('273')) return {group:'actif', section:'immoFin', sub:'titres', label:'Autres titres immobilis\u00e9s'};
   if(code.startsWith('274')) return {group:'actif', section:'immoFin', sub:'prets', label:'Pr\u00eats'};
   if(code.startsWith('26') || code.startsWith('27')) return {group:'actif', section:'immoFin', sub:'autres', label:'Autres'};
-  if(code.startsWith('280')) return {group:'amort', section:'immoIncorp'};
-  if(code.startsWith('281')) return {group:'amort', section:'immoCorp'};
-  if(code.startsWith('28')) return {group:'amort', section:'immoCorp'};
-  if(code.startsWith('29')) return {group:'amort', section:'immoFin'};
+  if(code.startsWith('28') || code.startsWith('29')){
+    // Comptes d'amortissements/dépréciations : convention PCG, le compte 28xx (ou 29xx)
+    // amortit le compte d'immobilisation 2xx obtenu en retirant le "8"/"9" (ex. 2805 → 205,
+    // 2813 → 213). On retrouve ainsi la ligne d'origine pour y rattacher précisément le
+    // montant d'amortissement, au lieu de ne l'afficher qu'au sous-total.
+    const baseCode = '2' + code.slice(2);
+    const base = classifyBilanAccount(baseCode);
+    if(base && base.group==='actif' && (base.section==='immoIncorp' || base.section==='immoCorp' || base.section==='immoFin')){
+      return {group:'amort', section:base.section, sub:base.sub};
+    }
+    if(code.startsWith('280')) return {group:'amort', section:'immoIncorp'};
+    if(code.startsWith('281')) return {group:'amort', section:'immoCorp'};
+    if(code.startsWith('28')) return {group:'amort', section:'immoCorp'};
+    return {group:'amort', section:'immoFin'};
+  }
   if(code.startsWith('3')) return {group:'actif', section:'circulant', sub:'stocks', label:'Stocks'};
   if(code.startsWith('411') || code.startsWith('413') || code.startsWith('416') || code.startsWith('417')) return {group:'actif', section:'circulant', sub:'clients', label:'Cr\u00e9ances clients'};
   if(code.startsWith('50')) return {group:'actif', section:'circulant', sub:'vmp', label:'VMP'};
@@ -3887,6 +3904,11 @@ function renderBilan(){
     chargesRepartir:{charges_rep:0},
   };
   const amort = { immoIncorp:0, immoCorp:0, immoFin:0 };
+  const amortDetail = {
+    immoIncorp:{frais_etab:0,frais_rd:0,concessions:0,fonds_commercial:0,autres:0},
+    immoCorp:{terrains:0,constructions:0,installations:0,autres:0},
+    immoFin:{participations:0,creances_part:0,titres:0,prets:0,autres:0},
+  };
   const P = { // passif : montant par sous-poste
     capitaux:{capital:0,reserve:0,report:0,resultatCompte:0,subvention:0,prov_reglement:0,autres_capitaux:0},
     provisions:{risques:0,charges:0},
@@ -3898,7 +3920,13 @@ function renderBilan(){
     if(!r.code || r.code==='?') { if(r.solde!==0) nonClassees.push(r); return; }
     const c = classifyBilanAccount(r.code);
     if(!c) return;
-    if(c.group==='amort'){ amort[c.section] += (r.credit - r.debit); return; }
+    if(c.group==='amort'){
+      amort[c.section] += (r.credit - r.debit);
+      if(c.sub && amortDetail[c.section] && amortDetail[c.section][c.sub]!=null){
+        amortDetail[c.section][c.sub] += (r.credit - r.debit);
+      }
+      return;
+    }
     if(c.group==='actif'){ A[c.section][c.sub] += r.solde; return; }
     if(c.group==='passif'){ P[c.section][c.sub] += -r.solde; return; }
     if(c.group==='tresorerie'){
@@ -3955,28 +3983,28 @@ function renderBilan(){
         <tr><th></th><th style="text-align:right">Brut</th><th style="text-align:right">Amort.</th><th style="text-align:right">Net</th></tr>
         ${sectionRow('ACTIF IMMOBILIS\u00c9',4)}
         <tr><td style="font-style:italic;color:var(--muted)">Immobilisations incorporelles</td><td></td><td></td><td></td></tr>
-        ${rowA("Frais d'\u00e9tablissement", A.immoIncorp.frais_etab, null, true)}
-        ${rowA('Frais de recherche et d\u00e9veloppement', A.immoIncorp.frais_rd, null, true)}
-        ${rowA('Concessions, brevets, licences', A.immoIncorp.concessions, null, true)}
-        ${rowA('Fonds commercial', A.immoIncorp.fonds_commercial, null, true)}
-        ${rowA('Autres', A.immoIncorp.autres, null, true)}
+        ${rowA("Frais d'\u00e9tablissement", A.immoIncorp.frais_etab, amortDetail.immoIncorp.frais_etab, true)}
+        ${rowA('Frais de recherche et d\u00e9veloppement', A.immoIncorp.frais_rd, amortDetail.immoIncorp.frais_rd, true)}
+        ${rowA('Concessions, brevets, licences', A.immoIncorp.concessions, amortDetail.immoIncorp.concessions, true)}
+        ${rowA('Fonds commercial', A.immoIncorp.fonds_commercial, amortDetail.immoIncorp.fonds_commercial, true)}
+        ${rowA('Autres', A.immoIncorp.autres, amortDetail.immoIncorp.autres, true)}
         ${rowA('Immobilisations incorporelles en cours', sum(A.immoIncorpEnCours), null, true)}
         ${rowA('Avances et acomptes', sum(A.immoIncorpAvances), null, true)}
         ${totRowA('Sous-total incorporelles', brutIncorp, amort.immoIncorp, netIncorp)}
         <tr><td style="font-style:italic;color:var(--muted)">Immobilisations corporelles</td><td></td><td></td><td></td></tr>
-        ${rowA('Terrain', A.immoCorp.terrains, null, true)}
-        ${rowA('Constructions', A.immoCorp.constructions, null, true)}
-        ${rowA('Installations techniques, mat\u00e9riels et outillages industriels', A.immoCorp.installations, null, true)}
-        ${rowA('Autres', A.immoCorp.autres, null, true)}
+        ${rowA('Terrain', A.immoCorp.terrains, amortDetail.immoCorp.terrains, true)}
+        ${rowA('Constructions', A.immoCorp.constructions, amortDetail.immoCorp.constructions, true)}
+        ${rowA('Installations techniques, mat\u00e9riels et outillages industriels', A.immoCorp.installations, amortDetail.immoCorp.installations, true)}
+        ${rowA('Autres', A.immoCorp.autres, amortDetail.immoCorp.autres, true)}
         ${rowA('Immobilisations corporelles en cours', sum(A.immoCorpEnCours), null, true)}
         ${rowA('Avances et acomptes', sum(A.immoCorpAvances), null, true)}
         ${totRowA('Sous-total corporelles', brutCorp, amort.immoCorp, netCorp)}
         <tr><td style="font-style:italic;color:var(--muted)">Immobilisations financi\u00e8res</td><td></td><td></td><td></td></tr>
-        ${rowA('Participations', A.immoFin.participations, null, true)}
-        ${rowA('Cr\u00e9ances rattach\u00e9es \u00e0 des participations', A.immoFin.creances_part, null, true)}
-        ${rowA('Autres titres immobilis\u00e9s', A.immoFin.titres, null, true)}
-        ${rowA('Pr\u00eats', A.immoFin.prets, null, true)}
-        ${rowA('Autres', A.immoFin.autres, null, true)}
+        ${rowA('Participations', A.immoFin.participations, amortDetail.immoFin.participations, true)}
+        ${rowA('Cr\u00e9ances rattach\u00e9es \u00e0 des participations', A.immoFin.creances_part, amortDetail.immoFin.creances_part, true)}
+        ${rowA('Autres titres immobilis\u00e9s', A.immoFin.titres, amortDetail.immoFin.titres, true)}
+        ${rowA('Pr\u00eats', A.immoFin.prets, amortDetail.immoFin.prets, true)}
+        ${rowA('Autres', A.immoFin.autres, amortDetail.immoFin.autres, true)}
         ${totRowA('Sous-total financi\u00e8res', brutFin, amort.immoFin, netFin)}
         ${totRowA('TOTAL I \u2014 Actif immobilis\u00e9', brutImmo, totalAmort, netImmo)}
         ${sectionRow('ACTIF CIRCULANT',4)}
