@@ -4554,61 +4554,102 @@ function fitBilanToOnePage(){
   inner.style.transformOrigin = 'top left';
   inner.style.transform = `scale(${scale})`;
 }
+function cropCanvas(src, sx, sy, sw, sh){
+  const c = document.createElement('canvas');
+  c.width = sw; c.height = sh;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,sw,sh);
+  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
+  return c;
+}
 async function buildBilanPdf(){
   const sheet = document.querySelector('.bilan-print-sheet');
+  const header = document.querySelector('.bilan-print-header');
   if(!sheet || !window.html2canvas || !window.jspdf) return null;
   const { jsPDF } = window.jspdf;
   const pageW = 210, pageH = 297;
-  const canvas = await html2canvas(sheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
+  // html2canvas rend très mal un élément avec un `transform: scale()` actif (texte qui se
+  // chevauche) — on neutralise donc temporairement la réduction écran de fitBilanToOnePage()
+  // avant la capture, et on laisse tout dimensionnement se faire ensuite sur l'IMAGE (pixels),
+  // jamais sur le DOM. On restaure l'affichage écran juste après.
+  const inner = document.getElementById('bilan-scale-inner');
+  const prevTransform = inner ? inner.style.transform : '';
+  const prevWidth = inner ? inner.style.width : '';
+  if(inner){ inner.style.transform = 'none'; inner.style.width = '100%'; }
+  const sheetRect = sheet.getBoundingClientRect();
+  const headerRect = header ? header.getBoundingClientRect() : null;
+  let canvas;
+  try{
+    canvas = await html2canvas(sheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
+  } finally {
+    if(inner){ inner.style.transform = prevTransform; inner.style.width = prevWidth; }
+  }
+  const domToCanvasRatio = canvas.width / sheetRect.width;
   const pxPerMm = canvas.width / pageW;
-  const singlePageHeightPx = Math.floor(pageH * pxPerMm);
+  const naturalHeightMm = canvas.height / pxPerMm;
   const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
 
-  if(canvas.height <= singlePageHeightPx){
-    const imgH = canvas.height / pxPerMm;
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, imgH);
+  if(naturalHeightMm <= pageH){
+    // Tient tel quel, à taille naturelle — cas le plus courant.
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, naturalHeightMm);
   }else{
-    // Déborde sur plusieurs pages : découpe sans jamais couper une ligne de tableau en deux,
-    // comme pour les devis (voir buildDocPdf).
-    const sheetRect = sheet.getBoundingClientRect();
-    const domToCanvasRatio = canvas.width / sheetRect.width;
-    const breakPoints = Array.from(sheet.querySelectorAll('.bilan-print-table tr'))
-      .map(el=>{
-        const r = el.getBoundingClientRect();
-        return { top:(r.top-sheetRect.top)*domToCanvasRatio, bottom:(r.bottom-sheetRect.top)*domToCanvasRatio };
-      })
-      .filter(b=> b.bottom > b.top && b.top >= 0);
-    const marginMm = 14; // cohérent avec @page bilan-print-page
-    const usableHmm = pageH - marginMm*2;
-    const usableWmm = pageW - marginMm*2;
-    const maxSliceHeightPx = Math.floor(usableHmm * pxPerMm);
-    const cuts = [0];
-    let cursor = 0;
-    while(cursor < canvas.height){
-      let target = Math.min(cursor + maxSliceHeightPx, canvas.height);
-      if(target < canvas.height){
-        const collision = breakPoints.find(b=> b.top < target && b.bottom > target && b.top > cursor);
-        if(collision && collision.top > cursor) target = collision.top;
+    const FLOOR = 0.55; // en dessous, les chiffres deviendraient illisibles : on préfère alors plusieurs pages
+    const scaleToFit = pageH / naturalHeightMm;
+    if(scaleToFit >= FLOOR){
+      // Réduit l'IMAGE finale (jamais le DOM pendant la capture) pour tenir sur une seule page propre.
+      const w = pageW * scaleToFit, h = pageH;
+      const x = (pageW - w) / 2;
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, 0, w, h);
+    }else{
+      // Vraiment trop long pour une page lisible : plusieurs pages, avec l'en-t\u00ete (logo, titre,
+      // date) découpé une fois puis recollé en haut de CHAQUE page générée.
+      const headerTopPx = headerRect ? (headerRect.top - sheetRect.top) * domToCanvasRatio : 0;
+      const headerBottomPx = headerRect ? (headerRect.bottom - sheetRect.top) * domToCanvasRatio : 0;
+      const headerHeightPx = Math.round(headerBottomPx - headerTopPx);
+      const headerCanvas = headerHeightPx>0 ? cropCanvas(canvas, 0, Math.round(headerTopPx), canvas.width, headerHeightPx) : null;
+      const bodyStartPx = Math.round(headerBottomPx);
+      const breakPoints = Array.from(sheet.querySelectorAll('.bilan-print-table tr'))
+        .map(el=>{
+          const r = el.getBoundingClientRect();
+          return { top:(r.top-sheetRect.top)*domToCanvasRatio - bodyStartPx, bottom:(r.bottom-sheetRect.top)*domToCanvasRatio - bodyStartPx };
+        })
+        .filter(b=> b.bottom > b.top && b.top >= 0);
+      const marginMm = 8; // marge basse seulement ; l'en-t\u00ete gère déjà le haut de page
+      const headerHmm = headerHeightPx / pxPerMm;
+      const maxBodySliceHeightPx = Math.floor((pageH - headerHmm - marginMm) * pxPerMm);
+      const bodyTotalPx = canvas.height - bodyStartPx;
+      const cuts = [0];
+      let cursor = 0;
+      while(cursor < bodyTotalPx){
+        let target = Math.min(cursor + maxBodySliceHeightPx, bodyTotalPx);
+        if(target < bodyTotalPx){
+          const collision = breakPoints.find(b=> b.top < target && b.bottom > target && b.top > cursor);
+          if(collision && collision.top > cursor) target = collision.top;
+        }
+        if(target <= cursor) target = Math.min(cursor + maxBodySliceHeightPx, bodyTotalPx);
+        cuts.push(target);
+        cursor = target;
       }
-      if(target <= cursor) target = Math.min(cursor + maxSliceHeightPx, canvas.height);
-      cuts.push(target);
-      cursor = target;
-    }
-    for(let p=0; p<cuts.length-1; p++){
-      const sliceStart = cuts[p];
-      const sliceH = cuts[p+1] - sliceStart;
-      if(sliceH<=0) continue;
-      if(p>0) pdf.addPage();
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceH;
-      const ctx = sliceCanvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0,0,sliceCanvas.width, sliceCanvas.height);
-      ctx.drawImage(canvas, 0, sliceStart, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-      const imgHmm = sliceH / pxPerMm;
-      pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', marginMm, marginMm, usableWmm, imgHmm);
-      sliceCanvas.width = 0; sliceCanvas.height = 0;
+      for(let p=0; p<cuts.length-1; p++){
+        const sliceH = cuts[p+1] - cuts[p];
+        if(sliceH<=0) continue;
+        if(p>0) pdf.addPage();
+        const bodySlice = cropCanvas(canvas, 0, bodyStartPx + cuts[p], canvas.width, sliceH);
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = headerHeightPx + sliceH;
+        const pctx = pageCanvas.getContext('2d');
+        pctx.fillStyle = '#ffffff';
+        pctx.fillRect(0,0,pageCanvas.width,pageCanvas.height);
+        if(headerCanvas) pctx.drawImage(headerCanvas, 0, 0);
+        pctx.drawImage(bodySlice, 0, headerHeightPx);
+        const imgHmm = pageCanvas.height / pxPerMm;
+        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, imgHmm);
+        pageCanvas.width = 0; pageCanvas.height = 0;
+        bodySlice.width = 0; bodySlice.height = 0;
+      }
+      if(headerCanvas){ headerCanvas.width = 0; headerCanvas.height = 0; }
     }
   }
   canvas.width = 0; canvas.height = 0;
