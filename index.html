@@ -10,7 +10,7 @@
 <style>
   :root{
     --ink:#1B2A4A;
-    --ink-light:#2E4470; 
+    --ink-light:#2E4470;
     --paper:#F7F5EF;
     --card:#FFFFFF;
     --line:#E3E0D5;
@@ -192,11 +192,10 @@
   .bilan-print-titleblock{text-align:right;}
   .bilan-print-title{font-family:var(--font-display);font-size:19px;color:var(--ink);}
   .bilan-print-date{font-size:11px;color:var(--muted);margin-top:.1rem;}
-  /* `transform:scale()` fait chevaucher le texte (bug WebKit/Chromium connu, déjà
-     rencontré sur les devis) — à l'écran comme à l'impression. `zoom` relance une vraie
-     mise en page à la taille réduite au lieu d'une transformation visuelle post-rendu,
-     donc on l'utilise partout pour ce bloc, jamais `transform`. */
-  #bilan-scale-inner{zoom:var(--fit-scale, 1);}
+  /* Ni `transform:scale()` ni `zoom` ne sont utilisés ici : les deux ont provoqué un
+     chevauchement de texte chez des utilisateurs réels (Chromium/WebKit pour l'un,
+     Firefox pour l'autre). #bilan-scale-inner n'a donc plus aucune règle de mise à
+     l'échelle — le contenu s'affiche toujours à taille réelle. */
   .bilan-print-tables{display:flex;gap:1rem;align-items:stretch;}
   .bilan-print-col{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:.5rem .65rem .6rem;background:#fff;}
   .bilan-print-subhead{font-family:var(--font-display);font-size:12.5px;color:var(--ink);margin:0 0 .35rem;border-bottom:1px solid var(--line);padding-bottom:.25rem;}
@@ -4523,20 +4522,16 @@ function fitDocToOnePage(root){
 }
 function fitBilanToOnePage(){
   // Toute réduction du texte à l'écran (`transform`, et même `zoom`) s'est avérée provoquer
-  // un chevauchement de texte chez certains utilisateurs. Par sécurité, on n'essaie plus de
-  // réduire quoi que ce soit à l'écran : le contenu s'affiche à taille normale, quitte à
-  // déborder sur plusieurs « pages » visuelles (l'en-t\u00ete reste correctement répété à
-  // l'impression, voir le CSS @media print). Le bouton Imprimer, lui, continue de produire
-  // un PDF tenant sur une page en réduisant l'IMAGE finale (jamais le texte en direct),
-  // ce qui est sans risque et déjà vérifié propre.
+  // un chevauchement de texte chez certains utilisateurs (Chromium pour l'un, Firefox pour
+  // l'autre). On ne touche donc plus du tout à l'échelle : le contenu s'affiche à taille
+  // normale (l'en-t\u00ete reste correctement répété à l'impression, voir le CSS @media print).
+  // Le bouton Imprimer, lui, continue de produire un PDF tenant sur une page en réduisant
+  // l'IMAGE finale (jamais le texte en direct), ce qui est sans risque et déjà vérifié propre.
   const sheet = document.querySelector('.bilan-print-sheet');
   const header = document.querySelector('.bilan-print-header');
-  const inner = document.getElementById('bilan-scale-inner');
-  if(!sheet || !inner) return;
+  if(!sheet) return;
   const headerH = header ? header.offsetHeight : 0;
   sheet.style.setProperty('--bilan-header-h', (headerH + 20) + 'px');
-  inner.style.setProperty('--fit-scale', 1);
-  inner.style.width = '100%';
 }
 function cropCanvas(src, sx, sy, sw, sh){
   const c = document.createElement('canvas');
@@ -4553,21 +4548,12 @@ async function buildBilanPdf(){
   if(!sheet || !window.html2canvas || !window.jspdf) return null;
   const { jsPDF } = window.jspdf;
   const pageW = 210, pageH = 297;
-  // html2canvas ne gère pas (ou très mal) le `zoom` CSS utilisé pour la réduction écran — on
-  // neutralise donc temporairement la réduction de fitBilanToOnePage() avant la capture, et on
-  // laisse tout dimensionnement se faire ensuite sur l'IMAGE (pixels), jamais sur le DOM.
-  // On restaure l'affichage écran juste après.
-  const inner = document.getElementById('bilan-scale-inner');
-  const prevScale = inner ? inner.style.getPropertyValue('--fit-scale') : '';
-  if(inner) inner.style.setProperty('--fit-scale', 1);
+  // Le DOM n'a plus aucune réduction d'échelle (ni transform, ni zoom) : la capture se fait
+  // sur le contenu à taille réelle, et tout le redimensionnement se fait ensuite sur
+  // l'IMAGE (pixels) via jsPDF, jamais sur le DOM.
   const sheetRect = sheet.getBoundingClientRect();
   const headerRect = header ? header.getBoundingClientRect() : null;
-  let canvas;
-  try{
-    canvas = await html2canvas(sheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
-  } finally {
-    if(inner) inner.style.setProperty('--fit-scale', prevScale || 1);
-  }
+  const canvas = await html2canvas(sheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
   const domToCanvasRatio = canvas.width / sheetRect.width;
   const pxPerMm = canvas.width / pageW;
   const naturalHeightMm = canvas.height / pxPerMm;
