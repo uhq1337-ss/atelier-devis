@@ -437,6 +437,30 @@
     .co-link{ background:none; border:none; padding:0; color:var(--dash-muted); text-decoration:underline; cursor:pointer; font-size:13px; font-family:inherit; }
   }
 
+
+  @media screen{
+    /* animation de bienvenue après le choix de l'entreprise */
+    .welcome{ position:fixed; inset:0; z-index:9999; background:var(--dash-side,#2F2891); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; cursor:pointer; }
+    .welcome .w-line{ font-size:22px; font-weight:500; opacity:.88; }
+    .welcome .w-name{ font-size:58px; font-weight:700; letter-spacing:-.02em; margin-top:.35rem; }
+    .welcome.out{ animation:wOut .6s ease forwards; }
+    @keyframes wOut{ to{ opacity:0; } }
+    @keyframes wUp{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
+    .w-fondu .w-line{ animation:wUp .8s ease both; }
+    .w-fondu .w-name{ animation:wUp .9s .45s ease both; }
+    .w-rideau{ animation:wCurtain .7s cubic-bezier(.7,0,.2,1) both; }
+    .w-rideau.out{ animation:wCurtainOut .7s cubic-bezier(.7,0,.2,1) forwards; }
+    @keyframes wCurtain{ from{ transform:translateY(100%); } to{ transform:none; } }
+    @keyframes wCurtainOut{ to{ transform:translateY(-100%); } }
+    .w-rideau .w-line{ animation:wUp .6s .6s ease both; }
+    .w-rideau .w-name{ animation:wUp .7s .85s ease both; }
+    .w-machine .w-cur{ display:inline-block; width:3px; height:.9em; background:#fff; margin-left:4px; vertical-align:-.1em; animation:wBlink .8s steps(1) infinite; }
+    @keyframes wBlink{ 50%{ opacity:0; } }
+    .w-mask{ display:inline-block; overflow:hidden; vertical-align:bottom; padding-bottom:.08em; }
+    .w-word{ display:inline-block; transform:translateY(115%); animation:wWord .7s cubic-bezier(.2,.8,.2,1) forwards; }
+    @keyframes wWord{ to{ transform:none; } }
+  }
+
   .rte{border:1px solid var(--line-strong);border-radius:3px;background:#fff;}
   .rte:focus-within{outline:2px solid var(--ink-light);outline-offset:1px;}
   .rte-bar{display:flex;flex-wrap:wrap;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:var(--paper);border-radius:3px 3px 0 0;}
@@ -949,6 +973,44 @@ document.addEventListener('selectionchange', refreshRteState);
 
 
 
+
+// style de l'animation : 'fondu', 'rideau', 'machine' ou 'mots'
+const WELCOME_STYLE = 'mots';
+// message de bienvenue après le choix de l'entreprise
+function showWelcome(){
+  if(document.getElementById('welcome')) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const nom = String(state.currentUser||'').replace(/^./, c=>c.toUpperCase()).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const mots = ['Bon','retour','parmi','nous,'];
+  const box = document.createElement('div');
+  box.id = 'welcome';
+  box.className = 'welcome w-'+WELCOME_STYLE;
+  if(WELCOME_STYLE==='mots'){
+    const mask = (m,i)=>'<span class="w-mask"><span class="w-word" style="animation-delay:'+(i*0.12)+'s">'+m+'</span></span>';
+    box.innerHTML = '<div class="w-line">'+mots.map(mask).join(' ')+'</div><div class="w-name">'+mask(nom, mots.length+1)+'</div>';
+  } else if(WELCOME_STYLE==='machine'){
+    box.innerHTML = '<div class="w-line" id="w-t1"></div><div class="w-name" id="w-t2"></div>';
+  } else {
+    box.innerHTML = '<div class="w-line">Bon retour parmi nous,</div><div class="w-name">'+nom+'</div>';
+  }
+  document.body.appendChild(box);
+  if(WELCOME_STYLE==='machine'){
+    const t1 = box.querySelector('#w-t1'), t2 = box.querySelector('#w-t2');
+    const cur = '<span class="w-cur"></span>';
+    const phrase = 'Bon retour parmi nous,', nomTxt = String(state.currentUser||'').replace(/^./, c=>c.toUpperCase());
+    let i = 0;
+    const timer = setInterval(()=>{
+      i++;
+      if(i<=phrase.length){ t1.textContent = phrase.slice(0,i); t1.insertAdjacentHTML('beforeend', cur); }
+      else if(i<=phrase.length+nomTxt.length){ t1.textContent = phrase; t2.textContent = nomTxt.slice(0,i-phrase.length); t2.insertAdjacentHTML('beforeend', cur); }
+      else clearInterval(timer);
+    }, 55);
+  }
+  const fermer = ()=>{ box.classList.add('out'); setTimeout(()=>box.remove(), 800); };
+  box.onclick = fermer;
+  setTimeout(fermer, WELCOME_STYLE==='machine' ? 3000 : 2400);
+}
+
 // l'entreprise choisie au début
 function activeCo(){ return (state.companies||[]).find(c=>c.id===state.activeCompanyId) || null; }
 // garde seulement les documents de l'entreprise choisie
@@ -968,6 +1030,7 @@ function pickCompany(id){
   }catch(e){}
   state.tab = 'dashboard'; state.viewingDoc = null; state.viewingCommande = null; state.viewingTravaux = null;
   render();
+  showWelcome();
 }
 // écran avec les 2 boutons
 function renderCompanyPicker(){
@@ -1339,10 +1402,6 @@ function renderShell(){
       ${state.dataRecovered && state.dataRecovered.length ? `<div style="background:#1F6B3A;color:#fff;padding:.85rem 1.25rem;border-radius:6px;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;gap:1rem">
         <span>\u2705 <strong>Donn\u00e9es r\u00e9cup\u00e9r\u00e9es</strong> \u2014 ${state.dataRecovered.map(r=>`${r.count} \u00e9l\u00e9ment(s) "${r.key}"`).join(', ')} qui n'\u00e9taient rest\u00e9(s) que sur cet appareil viennent d'\u00eatre resynchronis\u00e9(s) avec toute l'\u00e9quipe.</span>
         <button id="dismiss-recovery-notice" style="background:#fff;color:#1F6B3A;border:none;border-radius:4px;padding:.4rem .8rem;cursor:pointer;white-space:nowrap;font-weight:bold">OK</button>
-      </div>` : ''}
-      ${state.draftsRestoredNotice && state.draftsRestoredNotice.length ? `<div style="background:#1F4E6B;color:#fff;padding:.85rem 1.25rem;border-radius:6px;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;gap:1rem">
-        <span>\u270d\ufe0f <strong>Brouillon retrouv\u00e9</strong> \u2014 un travail non enregistr\u00e9 (${state.draftsRestoredNotice.join(', ')}) a \u00e9t\u00e9 remis en place automatiquement. Va dans "${state.draftsRestoredNotice.includes('devis travaux') ? 'Nouveau devis travaux' : 'Nouveau devis'}" pour le retrouver, v\u00e9rifier et l'enregistrer.</span>
-        <button id="dismiss-drafts-notice" style="background:#fff;color:#1F4E6B;border:none;border-radius:4px;padding:.4rem .8rem;cursor:pointer;white-space:nowrap;font-weight:bold">OK</button>
       </div>` : ''}
       ${renderTab()}
     </div>
