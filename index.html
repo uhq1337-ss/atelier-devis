@@ -3279,7 +3279,7 @@ function bindBilan(){
     const goBtn = document.getElementById('bilan-print-go');
     // Impression native du navigateur (plus de capture html2canvas : c'est elle qui
     // écrasait les espaces et superposait les lettres). Pour un PDF : destination « Enregistrer en PDF ».
-    if(goBtn) goBtn.onclick = ()=>{ try{ window.print(); }catch(err){ showToast('Impression bloquée — utilise Cmd+P (ou Ctrl+P).'); } };
+    if(goBtn) goBtn.onclick = ()=>{ printBilanFrame(); };
     document.body.classList.add('bilan-printing');
     fitBilanToOnePage();
     // Retour à l'affichage direct du tableau (plus d'image figée html2canvas).
@@ -3292,6 +3292,71 @@ function bindBilan(){
   if(dateInput) dateInput.onchange = ()=>{ state.bilanDate = isoDateToFr(dateInput.value); render(); };
   const printBtn = document.getElementById('bilan-print-btn');
   if(printBtn) printBtn.onclick = ()=>{ if(!state.bilanDate) state.bilanDate = todayFr(); bilanImgCache = null; state.bilanPrintMode = true; render(); };
+}
+
+// Impression du Bilan dans un mini-document isolé (iframe) : mise en page A4 indépendante du reste
+// de l'appli (pas de menu, pas de 2e page, pas de contenu coupé) et impression beaucoup plus rapide.
+const BILAN_PRINT_CSS = `
+@page{ size:A4; margin:8mm; }
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; background:#fff; color:var(--text); font-family:var(--font-body); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.bilan-print-sheet{ position:static !important; width:100%; height:278mm; display:flex; flex-direction:column; overflow:hidden; --fs:8.6px; }
+.bilan-print-header{ display:flex; align-items:center; justify-content:space-between; gap:1rem; border-bottom:2px solid var(--line-strong); padding-bottom:.4rem; margin-bottom:.5rem; }
+.bilan-print-logo{ max-height:40px; max-width:140px; object-fit:contain; }
+.bilan-print-logo-text{ font-family:var(--font-display); font-size:16px; font-weight:bold; color:var(--ink); }
+.bilan-print-titleblock{ text-align:right; }
+.bilan-print-title{ font-family:var(--font-display); font-size:19px; color:var(--ink); }
+.bilan-print-date{ font-size:11px; color:var(--muted); margin-top:.1rem; }
+.bilan-print-body, #bilan-scale-inner{ flex:1; display:flex; flex-direction:column; min-height:0; }
+.bilan-print-tables{ flex:1; display:flex; gap:.6rem; min-height:0; align-items:stretch; }
+.bilan-print-col{ flex:1; min-width:0; border:1px solid var(--line); border-radius:6px; padding:.35rem .45rem; display:flex; flex-direction:column; }
+.bilan-print-subhead{ font-family:var(--font-display); font-size:11px; color:var(--ink); margin:0 0 .25rem; border-bottom:1px solid var(--line); padding-bottom:.2rem; }
+table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:var(--fs); line-height:1.15; }
+.bilan-print-col > table{ flex:1 1 auto; }
+.bilan-print-col:nth-child(2) > table{ font-size:calc(var(--fs) + 1px); line-height:1.3; }
+th{ text-align:left; font-size:.9em; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); border-bottom:1px solid var(--line-strong); padding:.12rem .2rem; }
+td{ padding:.08rem .2rem; border-bottom:1px solid var(--line); vertical-align:top; }
+.bilan-print-col:nth-child(2) > table td{ padding:.17rem .2rem; }
+td:not(:first-child), th:not(:first-child){ white-space:nowrap; text-align:right; }
+td[colspan]{ padding-top:.3rem !important; }
+.num{ font-family:var(--font-mono); }
+.bilan-print-total{ margin-top:auto; padding-top:.3rem; }
+.bilan-print-total td{ height:3.1em; vertical-align:middle; border-bottom:none; border-top:1.5px solid var(--line-strong); }
+.hint{ font-size:9px; color:var(--danger); margin:.4rem 0 0; }
+.bilan-print-footer{ margin-top:.4rem; border-top:1px solid var(--line); padding-top:.35rem; font-size:8px; color:var(--muted); text-align:center; }
+`;
+function printBilanFrame(){
+  const sheet = document.getElementById('bilan-live-sheet');
+  if(!sheet){ window.print(); return; }
+  const cs = getComputedStyle(document.documentElement);
+  const vars = ['--ink','--text','--muted','--line','--line-strong','--paper','--danger','--font-display','--font-body','--font-mono']
+    .map(k=> k+':'+cs.getPropertyValue(k)).join(';');
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>Bilan</title><style>:root{'+vars+'}'+BILAN_PRINT_CSS+'</style></head><body>'+sheet.outerHTML+'</body></html>';
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:194mm;height:281mm;border:0;';
+  fr.onload = async ()=>{
+    try{
+      const d = fr.contentDocument, w = fr.contentWindow;
+      await Promise.all([...d.images].map(im=> im.complete ? 0 : new Promise(r=>{ im.onload = im.onerror = r; })));
+      const sh = d.querySelector('.bilan-print-sheet');
+      // Ajuste la taille du texte (jamais de zoom) pour remplir la page au mieux sans rien couper :
+      // on grossit tant que ça tient, puis on recule d'un cran si ça déborde.
+      const cols = [...d.querySelectorAll('.bilan-print-col')];
+      const fits = ()=> cols.every(c=> c.scrollHeight <= c.clientHeight + 1);
+      let fs = 7.4;
+      sh.style.setProperty('--fs', fs+'px');
+      while(fs < 9.4){ fs += 0.2; sh.style.setProperty('--fs', fs.toFixed(1)+'px'); if(!fits()){ fs -= 0.2; sh.style.setProperty('--fs', fs.toFixed(1)+'px'); break; } }
+      while(!fits() && fs > 6){ fs -= 0.2; sh.style.setProperty('--fs', fs.toFixed(1)+'px'); }
+      w.focus();
+      w.print();
+    }catch(err){
+      console.error(err);
+      showToast('Impression impossible — utilise Cmd+P (ou Ctrl+P).');
+    }
+    setTimeout(()=>{ try{ fr.remove(); }catch(e){} }, 60000);
+  };
+  fr.srcdoc = html;
+  document.body.appendChild(fr);
 }
 async function showBilanImage(){
   // Remplace le tableau "vivant" (HTML/CSS) par une image figée dès qu'elle est prête : plus
