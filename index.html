@@ -202,8 +202,6 @@
   .bilan-print-table{width:100%;font-size:9.5px;line-height:1.2;border-collapse:collapse;table-layout:fixed;}
   .bilan-print-col{display:flex;flex-direction:column;}
   .bilan-print-total{margin-top:auto;padding-top:.3rem;}
-  /* Le tableau principal s'étire pour remplir la colonne : plus de grand vide sous le passif. */
-  .bilan-print-col > .bilan-print-table{flex:1 1 auto;}
   .bilan-print-table .num{font-size:.94em;}
   .bilan-print-table td, .bilan-print-table th{padding:.16rem .3rem;vertical-align:top;}
   .bilan-print-table td:not(:first-child), .bilan-print-table th:not(:first-child){white-space:nowrap;text-align:right;}
@@ -222,12 +220,17 @@
        (tailles de police réelles, sans zoom ni transform), jamais de coupure au milieu. */
     /* Feuille = exactement une page A4 (marge d'impression 0, marges internes à la feuille) :
        le Bilan remplit toute la page, et il n'y a plus de 2e page ni d'en-têtes/pieds du navigateur. */
-    body:has(#bilan-live-sheet){ height:0 !important; overflow:hidden !important; }
-    body:has(#bilan-live-sheet) #print-area{ position:fixed; top:0; left:0; width:210mm; height:296mm; }
-    .bilan-print-sheet{ box-sizing:border-box; width:210mm; height:296mm; padding:13mm 12mm 11mm !important; margin:0 !important; display:flex; flex-direction:column; overflow:hidden; break-inside:avoid; page-break-inside:avoid; }
+    body.bilan-printing{ height:0 !important; overflow:hidden !important; }
+    body.bilan-printing #print-area{ position:fixed !important; top:0; left:0; right:0; bottom:0; width:auto !important; height:auto !important; }
+    .bilan-print-sheet{ box-sizing:border-box; width:100%; height:100%; padding:12mm 11mm 10mm !important; margin:0 !important; display:flex; flex-direction:column; overflow:hidden; break-inside:avoid; page-break-inside:avoid; }
     .bilan-print-body{ flex:1; display:flex; flex-direction:column; min-height:0; }
     #bilan-scale-inner{ flex:1; display:flex; flex-direction:column; min-height:0; }
     .bilan-print-tables{ flex:1; min-height:0; }
+    /* Le tableau s'étire pour remplir la colonne ; le passif (plus court) a un texte un peu plus grand
+       pour que l'écart reste léger et que les deux colonnes se ressemblent. */
+    .bilan-print-col > .bilan-print-table{ flex:1 1 auto; }
+    .bilan-print-col:nth-child(2) > .bilan-print-table{ font-size:9.6px; line-height:1.3; }
+    .bilan-print-col:nth-child(2) > .bilan-print-table td, .bilan-print-col:nth-child(2) > .bilan-print-table th{ padding:.17rem .2rem; }
     .bilan-print-header{ position:static; margin-bottom:.4rem; padding-bottom:.35rem; min-height:0; }
     .bilan-print-body{ padding-top:0; }
     .bilan-print-tables{ gap:.6rem; }
@@ -750,6 +753,7 @@ function restoreFocus(info){
   }
 }
 function render(){
+  document.body.classList.remove('bilan-printing');
   const focusInfo = captureFocus();
   const app = document.getElementById('app');
   if(!state.authenticated){
@@ -3276,6 +3280,7 @@ function bindBilan(){
     // Impression native du navigateur (plus de capture html2canvas : c'est elle qui
     // écrasait les espaces et superposait les lettres). Pour un PDF : destination « Enregistrer en PDF ».
     if(goBtn) goBtn.onclick = ()=>{ try{ window.print(); }catch(err){ showToast('Impression bloquée — utilise Cmd+P (ou Ctrl+P).'); } };
+    document.body.classList.add('bilan-printing');
     fitBilanToOnePage();
     // Retour à l'affichage direct du tableau (plus d'image figée html2canvas).
     const live = document.getElementById('bilan-live-sheet');
