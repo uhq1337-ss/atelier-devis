@@ -1841,17 +1841,12 @@ function calcTotals(b){
 function renderBuilder(){
   const b = state.builder;
   const t = calcTotals(b);
+  if(state.activeCompanyId && !b.editingDocId && !b.editingId) b.companyId = state.activeCompanyId;
   if(!b.companyId && state.companies.length) b.companyId = state.activeCompanyId || state.companies[0].id;
   const editingDoc = b.editingDocId ? state.documents.find(d=>d.id===b.editingDocId) : null;
   return `
   <h1 class="page-title">${editingDoc ? 'Modifier le devis '+editingDoc.numero : 'Nouveau devis'}</h1>
   <p class="page-sub">S\u00e9lectionnez l'entreprise \u00e9mettrice, un client, ajoutez des articles.</p>
-  <div class="card">
-    <p class="subhead" style="margin-bottom:.6rem">Entreprise \u00e9mettrice</p>
-    <div>
-      ${state.companies.map(co=>`<button class="company-pill ${b.companyId===co.id?'active':''}" data-pick-company="${co.id}"><span class="dot" style="background:${co.color}"></span>${co.name}</button>`).join('')}
-    </div>
-  </div>
   <div class="card">
     <div class="field" style="max-width:360px;position:relative">
       <label>Client</label>
@@ -2654,18 +2649,13 @@ function loadTravauxDraft(){
 
 function renderTravauxBuilder(){
   const b = state.travauxBuilder;
+  if(state.activeCompanyId && !b.editingDocId && !b.editingId) b.companyId = state.activeCompanyId;
   if(!b.companyId && state.companies.length) b.companyId = state.activeCompanyId || state.companies[0].id;
   const tot = calcTotalsTravaux(b);
   const editing = b.editingId ? state.travaux.find(t=>t.id===b.editingId) : null;
   return `
   <h1 class="page-title">${editing ? 'Modifier le devis travaux '+editing.numero : 'Nouveau devis travaux'}</h1>
   <p class="page-sub">Devis estimatif au format \u00ab DEVIS ESTIMATIF \u00bb pour des travaux annexes (remise en \u00e9tat apr\u00e8s installation, ma\u00e7onnerie, peinture\u2026), ind\u00e9pendant des devis climatisation.</p>
-  <div class="card">
-    <p class="subhead" style="margin-bottom:.6rem">Entreprise \u00e9mettrice</p>
-    <div>
-      ${state.companies.map(co=>`<button class="company-pill ${b.companyId===co.id?'active':''}" data-pick-trav-company="${co.id}"><span class="dot" style="background:${co.color}"></span>${co.name}</button>`).join('')}
-    </div>
-  </div>
   <div class="card">
     <div class="row">
       <div class="field" style="min-width:220px">
