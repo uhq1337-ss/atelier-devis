@@ -3299,8 +3299,8 @@ function bindBilan(){
 const BILAN_PRINT_CSS = `
 @page{ size:A4; margin:8mm; }
 *{ box-sizing:border-box; }
-html,body{ margin:0; padding:0; background:#fff; color:var(--text); font-family:var(--font-body); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-.bilan-print-sheet{ position:static !important; width:100%; height:278mm; display:flex; flex-direction:column; overflow:hidden; --fs:8.6px; }
+html,body{ height:262mm; overflow:hidden; margin:0; padding:0; background:#fff; color:var(--text); font-family:var(--font-body); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.bilan-print-sheet{ position:static !important; width:100%; height:262mm; display:flex; break-after:avoid; page-break-after:avoid; flex-direction:column; overflow:hidden; --fs:8.6px; }
 .bilan-print-header{ display:flex; align-items:center; justify-content:space-between; gap:1rem; border-bottom:2px solid var(--line-strong); padding-bottom:.4rem; margin-bottom:.5rem; }
 .bilan-print-logo{ max-height:40px; max-width:140px; object-fit:contain; }
 .bilan-print-logo-text{ font-family:var(--font-display); font-size:16px; font-weight:bold; color:var(--ink); }
@@ -3333,7 +3333,7 @@ function printBilanFrame(){
     .map(k=> k+':'+cs.getPropertyValue(k)).join(';');
   const html = '<!doctype html><html><head><meta charset="utf-8"><title>Bilan</title><style>:root{'+vars+'}'+BILAN_PRINT_CSS+'</style></head><body>'+sheet.outerHTML+'</body></html>';
   const fr = document.createElement('iframe');
-  fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:194mm;height:281mm;border:0;';
+  fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:194mm;height:262mm;border:0;';
   fr.onload = async ()=>{
     try{
       const d = fr.contentDocument, w = fr.contentWindow;
