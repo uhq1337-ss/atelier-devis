@@ -313,6 +313,21 @@
     .paper2{width:auto;min-height:0;}
     .p2-parties, .p2-bottom-row, .p2-icons-row{flex-direction:column;}
   }
+
+  /* Éditeur de texte enrichi (gras, italique, souligné, surligné, liste) */
+  .rte{border:1px solid var(--line-strong);border-radius:3px;background:#fff;}
+  .rte:focus-within{outline:2px solid var(--ink-light);outline-offset:1px;}
+  .rte-bar{display:flex;flex-wrap:wrap;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:var(--paper);border-radius:3px 3px 0 0;}
+  .rte-btn{min-width:30px;height:28px;padding:0 8px;border:1px solid transparent;border-radius:3px;background:transparent;color:var(--text);font-size:13px;cursor:pointer;font-family:var(--font-body);display:inline-flex;align-items:center;justify-content:center;gap:5px;}
+  .rte-btn:hover{background:#fff;border-color:var(--line-strong);}
+  .rte-btn.on{background:var(--ink);color:#fff;}
+  .rte-sep{width:1px;background:var(--line-strong);margin:3px 4px;}
+  .rte-swatch{display:inline-block;width:14px;height:14px;border-radius:2px;background:#fff176;border:1px solid #c9b800;}
+  .rte-area{padding:.55rem .65rem;min-height:60px;font-size:14px;line-height:1.5;outline:none;white-space:pre-wrap;overflow-wrap:anywhere;}
+  .rte-area:empty:before{content:attr(data-placeholder);color:#9aa0ad;pointer-events:none;}
+  .rte-area ul,.rte-area ol{margin:.3rem 0 .3rem 1.2rem;padding:0;}
+  .rte-area.single{white-space:nowrap;overflow-x:auto;min-height:0 !important;}
+  .rt-out ul,.rt-out ol{margin:.2rem 0 .2rem 1.2rem;padding:0;}
 </style>
 </head>
 <body>
@@ -716,6 +731,115 @@ async function loadAll(){
     state.dataRecovered.push({ key:'liens journal des \u00e9critures', count: journalRepaired });
   }
 }
+
+
+// ===== Texte enrichi (devis + devis travaux) =====
+const RICH_COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/i;
+function plainToHtml(v){
+  v = v==null ? '' : String(v);
+  if(/<\/?(b|i|u|strong|em|mark|span|div|p|br|ul|ol|li)\b[^>]*>/i.test(v)) return v;
+  return v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\r?\n/g,'<br>');
+}
+function sanitizeRich(html){
+  const doc = new DOMParser().parseFromString('<body>'+html+'</body>','text/html');
+  const walk = (node)=>{
+    let out = '';
+    node.childNodes.forEach(n=>{
+      if(n.nodeType===3){ out += n.nodeValue.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); return; }
+      if(n.nodeType!==1) return;
+      const tag = n.tagName.toLowerCase();
+      if(tag==='script'||tag==='style') return;
+      const inner = walk(n);
+      // Surlignage posé directement sur une balise (ex. <u style="background-color:…">) : on le conserve.
+      const bgOf = (r)=>{ const bg = n.style && n.style.backgroundColor; return (bg && RICH_COLOR_RE.test(bg) && !/transparent|rgba\(0,\s*0,\s*0,\s*0\)/.test(bg)) ? '<span style="background-color:'+bg+'">'+r+'</span>' : r; };
+      if(tag==='b'||tag==='strong') out += bgOf('<b>'+inner+'</b>');
+      else if(tag==='i'||tag==='em') out += bgOf('<i>'+inner+'</i>');
+      else if(tag==='u') out += bgOf('<u>'+inner+'</u>');
+      else if(tag==='mark') out += '<span style="background-color:#fff176">'+inner+'</span>';
+      else if(tag==='br') out += '<br>';
+      else if(tag==='ul'||tag==='ol') out += '<'+tag+'>'+inner+'</'+tag+'>';
+      else if(tag==='li') out += '<li>'+inner+'</li>';
+      else if(tag==='div'||tag==='p') out += '<div>'+inner+'</div>';
+      else if(tag==='span'){
+        const bg = n.style.backgroundColor, fw = n.style.fontWeight, fs = n.style.fontStyle, td = n.style.textDecorationLine||n.style.textDecoration;
+        let r = inner;
+        if(td && /underline/.test(td)) r = '<u>'+r+'</u>';
+        if(fs==='italic') r = '<i>'+r+'</i>';
+        if(fw==='bold' || +fw>=600) r = '<b>'+r+'</b>';
+        if(bg && RICH_COLOR_RE.test(bg) && !/transparent|rgba\(0,\s*0,\s*0,\s*0\)/.test(bg)) r = '<span style="background-color:'+bg+'">'+r+'</span>';
+        out += r;
+      } else out += inner;
+    });
+    return out;
+  };
+  return walk(doc.body);
+}
+function cleanRich(html){
+  const h = sanitizeRich(html).replace(/(<br>|<div><\/div>)+$/,'');
+  const probe = document.createElement('div'); probe.innerHTML = h;
+  return (probe.textContent.trim()==='' && !probe.querySelector('li')) ? '' : h;
+}
+function rich(v){ return sanitizeRich(plainToHtml(v)); }
+function stripRich(v){
+  const d = document.createElement('div'); d.innerHTML = sanitizeRich(plainToHtml(v)).replace(/<br>|<\/div>|<\/li>/g,'$&\n');
+  return d.textContent.trim();
+}
+function rteField(id, value, opts){
+  const o = opts||{};
+  const ph = String(o.placeholder||'').replace(/"/g,'&quot;');
+  return `<div class="rte" data-rte="${id}">
+    <div class="rte-bar">
+      <button type="button" class="rte-btn" data-cmd="bold" title="Gras (Cmd+B)"><b>G</b></button>
+      <button type="button" class="rte-btn" data-cmd="italic" title="Italique (Cmd+I)"><i>I</i></button>
+      <button type="button" class="rte-btn" data-cmd="underline" title="Souligné (Cmd+U)"><u>S</u></button>
+      <button type="button" class="rte-btn" data-cmd="hilite" title="Surligner"><span class="rte-swatch"></span>Surligner</button>
+      ${o.single ? '' : '<span class="rte-sep"></span><button type="button" class="rte-btn" data-cmd="insertUnorderedList" title="Liste à puces">&bull; Liste</button>'}
+      <span class="rte-sep"></span>
+      <button type="button" class="rte-btn" data-cmd="removeFormat" title="Effacer la mise en forme">Effacer</button>
+    </div>
+    <div class="rte-area${o.single?' single':''}" contenteditable="true" data-placeholder="${ph}" style="min-height:${o.min||60}px">${sanitizeRich(plainToHtml(value))}</div>
+  </div>`;
+}
+function bindRte(handlers){
+  document.querySelectorAll('.rte').forEach(box=>{
+    const id = box.dataset.rte, area = box.querySelector('.rte-area');
+    const push = ()=>{ if(handlers[id]) handlers[id](cleanRich(area.innerHTML)); };
+    area.addEventListener('input', push);
+    area.addEventListener('paste', e=>{ e.preventDefault(); const t=(e.clipboardData||window.clipboardData).getData('text/plain'); document.execCommand('insertText', false, t); });
+    if(area.classList.contains('single')) area.addEventListener('keydown', e=>{ if(e.key==='Enter') e.preventDefault(); });
+    box.querySelectorAll('.rte-btn').forEach(btn=>{
+      btn.addEventListener('mousedown', e=>e.preventDefault());
+      btn.addEventListener('click', ()=>{
+        area.focus();
+        const c = btn.dataset.cmd;
+        if(c==='hilite'){
+          document.execCommand('styleWithCSS', false, true);
+          const cur = String(document.queryCommandValue('hiliteColor')||'');
+          const on = cur && !/transparent|rgba\(0,\s*0,\s*0,\s*0\)/.test(cur);
+          document.execCommand('hiliteColor', false, on ? 'transparent' : '#fff176');
+          document.execCommand('styleWithCSS', false, false);
+        } else {
+          document.execCommand('styleWithCSS', false, false);
+          document.execCommand(c, false, null);
+        }
+        push(); refreshRteState();
+      });
+    });
+  });
+}
+function refreshRteState(){
+  const box = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.rte') : null;
+  if(!box) return;
+  box.querySelectorAll('.rte-btn').forEach(btn=>{
+    const c = btn.dataset.cmd; let on = false;
+    try{
+      if(c==='hilite'){ const v=String(document.queryCommandValue('hiliteColor')||''); on = !!v && !/transparent|rgba\(0,\s*0,\s*0,\s*0\)/.test(v); }
+      else if(c!=='removeFormat') on = document.queryCommandState(c);
+    }catch(e){}
+    btn.classList.toggle('on', !!on);
+  });
+}
+document.addEventListener('selectionchange', refreshRteState);
 
 function showToast(msg){
   state.toast = msg;
@@ -1382,11 +1506,11 @@ function renderBuilder(){
     </div>
     <div class="field">
       <label>Objet du devis</label>
-      <input id="b-objet" placeholder="Ex : Devis pour prestations de maintenance CVC" value="${b.objet}">
+      ${rteField('b-objet', b.objet, {single:true, placeholder:'Ex : Devis pour prestations de maintenance CVC'})}
     </div>
     <div class="field">
       <label>Informations compl\u00e9mentaires (optionnel)</label>
-      <textarea id="b-infocomp" rows="3" placeholder="Ne s'affiche sur le devis que si tu \u00e9cris quelque chose ici">${b.infoComp||''}</textarea>
+      ${rteField('b-infocomp', b.infoComp, {min:80, placeholder:"Ne s'affiche sur le devis que si tu \u00e9cris quelque chose ici"})}
     </div>
   </div>
 
@@ -1563,8 +1687,10 @@ function bindBuilder(){
     }, 150);
   };
   document.getElementById('b-date').onchange = (e)=>{ b.date = isoDateToFr(e.target.value); saveBuilderDraft(); };
-  document.getElementById('b-objet').oninput = (e)=>{ b.objet = e.target.value; saveBuilderDraft(); };
-  document.getElementById('b-infocomp').oninput = (e)=>{ b.infoComp = e.target.value; saveBuilderDraft(); };
+  bindRte({
+    'b-objet': h=>{ b.objet = h; saveBuilderDraft(); },
+    'b-infocomp': h=>{ b.infoComp = h; saveBuilderDraft(); },
+  });
   document.getElementById('b-travaux-same').onchange = (e)=>{ b.travauxSameAsClient = e.target.checked; saveBuilderDraft(); render(); };
   const tNom = document.getElementById('b-travaux-nom');
   if(tNom) tNom.oninput = (e)=>{ b.travauxNom = e.target.value; saveBuilderDraft(); };
@@ -1967,7 +2093,7 @@ function renderTravauxListe(){
       return `<tr>
         <td class="num">${t.numero}</td>
         <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
-        <td>${t.objet||''}</td>
+        <td>${stripRich(t.objet||'')}</td>
         <td>${t.date}</td>
         <td class="num">${eur(tot.ht)}</td>
         <td>${t.auteur||''}</td>
@@ -2044,7 +2170,7 @@ function renderBrouillons(){
       <tr><th>Client</th><th>Objet</th><th>Lignes</th><th>Total HT</th><th></th></tr>
       <tr>
         <td>${dClient ? clientFullName(dClient) : '\u2014'}</td>
-        <td>${db.objet || '\u2014'}</td>
+        <td>${stripRich(db.objet) || '\u2014'}</td>
         <td>${(db.lignes||[]).length}</td>
         <td class="num">${eur(dTot.ht)}</td>
         <td style="white-space:nowrap">
@@ -2062,7 +2188,7 @@ function renderBrouillons(){
       <tr><th>Client</th><th>Objet</th><th>Lignes</th><th>Montant estimatif HT</th><th></th></tr>
       <tr>
         <td>${tClient ? clientFullName(tClient) : '\u2014'}</td>
-        <td>${tb.objet || '\u2014'}</td>
+        <td>${stripRich(tb.objet) || '\u2014'}</td>
         <td>${(tb.lignes||[]).length}</td>
         <td class="num">${eur(tTot.ht)}</td>
         <td style="white-space:nowrap">
@@ -2183,7 +2309,7 @@ function renderTravauxBuilder(){
     ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
     <div class="field">
       <label>Objet</label>
-      <input id="tb-objet" placeholder="Ex : Remise en \u00e9tat apr\u00e8s installation de climatisation" value="${b.objet||''}">
+      ${rteField('tb-objet', b.objet, {single:true, placeholder:'Ex : Remise en \u00e9tat apr\u00e8s installation de climatisation'})}
     </div>
   </div>
   <div class="card">
@@ -2196,14 +2322,14 @@ function renderTravauxBuilder(){
           <div class="field" style="width:140px;margin-bottom:0"><label>Montant (\u20ac)</label><input type="text" inputmode="decimal" data-trav-montant="${i}" value="${l.montant||''}" placeholder="0.00"></div>
           <button class="rm-btn" data-trav-del="${i}" aria-label="Retirer la ligne" style="align-self:flex-end;margin-bottom:.4rem">&times;</button>
         </div>
-        <div class="field" style="margin-bottom:0"><label>Description (optionnelle)</label><textarea rows="2" data-trav-desc="${i}" placeholder="D\u00e9tail des travaux pour cette ligne">${l.description||''}</textarea></div>
+        <div class="field" style="margin-bottom:0"><label>Description (optionnelle)</label>${rteField('trav-desc-'+i, l.description, {min:54, placeholder:'D\u00e9tail des travaux pour cette ligne'})}</div>
       </div>
     `).join('')}
     <button class="btn secondary small" id="add-trav-line">+ Ajouter une ligne</button>
   </div>
   <div class="card">
     <div class="field"><label>Dur\u00e9e pr\u00e9visionnelle</label><input id="tb-duree" value="${b.dureePrevisionnelle||''}" placeholder="Ex : 3 journ\u00e9es de travail, sous r\u00e9serve des temps de s\u00e9chage et de l'\u00e9tat r\u00e9el des supports."></div>
-    <div class="field"><label>Conditions et r\u00e9serves</label><textarea rows="3" id="tb-conditions">${b.conditionsReserves||''}</textarea></div>
+    <div class="field"><label>Conditions et r\u00e9serves</label>${rteField('tb-conditions', b.conditionsReserves, {min:70})}</div>
     <div class="row" style="align-items:flex-end">
       <div class="field" style="width:260px">
         <label>TVA</label>
@@ -2230,14 +2356,18 @@ function bindTravauxBuilder(){
   });
   document.getElementById('tb-client').onchange = (e)=>{ b.clientId = e.target.value; saveTravauxDraft(); };
   document.getElementById('tb-date').onchange = (e)=>{ b.date = isoDateToFr(e.target.value); saveTravauxDraft(); };
-  document.getElementById('tb-objet').oninput = (e)=>{ b.objet = e.target.value; saveTravauxDraft(); };
   document.getElementById('add-trav-line').onclick = ()=>{ b.lignes.push({titre:'',description:'',montant:''}); saveTravauxDraft(); render(); };
   document.querySelectorAll('[data-trav-titre]').forEach(inp=>{
     inp.oninput = (e)=>{ b.lignes[+inp.dataset.travTitre].titre = e.target.value; saveTravauxDraft(); };
   });
-  document.querySelectorAll('[data-trav-desc]').forEach(ta=>{
-    ta.oninput = (e)=>{ b.lignes[+ta.dataset.travDesc].description = e.target.value; saveTravauxDraft(); };
-  });
+  {
+    const h = {
+      'tb-objet': v=>{ b.objet = v; saveTravauxDraft(); },
+      'tb-conditions': v=>{ b.conditionsReserves = v; saveTravauxDraft(); },
+    };
+    b.lignes.forEach((l,i)=>{ h['trav-desc-'+i] = v=>{ b.lignes[i].description = v; saveTravauxDraft(); }; });
+    bindRte(h);
+  }
   document.querySelectorAll('[data-trav-montant]').forEach(inp=>{
     inp.oninput = (e)=>{ b.lignes[+inp.dataset.travMontant].montant = e.target.value; saveTravauxDraft(); render(); };
   });
@@ -2245,7 +2375,6 @@ function bindTravauxBuilder(){
     btn.onclick = ()=>{ b.lignes.splice(+btn.dataset.travDel,1); saveTravauxDraft(); render(); };
   });
   document.getElementById('tb-duree').oninput = (e)=>{ b.dureePrevisionnelle = e.target.value; saveTravauxDraft(); };
-  document.getElementById('tb-conditions').oninput = (e)=>{ b.conditionsReserves = e.target.value; saveTravauxDraft(); };
   document.getElementById('tb-tva-mode').onchange = (e)=>{ b.tvaMode = e.target.value; saveTravauxDraft(); render(); };
   const tauxInp = document.getElementById('tb-taux-tva');
   if(tauxInp) tauxInp.oninput = (e)=>{ b.tauxTva = e.target.value; saveTravauxDraft(); render(); };
@@ -2330,7 +2459,7 @@ function renderTravauxView(id){
         <div style="height:.6rem"></div>
         <div>Date : ${t.date}</div>
         ${c? `<div>Client : ${clientFullName(c)}</div>` : ''}
-        ${t.objet ? `<div>Objet : ${t.objet}</div>` : ''}
+        ${t.objet ? `<div class="rt-out">Objet : ${rich(t.objet)}</div>` : ''}
       </div>
     </div>
     <div class="tv-rule"></div>
@@ -2341,7 +2470,7 @@ function renderTravauxView(id){
         <tbody>
         ${t.lignes.map((l,i)=>`<tr>
             <td>${String(i+1).padStart(2,'0')}</td>
-            <td><strong>${(l.titre||'').toUpperCase()}</strong>${l.description ? `<div class="tv-line-desc">${l.description}</div>` : ''}</td>
+            <td><strong>${(l.titre||'').toUpperCase()}</strong>${l.description ? `<div class="tv-line-desc rt-out">${rich(l.description)}</div>` : ''}</td>
             <td style="text-align:right" class="num">${eur(parseNum(l.montant))}</td>
           </tr>`).join('')}
         </tbody>
@@ -2355,7 +2484,7 @@ function renderTravauxView(id){
       <div class="tv-note-title">Dur\u00e9e pr\u00e9visionnelle</div>
       <p class="tv-note-text">${t.dureePrevisionnelle || '\u2014'}</p>
       <div class="tv-note-title">Conditions et r\u00e9serves</div>
-      <p class="tv-note-text">${t.conditionsReserves || ''}</p>
+      <div class="tv-note-text rt-out">${rich(t.conditionsReserves || '')}</div>
 
       <div class="tv-sign">Bon pour accord \u2014 Date et signature du client : ________________________________</div>
     </div>
@@ -2508,7 +2637,7 @@ function bindSauvegarde(){
     addSheet(state.documents.filter(d=>d.type==='devis').map(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
       const t = calcTotals(d);
-      return { Numero:d.numero, Date:d.date, Client: c? clientFullName(c):'', Objet:d.objet||'', 'Total HT':Math.round(t.ht*100)/100, 'Total TTC':Math.round(t.ttc*100)/100, Auteur:d.auteur||'', Supprime: d.deleted? 'Oui':'Non' };
+      return { Numero:d.numero, Date:d.date, Client: c? clientFullName(c):'', Objet:stripRich(d.objet||''), 'Total HT':Math.round(t.ht*100)/100, 'Total TTC':Math.round(t.ttc*100)/100, Auteur:d.auteur||'', Supprime: d.deleted? 'Oui':'Non' };
     }), 'Devis');
 
     addSheet(state.documents.filter(d=>d.type==='facture').map(d=>{
@@ -2525,7 +2654,7 @@ function bindSauvegarde(){
     addSheet(state.travaux.map(t=>{
       const c = state.clients.find(c=>c.id===t.clientId);
       const tot = calcTotalsTravaux(t);
-      return { Numero:t.numero, Date:t.date, Client: c? clientFullName(c):'', Objet:t.objet||'', 'Montant estimatif HT':Math.round(tot.ht*100)/100, Auteur:t.auteur||'', Supprime: t.deleted? 'Oui':'Non' };
+      return { Numero:t.numero, Date:t.date, Client: c? clientFullName(c):'', Objet:stripRich(t.objet||''), 'Montant estimatif HT':Math.round(tot.ht*100)/100, Auteur:t.auteur||'', Supprime: t.deleted? 'Oui':'Non' };
     }), 'Travaux');
 
     addSheet(state.accounts.map(a=>({ Code:a.code, Libelle:a.label })), 'Plan comptable');
@@ -4359,7 +4488,7 @@ function renderDocView(id){
       </div>
       ${d.objet ? `<div class="p2-objet">
         <span class="tag">OBJET :</span>
-        <div class="txt">${d.objet}</div>
+        <div class="txt rt-out">${rich(d.objet)}</div>
       </div>` : ''}
       <div class="p2-section-title" style="background:${color}">1. D\u00c9SIGNATION DES PRESTATIONS</div>
       <table class="p2-table">
@@ -4389,7 +4518,7 @@ function renderDocView(id){
       </div>` : ''}
       ${d.infoComp && d.infoComp.trim() ? `<div class="p2-objet" style="margin-bottom:16px">
         <span class="tag">INFORMATIONS COMPL\u00c9MENTAIRES :</span>
-        <div class="txt" id="infocomp-text" style="white-space:pre-line">${d.infoComp}</div>
+        <div class="txt rt-out" id="infocomp-text">${rich(d.infoComp)}</div>
       </div>` : ''}
       <div class="p2-bottom-row">
         ${d.type==='facture' ? `<div class="p2-conditions">
