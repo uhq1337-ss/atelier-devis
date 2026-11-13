@@ -199,10 +199,11 @@
   .bilan-print-tables{display:flex;gap:1rem;align-items:stretch;}
   .bilan-print-col{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:.5rem .65rem .6rem;background:#fff;}
   .bilan-print-subhead{font-family:var(--font-display);font-size:12.5px;color:var(--ink);margin:0 0 .35rem;border-bottom:1px solid var(--line);padding-bottom:.25rem;}
-  .bilan-print-table{width:100%;font-size:9.5px;line-height:1.2;border-collapse:collapse;}
+  .bilan-print-table{width:100%;font-size:9.5px;line-height:1.2;border-collapse:collapse;table-layout:fixed;}
+  .bilan-print-col{display:flex;flex-direction:column;}
+  .bilan-print-total{margin-top:auto;padding-top:.3rem;}
   .bilan-print-table td, .bilan-print-table th{padding:.16rem .3rem;vertical-align:top;}
   .bilan-print-table td:not(:first-child), .bilan-print-table th:not(:first-child){white-space:nowrap;text-align:right;}
-  .bilan-print-table td:first-child, .bilan-print-table th:first-child{width:46%;}
   .bilan-print-footer{margin-top:.7rem;border-top:1px solid var(--line);padding-top:.35rem;font-size:9px;color:var(--muted);text-align:center;}
   /* Une fois générée, l'image figée remplace le tableau HTML/CSS « vivant » à l'écran :
      plus aucun texte n'est mis en page en direct par le navigateur à ce moment-là, ce qui
@@ -216,8 +217,18 @@
     .bilan-print-sheet{ padding:0; max-width:none; }
     /* L'en-t\u00ete (logo, titre, date) est fixe : si le contenu déborde sur une 2e page,
        il se réaffiche en haut de CHAQUE page imprimée, jamais une page « nue ». */
-    .bilan-print-header{ position:fixed; top:0; left:0; right:0; margin-bottom:0; }
-    .bilan-print-body{ padding-top:var(--bilan-header-h, 100px); }
+    /* Tout sur UNE page A4 : en-tête normal (non fixe), texte et espacements resserrés
+       (tailles de police réelles, sans zoom ni transform), jamais de coupure au milieu. */
+    .bilan-print-sheet{ break-inside:avoid; page-break-inside:avoid; }
+    .bilan-print-header{ position:static; margin-bottom:.4rem; padding-bottom:.35rem; min-height:0; }
+    .bilan-print-body{ padding-top:0; }
+    .bilan-print-tables{ gap:.6rem; }
+    .bilan-print-col{ padding:.3rem .4rem .35rem; break-inside:avoid; }
+    .bilan-print-subhead{ font-size:10.5px; margin-bottom:.2rem; padding-bottom:.15rem; }
+    .bilan-print-table{ font-size:8.6px; line-height:1.15; }
+    .bilan-print-table td, .bilan-print-table th{ padding:.07rem .2rem; }
+    .bilan-print-table td[colspan]{ padding-top:.3rem !important; }
+    .bilan-print-footer{ margin-top:.4rem; font-size:8px; }
     /* À l'impression : uniquement l'image (le tableau vivant reste hors-écran, il ne sert
        qu'à la capture html2canvas) — sauf en secours (.live-fallback) si la génération a
        échoué, où le tableau redevient le seul contenu à imprimer. */
@@ -4150,6 +4161,12 @@ function renderBilan(){
   const coBilan = state.companies.find(c=>c.id===state.selectedCompanyId) || state.companies[0] || {};
   const bilanDateDisplay = state.bilanDate || todayFr();
 
+  // Sépare la dernière ligne (TOTAL GÉNÉRAL) du reste pour l'aligner en bas des deux colonnes.
+  const splitTotal = h => { const i = h.lastIndexOf('<tr>'); return [h.slice(0,i), h.slice(i)]; };
+  const [actifBody, actifTotal] = splitTotal(actifRowsHtml);
+  const [passifBody, passifTotal] = splitTotal(passifRowsHtml);
+  const colsA = '<colgroup><col style="width:43%"><col style="width:19%"><col style="width:19%"><col style="width:19%"></colgroup>';
+  const colsP = '<colgroup><col style="width:70%"><col style="width:30%"></colgroup>';
   if(state.bilanPrintMode){
     return `
     <div class="row" style="margin-bottom:1.1rem;gap:.6rem">
@@ -4174,11 +4191,13 @@ function renderBilan(){
             <div class="bilan-print-tables">
               <div class="bilan-print-col">
                 <div class="bilan-print-subhead">Bilan actif</div>
-                <table class="bilan-print-table">${actifRowsHtml}</table>
+                <table class="bilan-print-table">${colsA}${actifBody}</table>
+                <div class="bilan-print-total"><table class="bilan-print-table">${colsA}${actifTotal}</table></div>
               </div>
               <div class="bilan-print-col">
                 <div class="bilan-print-subhead">Bilan passif</div>
-                <table class="bilan-print-table">${passifRowsHtml}</table>
+                <table class="bilan-print-table">${colsP}${passifBody}</table>
+                <div class="bilan-print-total"><table class="bilan-print-table">${colsP}${passifTotal}</table></div>
               </div>
             </div>
             ${ecartHtml}
