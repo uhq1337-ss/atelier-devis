@@ -461,6 +461,110 @@
     @keyframes wWord{ to{ transform:none; } }
   }
 
+  /* statuts, paiement, recherche, listes */
+  @media screen{
+    .statut-sel{ border-radius:20px; padding:.28rem 1.4rem .28rem .7rem; font-size:12px; font-weight:600; border:1px solid transparent; cursor:pointer; }
+    .statut-sel.st-brouillon{ background:#EEF0F5; color:#5B6075; }
+    .statut-sel.st-envoye{ background:var(--dash-violet-l); color:var(--dash-violet); }
+    .statut-sel.st-accepte{ background:#DDF6EC; color:#1E9E73; }
+    .statut-sel.st-refuse{ background:#FDE8E8; color:#C0392B; }
+    .pay-btn{ border-radius:20px; padding:.28rem .75rem; font-size:12px; font-weight:600; border:1px solid transparent; cursor:pointer; font-family:inherit; }
+    .pay-btn.due{ background:#FFF1D9; color:#B07400; }
+    .pay-btn.paid{ background:#DDF6EC; color:#1E9E73; }
+    .list-tools{ display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin-bottom:.9rem; }
+    .list-search{ width:100%; max-width:340px; padding:.6rem .85rem; }
+    .chip{ border:1px solid #DDE0EE; background:#fff; color:var(--dash-ink); border-radius:20px; padding:.35rem .85rem; font-size:12.5px; cursor:pointer; font-family:inherit; }
+    .chip.on{ background:var(--dash-violet); color:#fff; border-color:var(--dash-violet); }
+    .main > table th.sortable{ cursor:pointer; user-select:none; }
+    .main > table th.sortable:hover{ color:var(--dash-ink); }
+    .main .empty{ padding:2.6rem 1rem; font-size:14px; color:var(--dash-muted); }
+    td.empty::before{ content:''; display:block; width:46px; height:46px; margin:0 auto .8rem; border-radius:14px; background:#F0F1F8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A3A8C0' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 13l2.5-7h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z'/%3E%3Cpath d='M4 13h4l1 2h6l1-2h4'/%3E%3C/svg%3E") center/26px no-repeat; }
+    .delta{ font-size:11.5px; font-weight:700; margin-left:.35rem; }
+    .delta.up{ color:#1E9E73; } .delta.down{ color:#C0392B; }
+    .dash-todo{ grid-column:span 12; display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
+    .dash-todo .dash-row .pay-btn{ margin-left:.2rem; }
+    .ring-bg{ stroke:var(--dash-line); } .ring-txt{ fill:var(--dash-ink); }
+    .dash-chart svg line{ stroke:var(--dash-line); }
+    @media (max-width:900px){ .dash-todo{ grid-template-columns:1fr; gap:1rem; } }
+    .page-enter{ animation:pageIn .35s ease both; }
+    @keyframes pageIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+    @media (prefers-reduced-motion:reduce){ .page-enter{ animation:none; } }
+    .qs-btn{ display:flex; align-items:center; justify-content:space-between; width:calc(100% - 1.4rem); margin:0 .7rem .8rem; padding:.55rem .85rem; border-radius:8px; border:1px solid rgba(255,255,255,.22); background:rgba(255,255,255,.08); color:rgba(255,255,255,.85); font-size:13px; cursor:pointer; font-family:inherit; }
+    .qs-btn kbd{ font-family:inherit; font-size:11px; opacity:.7; }
+    #qs{ position:fixed; inset:0; z-index:9998; background:rgba(20,18,50,.45); display:flex; align-items:flex-start; justify-content:center; padding-top:14vh; }
+    #qs .qs-box{ width:min(560px,92vw); background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+    #qs input{ width:100%; border:none; border-bottom:1px solid #E6E8F0; border-radius:0; padding:1rem 1.2rem; font-size:16px; outline:none; background:transparent; color:#1E2140; }
+    #qs .qs-list{ max-height:50vh; overflow:auto; }
+    #qs .qs-item{ display:flex; justify-content:space-between; gap:1rem; padding:.7rem 1.2rem; cursor:pointer; font-size:14px; color:#1E2140; }
+    #qs .qs-item small{ color:#8A8FA8; white-space:nowrap; }
+    #qs .qs-item.on, #qs .qs-item:hover{ background:var(--dash-violet-l); }
+    #qs .qs-none{ padding:1rem 1.2rem; color:#8A8FA8; font-size:14px; }
+    .builder-grid{ display:block; }
+    .builder-preview{ display:none; }
+    @media (min-width:1500px){
+      .builder-grid{ display:grid; grid-template-columns:minmax(0,1fr) 440px; gap:1.5rem; align-items:start; }
+      .builder-preview{ display:block; position:sticky; top:1rem; }
+      .builder-preview .bp-scale{ zoom:.5; }
+      .builder-preview .paper-wrap{ padding:.5rem; }
+    }
+    .menu-toggle{ display:none; }
+    @media (max-width:860px){
+      .shell{ flex-direction:column; }
+      .sidebar{ width:100%; position:sticky; top:0; z-index:50; padding:.6rem 0; }
+      .sidebar .brand{ margin:0; padding:.2rem 1rem; border:none; }
+      .sidebar .nav-item, .sidebar .sidebar-footer, .sidebar .qs-btn{ display:none; }
+      .sidebar.open .nav-item{ display:flex; } .sidebar.open .sidebar-footer{ display:block; } .sidebar.open .qs-btn{ display:flex; margin-top:.6rem; }
+      .menu-toggle{ display:inline-flex; position:absolute; right:.8rem; top:.7rem; background:rgba(255,255,255,.14); color:#fff; border:none; border-radius:8px; padding:.45rem .8rem; font-size:13px; font-family:inherit; cursor:pointer; }
+      .main{ padding:1rem; }
+      .main > table{ display:block; overflow-x:auto; white-space:nowrap; }
+      .dash-actions{ width:100%; }
+      .co-pick-grid{ grid-template-columns:1fr; }
+    }
+  }
+  /* mode sombre : seuls le menu et les pages changent, les documents restent blancs */
+  @media screen{
+    html[data-mode="dark"], html[data-mode="dark"][data-co="baws"], html[data-mode="dark"][data-co="cvc"]{ --dash-bg:#12131A; --dash-ink:#ECEDF6; --dash-muted:#9AA0B8; --dash-line:#2A2D3B; --dash-violet-l:rgba(255,255,255,.09); }
+    html[data-mode="dark"][data-co="baws"]{ --dash-violet:#F0566B; --dash-side:#6B1523; }
+    html[data-mode="dark"][data-co="cvc"]{ --dash-violet:#6B9CF5; --dash-side:#14295C; }
+    html[data-mode="dark"]:not([data-co]), html[data-mode="dark"][data-co=""]{ --dash-violet:#8A7CFF; --dash-side:#1F1B5E; }
+    html[data-mode="dark"] body, html[data-mode="dark"] .shell{ background:var(--dash-bg); }
+    html[data-mode="dark"] .main{ --text:#E6E7F0; --muted:#9AA0B8; --line:#2A2D3B; --line-strong:#3B3F52; --card:#1A1C26; --paper:#14151D; color:var(--text); }
+    html[data-mode="dark"] .paper-wrap, html[data-mode="dark"] .bilan-print-sheet{ --text:#22262B; --muted:#6B6F76; --line:#E3E0D5; --line-strong:#C9C5B6; --card:#fff; --paper:#F7F5EF; }
+    html[data-mode="dark"] .main .card, html[data-mode="dark"] .dash-card, html[data-mode="dark"] .main > table, html[data-mode="dark"] .main .card table{ background:#1A1C26; border-color:#2A2D3B; }
+    html[data-mode="dark"] .main > table td, html[data-mode="dark"] .main .card table td{ border-bottom-color:#2A2D3B; }
+    html[data-mode="dark"] .main > table tr:hover td{ background:#20222E; }
+    html[data-mode="dark"] .main input, html[data-mode="dark"] .main select, html[data-mode="dark"] .main textarea{ background:#20222E; color:#E6E7F0; border-color:#3B3F52; }
+    html[data-mode="dark"] .main button.btn.secondary, html[data-mode="dark"] .chip{ background:#20222E; color:#D9DBEA; border-color:#3B3F52; }
+    html[data-mode="dark"] .chip.on{ background:var(--dash-violet); color:#fff; }
+    html[data-mode="dark"] .rte, html[data-mode="dark"] .rte-area{ background:#20222E; border-color:#3B3F52; color:#E6E7F0; }
+    html[data-mode="dark"] .rte-bar{ background:#1A1C26; border-color:#3B3F52; }
+    html[data-mode="dark"] .rte-btn{ color:#D9DBEA; }
+    html[data-mode="dark"] .client-dropdown, html[data-mode="dark"] .company-pill{ background:#20222E; border-color:#3B3F52; color:#E6E7F0; }
+    html[data-mode="dark"] .statut-sel.st-brouillon{ background:#2A2D3B; color:#B8BCD0; }
+    html[data-mode="dark"] .dash-row{ border-bottom-color:#2A2D3B; }
+    html[data-mode="dark"] td.empty::before{ background-color:#2A2D3B; }
+    html[data-mode="dark"] .landing, html[data-mode="dark"] .co-landing{ background:var(--dash-bg); }
+    html[data-mode="dark"] .co-pick{ background:#1A1C26; border-color:#2A2D3B; }
+    html[data-mode="dark"] .co-pick .co-logo{ background:#fff; border-radius:8px; padding:6px 10px; }
+    html[data-mode="dark"] #qs .qs-box{ background:#1A1C26; } html[data-mode="dark"] #qs input, html[data-mode="dark"] #qs .qs-item{ color:#E6E7F0; }
+    .mode-btn{ background:none; border:none; padding:0; color:rgba(255,255,255,.85); text-decoration:underline; cursor:pointer; font-size:12px; font-family:inherit; }
+  }
+
+  @media screen{
+    .nv-dot{ width:8px; height:8px; border-radius:50%; background:#FFD54A; margin-left:auto; animation:nvPulse 1.6s ease-out infinite; }
+    @keyframes nvPulse{ 0%{ box-shadow:0 0 0 0 rgba(255,213,74,.7); } 70%{ box-shadow:0 0 0 9px rgba(255,213,74,0); } 100%{ box-shadow:0 0 0 0 rgba(255,213,74,0); } }
+    .nav-item[data-tab="nouveautes"] svg{ animation:nvTwinkle 2.4s ease-in-out infinite; }
+    @keyframes nvTwinkle{ 0%,100%{ transform:scale(1) rotate(0); } 50%{ transform:scale(1.18) rotate(12deg); } }
+    .nv-list{ display:flex; flex-direction:column; gap:.8rem; max-width:760px; margin-top:1.2rem; }
+    .nv-item{ display:flex; gap:1rem; align-items:flex-start; background:#fff; border:1px solid var(--dash-line); border-radius:12px; padding:1rem 1.2rem; animation:nvIn .5s ease both; }
+    @keyframes nvIn{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:none; } }
+    .nv-ico{ flex:0 0 38px; height:38px; border-radius:10px; background:var(--dash-violet-l); color:var(--dash-violet); display:flex; align-items:center; justify-content:center; }
+    .nv-ico svg{ width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .nv-txt h3{ margin:0 0 .2rem; font-size:15px; font-weight:700; color:var(--dash-ink); }
+    .nv-txt p{ margin:0; font-size:13.5px; line-height:1.55; color:var(--dash-muted); }
+    html[data-mode="dark"] .nv-item{ background:#1A1C26; border-color:#2A2D3B; }
+    @media (prefers-reduced-motion:reduce){ .nv-dot, .nav-item[data-tab="nouveautes"] svg, .nv-item{ animation:none; } }
+  }
   .rte{border:1px solid var(--line-strong);border-radius:3px;background:#fff;}
   .rte:focus-within{outline:2px solid var(--ink-light);outline-offset:1px;}
   .rte-bar{display:flex;flex-wrap:wrap;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:var(--paper);border-radius:3px 3px 0 0;}
@@ -1011,6 +1115,166 @@ function showWelcome(){
   setTimeout(fermer, WELCOME_STYLE==='machine' ? 3000 : 2400);
 }
 
+
+// statuts d'un devis
+const STATUTS_DEVIS = [['brouillon','Brouillon'],['envoye','Envoyé'],['accepte','Accepté'],['refuse','Refusé']];
+function statutDe(d){ return d.statut || 'brouillon'; }
+// passe un devis en "Envoyé" (sans écraser accepté ou refusé)
+async function marquerEnvoye(d){
+  if(!d || d.type!=='devis') return;
+  if(statutDe(d)!=='brouillon') return;
+  d.statut = 'envoye'; d.statutDate = todayStr();
+  try{ await sset('documents', state.documents); }catch(e){ console.error(e); }
+}
+// reste à payer sur une facture
+function resteAPayer(d){
+  if(d.payee) return 0;
+  let t = 0;
+  try{ t = calcTotals(d).ttc - parseNum(d.montantPaye||0); }catch(e){}
+  return t > 0.005 ? t : 0;
+}
+// nombre de jours depuis une date jj/mm/aaaa
+function joursDepuis(s){
+  const d = dashDate(s);
+  return d ? Math.floor((Date.now() - d.getTime()) / 86400000) : 0;
+}
+// barre de recherche, filtres et tri au-dessus des tableaux des listes
+function addListSearch(){
+  if(state.viewingDoc || state.viewingCommande || state.viewingTravaux) return;
+  const tab = state.tab;
+  if(!['devis-liste','factures-liste','travaux-liste'].includes(tab)) return;
+  const table = document.querySelector('.main > table');
+  if(!table || document.getElementById('list-search')) return;
+  const chips = tab==='devis-liste' ? [['','Tous'],['brouillon','Brouillon'],['envoye','Envoyé'],['accepte','Accepté'],['refuse','Refusé']]
+    : tab==='factures-liste' ? [['','Toutes'],['due','À encaisser'],['paid','Payées']] : [];
+  let filtre = '';
+  const bar = document.createElement('div');
+  bar.className = 'list-tools';
+  bar.innerHTML = '<input type="search" id="list-search" class="list-search" placeholder="Rechercher un numéro, un client…">'
+    + chips.map(([k,l])=>'<button type="button" class="chip'+(k===''?' on':'')+'" data-f="'+k+'">'+l+'</button>').join('');
+  table.parentNode.insertBefore(bar, table);
+  const box = bar.querySelector('#list-search');
+  const lignes = ()=> [...table.rows].slice(1).filter(tr=>!tr.querySelector('.empty') && !tr.querySelector('td[colspan]'));
+  const appliquer = ()=>{
+    const q = box.value.trim().toLowerCase();
+    lignes().forEach(tr=>{
+      const okTxt = tr.innerText.toLowerCase().includes(q);
+      const okSt = !filtre || tr.dataset.st===filtre;
+      tr.style.display = (okTxt && okSt) ? '' : 'none';
+    });
+  };
+  box.oninput = appliquer;
+  bar.querySelectorAll('.chip').forEach(c=>{
+    c.onclick = ()=>{ filtre = c.dataset.f; bar.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on', x===c)); appliquer(); };
+  });
+  // tri en cliquant sur le titre d'une colonne
+  const entetes = [...table.rows[0].cells];
+  entetes.forEach((th,idx)=>{
+    if(!th.textContent.trim()) return;
+    th.classList.add('sortable');
+    th.onclick = ()=>{
+      const asc = th.dataset.dir !== 'asc';
+      entetes.forEach(x=>{ x.dataset.dir = ''; x.textContent = x.textContent.replace(/ [▲▼]$/,''); });
+      th.dataset.dir = asc ? 'asc' : 'desc';
+      th.textContent += asc ? ' ▲' : ' ▼';
+      const valeur = tr=>{
+        const cell = tr.cells[idx]; if(!cell) return { t:'', n:NaN, d:null };
+        const sel = cell.querySelector('select');
+        const t = (sel ? sel.selectedOptions[0].text : cell.innerText).trim();
+        const m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return { t, n: /^[\d\s.,€\-]+$/.test(t) ? parseFloat(t.replace(/\s/g,'').replace(',','.').replace(/[^0-9.\-]/g,'')) : NaN, d: m ? +(m[3]+m[2]+m[1]) : null };
+      };
+      const rows = lignes();
+      rows.sort((a,b)=>{
+        const A = valeur(a), B = valeur(b);
+        const r = (A.d!==null && B.d!==null) ? A.d-B.d : (!isNaN(A.n) && !isNaN(B.n)) ? A.n-B.n : A.t.localeCompare(B.t,'fr');
+        return asc ? r : -r;
+      });
+      const total = [...table.rows].find(tr=>tr.querySelector('td[colspan]') && !tr.querySelector('.empty'));
+      rows.forEach(tr=>tr.parentNode.insertBefore(tr, total || null));
+    };
+  });
+}
+// recherche rapide (Cmd+K)
+function openQuickSearch(){
+  if(document.getElementById('qs') || !document.querySelector('.shell')) return;
+  const items = [];
+  const nomClient = id => clientFullName((state.clients||[]).find(c=>c.id===id));
+  forCo((state.documents||[]).filter(d=>!d.deleted)).forEach(d=>{
+    items.push({ t: d.numero+' — '+nomClient(d.clientId), k: d.type==='facture' ? 'Facture' : 'Devis',
+      txt: (d.numero+' '+nomClient(d.clientId)+' '+stripRich(d.objet||'')).toLowerCase(),
+      go: ()=>{ state.tab = d.type==='facture' ? 'factures-liste' : 'devis-liste'; state.viewingDoc = d.id; } });
+  });
+  forCo((state.travaux||[]).filter(t=>!t.deleted)).forEach(t=>{
+    items.push({ t: t.numero+' — '+nomClient(t.clientId), k:'Travaux', txt:(t.numero+' '+nomClient(t.clientId)+' '+stripRich(t.objet||'')).toLowerCase(),
+      go: ()=>{ state.tab = 'travaux-liste'; state.viewingTravaux = t.id; } });
+  });
+  (state.commandes||[]).filter(c=>!c.deleted).forEach(c=>{
+    items.push({ t: c.numero+' — '+nomClient(c.clientId), k:'Commande', txt:(c.numero+' '+nomClient(c.clientId)).toLowerCase(),
+      go: ()=>{ state.tab = 'commandes'; state.viewingCommande = c.id; } });
+  });
+  (state.clients||[]).forEach(c=>{
+    items.push({ t: clientFullName(c), k:'Client', txt:(clientFullName(c)+' '+(c.ville||'')+' '+(c.cp||'')).toLowerCase(), go: ()=>{ state.tab = 'clients'; } });
+  });
+  const box = document.createElement('div');
+  box.id = 'qs';
+  box.innerHTML = '<div class="qs-box"><input type="text" placeholder="Rechercher un client, un devis, une facture…" autocomplete="off"><div class="qs-list"></div></div>';
+  document.body.appendChild(box);
+  const input = box.querySelector('input'), liste = box.querySelector('.qs-list');
+  let trouves = [], pos = 0;
+  const fermer = ()=> box.remove();
+  const aller = (it)=>{ fermer(); state.viewingDoc = null; state.viewingCommande = null; state.viewingTravaux = null; it.go(); render(); };
+  const afficher = ()=>{
+    const q = input.value.trim().toLowerCase();
+    trouves = (q ? items.filter(i=>i.txt.includes(q)) : items.slice(0,8)).slice(0,8);
+    pos = 0;
+    liste.innerHTML = trouves.length
+      ? trouves.map((i,n)=>'<div class="qs-item'+(n===0?' on':'')+'" data-n="'+n+'"><span>'+i.t.replace(/</g,'&lt;')+'</span><small>'+i.k+'</small></div>').join('')
+      : '<div class="qs-none">Aucun résultat</div>';
+    liste.querySelectorAll('.qs-item').forEach(el=>{ el.onclick = ()=> aller(trouves[+el.dataset.n]); });
+  };
+  input.oninput = afficher;
+  input.onkeydown = (e)=>{
+    if(e.key==='Escape'){ fermer(); return; }
+    if(e.key==='ArrowDown' || e.key==='ArrowUp'){
+      e.preventDefault();
+      pos = Math.max(0, Math.min(trouves.length-1, pos + (e.key==='ArrowDown' ? 1 : -1)));
+      liste.querySelectorAll('.qs-item').forEach((el,n)=>el.classList.toggle('on', n===pos));
+    }
+    if(e.key==='Enter' && trouves[pos]) aller(trouves[pos]);
+  };
+  box.onclick = (e)=>{ if(e.target===box) fermer(); };
+  afficher();
+  input.focus();
+}
+document.addEventListener('keydown', (e)=>{
+  if((e.metaKey || e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openQuickSearch(); }
+});
+// mode sombre
+function modeSombre(){ try{ return localStorage.getItem('mode')==='dark'; }catch(e){ return false; } }
+function appliquerMode(){ document.documentElement.setAttribute('data-mode', modeSombre() ? 'dark' : 'light'); }
+appliquerMode();
+// aperçu du devis pendant qu'on le remplit
+function previewDevisHtml(b){
+  try{
+    const doc = Object.assign(JSON.parse(JSON.stringify(b)), { id:'__apercu', type:'devis', numero:'Aperçu', date: b.date || todayStr(), auteur: state.currentUser });
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderDocView('__apercu', doc);
+    const pw = tmp.querySelector('.paper-wrap');
+    return pw ? pw.outerHTML : '';
+  }catch(e){ console.error('Aperçu :', e); return ''; }
+}
+let apercuTimer = null;
+function majApercu(){
+  if(!document.getElementById('live-preview')) return;
+  clearTimeout(apercuTimer);
+  apercuTimer = setTimeout(()=>{
+    const el = document.getElementById('live-preview');
+    if(el) el.innerHTML = previewDevisHtml(state.builder);
+  }, 300);
+}
+['input','change','click'].forEach(ev=>document.addEventListener(ev, majApercu));
+
 // l'entreprise choisie au début
 function activeCo(){ return (state.companies||[]).find(c=>c.id===state.activeCompanyId) || null; }
 // garde seulement les documents de l'entreprise choisie
@@ -1058,9 +1322,43 @@ function bindCompanyPicker(){
   const su = document.getElementById('co-switch-user'); if(su) su.onclick = ()=>{ state.currentUser = null; render(); };
 }
 
+// page Nouveautés
+const NOUVEAUTES_VERSION = '2026-11';
+function nouveautesVues(){ try{ return localStorage.getItem('nouveautesVu')===NOUVEAUTES_VERSION; }catch(e){ return true; } }
+const NOUVEAUTES = [
+  ['dashboard','Un tableau de bord dès l\'ouverture','Le chiffre d\'affaires, les devis à relancer et les factures à encaisser sont en haut de la page d\'accueil.'],
+  ['entreprise','BAWS ou CVC MÉTHODES','On choisit l\'entreprise après la connexion. Les devis, les factures et les chiffres sont séparés, et les couleurs changent : rouge pour BAWS, bleu pour CVC.'],
+  ['devis-liste','Un statut sur chaque devis','Brouillon, envoyé, accepté ou refusé. Il se change dans la liste des devis, et il passe tout seul à « envoyé » après un envoi par mail.'],
+  ['factures-liste','Les factures payées','Un bouton « à encaisser / payée » dans la liste des factures. Le total qu\'il reste à encaisser s\'affiche sur la page d\'accueil.'],
+  ['nouveau','Gras, souligné, surligné','Une petite barre au-dessus des textes d\'un devis pour mettre un mot en gras, le souligner ou le surligner.'],
+  ['brouillons','Un aperçu du devis en direct','Sur un grand écran, le devis s\'affiche à droite et se met à jour pendant qu\'on le remplit.'],
+  ['compta','Un objectif pour l\'année','Sur la page d\'accueil, une jauge montre où on en est. Le montant se règle avec « Définir un objectif ».'],
+  ['clients','Une recherche rapide','Cmd+K (ou Ctrl+K), ou le bouton « Rechercher » du menu : deux lettres suffisent pour retrouver un client, un devis ou une facture.'],
+  ['corbeille','Des listes plus simples','Une barre de recherche, des boutons pour filtrer et un clic sur le titre d\'une colonne pour trier.'],
+  ['sauvegarde','Mode sombre et téléphone','Le mode sombre se trouve en bas du menu. Sur téléphone, le menu se replie derrière le bouton « Menu ».'],
+];
+function renderNouveautes(){
+  return `
+  <h1 class="page-title">Nouveautés</h1>
+  <div class="nv-list">
+    ${NOUVEAUTES.map(([ic,titre,texte],i)=>`
+    <div class="nv-item" style="animation-delay:${i*0.07}s">
+      <span class="nv-ico">${navIcon(ic)}</span>
+      <div class="nv-txt"><h3>${titre}</h3><p>${texte}</p></div>
+    </div>`).join('')}
+  </div>`;
+}
+// quand on ouvre la page, le point « nouveau » du menu disparaît
+function bindNouveautes(){
+  try{ localStorage.setItem('nouveautesVu', NOUVEAUTES_VERSION); }catch(e){}
+  const dot = document.querySelector('[data-tab="nouveautes"] .nv-dot');
+  if(dot) dot.remove();
+}
+
 // petites icônes du menu
 function navIcon(k){
   const P = {
+    nouveautes:'<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/>',
     dashboard:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
     clients:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c1.8.8 3 2.6 3 5.6"/>',
     articles:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
@@ -1116,7 +1414,14 @@ function dashStats(){
   });
   const top = Object.entries(parClient).map(([id,v])=>({ nom: clientFullName((state.clients||[]).find(c=>c.id===id)) || '(client supprimé)', v })).sort((a,b)=>b.v-a.v).slice(0,5);
   const recents = devis.concat(facts).map(d=>({ d, dt: dashDate(d.date) })).sort((a,b)=> (b.dt||0)-(a.dt||0)).slice(0,6);
-  return { y, m, nbDevis: devis.length, nbFactures: facts.length, devisHT: devis.reduce((s,d)=>s+ht(d),0), travHT: trav.reduce((s,t)=>s+calcTotalsTravaux(t).ht,0), nbTrav: trav.length, cur, prev, caAnnee, caMois, top, recents, prevTotal: prev.reduce((a,b)=>a+b,0), evo: prev.reduce((a,b)=>a+b,0) > 0 ? Math.round((caAnnee/prev.reduce((a,b)=>a+b,0)-1)*100) : null, nbCmd: (state.commandes||[]).filter(c=>!c.deleted).length };
+  const caMoisPrec = m>0 ? cur[m-1] : prev[11];
+  const relances = devis.filter(d=>statutDe(d)==='envoye' && joursDepuis(d.statutDate||d.date)>=10)
+    .map(d=>({ d, jours: joursDepuis(d.statutDate||d.date) })).sort((a,b)=>b.jours-a.jours);
+  const encaisser = facts.map(d=>({ d, reste: resteAPayer(d) })).filter(x=>x.reste>0)
+    .sort((a,b)=>(dashDate(a.d.date)||0)-(dashDate(b.d.date)||0));
+  const co = activeCo();
+  const objectif = co && co.objectif ? Number(co.objectif) : 0;
+  return { caMoisPrec, relances, encaisser, resteTotal: encaisser.reduce((t,x)=>t+x.reste,0), objectif, y, m, nbDevis: devis.length, nbFactures: facts.length, devisHT: devis.reduce((s,d)=>s+ht(d),0), travHT: trav.reduce((s,t)=>s+calcTotalsTravaux(t).ht,0), nbTrav: trav.length, cur, prev, caAnnee, caMois, top, recents, prevTotal: prev.reduce((a,b)=>a+b,0), evo: prev.reduce((a,b)=>a+b,0) > 0 ? Math.round((caAnnee/prev.reduce((a,b)=>a+b,0)-1)*100) : null, nbCmd: (state.commandes||[]).filter(c=>!c.deleted).length };
 }
 // dessine le graphique
 function dashChartSvg(cur, prev){
@@ -1147,7 +1452,15 @@ function renderDashboard(){
 function renderDashboardInner(){
   const st = dashStats();
   const mois = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-  const R = 56, C = 2*Math.PI*R, fill = st.evo===null ? 0 : Math.max(0, Math.min(100, 100+st.evo)) , off = C*(1-fill/100);
+  const R = 56, C = 2*Math.PI*R;
+  const pct = st.objectif ? Math.round(st.caAnnee / st.objectif * 100) : 0;
+  const off = C*(1-Math.min(100,pct)/100);
+  // petite flèche : ce mois comparé au mois dernier
+  let fleche = '';
+  if(st.caMoisPrec > 0){
+    const v = Math.round((st.caMois/st.caMoisPrec - 1)*100);
+    fleche = `<span class="delta ${v>=0?'up':'down'}">${v>=0?'▲':'▼'} ${Math.abs(v)} %</span>`;
+  }
   const ico = (k)=> navIcon(k);
   return `
   <div class="dash-head">
@@ -1161,10 +1474,21 @@ function renderDashboardInner(){
     </div>
   </div>
   <div class="dash-grid">
-    <div class="dash-card dash-kpi"><div class="lbl"><span class="ico">${ico('factures-liste')}</span>CA facturé ${st.y} (HT)</div><div class="val">${eur(st.caAnnee)}</div><div class="meta">Ce mois : ${eur(st.caMois)}</div></div>
+    <div class="dash-card dash-kpi"><div class="lbl"><span class="ico">${ico('factures-liste')}</span>CA facturé ${st.y} (HT)</div><div class="val">${eur(st.caAnnee)}</div><div class="meta">Ce mois : ${eur(st.caMois)} ${fleche}</div></div>
     <div class="dash-card dash-kpi o"><div class="lbl"><span class="ico">${ico('devis-liste')}</span>Devis</div><div class="val">${st.nbDevis}</div><div class="meta">${eur(st.devisHT)} HT</div></div>
     <div class="dash-card dash-kpi g"><div class="lbl"><span class="ico">${ico('factures-liste')}</span>Factures</div><div class="val">${st.nbFactures}</div></div>
     <div class="dash-card dash-kpi b"><div class="lbl"><span class="ico">${ico('travaux-liste')}</span>Devis travaux</div><div class="val">${st.nbTrav}</div><div class="meta">${eur(st.travHT)} HT</div></div>
+
+    <div class="dash-card dash-todo">
+      <div>
+        <h3>Devis à relancer</h3>
+        ${st.relances.length ? st.relances.slice(0,5).map(({d,jours})=>{ const c=(state.clients||[]).find(c=>c.id===d.clientId); let t=0; try{ t=calcTotals(d).ttc; }catch(e){} return `<div class="dash-row" data-dash-open="${d.id}"><span class="t">${d.numero} — ${c?clientFullName(c):''}</span><span class="n" style="width:auto">${jours} j</span><span class="v">${eur(t)}</span></div>`; }).join('') : '<div class="dash-empty">Aucun</div>'}
+      </div>
+      <div>
+        <h3>Factures à encaisser${st.resteTotal ? ' · '+eur(st.resteTotal) : ''}</h3>
+        ${st.encaisser.length ? st.encaisser.slice(0,5).map(({d,reste})=>{ const c=(state.clients||[]).find(c=>c.id===d.clientId); return `<div class="dash-row" data-dash-open="${d.id}"><span class="t">${d.numero} — ${c?clientFullName(c):''}</span><span class="v">${eur(reste)}</span><button class="pay-btn due" data-dash-pay="${d.id}" title="Marquer comme payée">Payée ?</button></div>`; }).join('') : '<div class="dash-empty">Aucune</div>'}
+      </div>
+    </div>
 
     <div class="dash-card dash-chart">
       <h3>Chiffre d'affaires</h3>
@@ -1172,13 +1496,14 @@ function renderDashboardInner(){
       ${dashChartSvg(st.cur, st.prev)}
     </div>
     <div class="dash-card dash-ring">
-      <h3 style="align-self:flex-start">Évolution</h3>
+      <h3 style="align-self:flex-start">Objectif ${st.y}</h3>
       <svg viewBox="0 0 140 140" width="170" height="170" style="margin:.4rem 0">
-        <circle cx="70" cy="70" r="${R}" fill="none" stroke="#ECEDF5" stroke-width="8"/>
+        <circle cx="70" cy="70" r="${R}" fill="none" class="ring-bg" stroke-width="8"/>
         <circle cx="70" cy="70" r="${R}" fill="none" style="stroke:var(--dash-violet)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 70 70)"/>
-        <text x="70" y="77" text-anchor="middle" font-size="${st.evo===null?24:26}" font-weight="800" fill="#1E2140">${st.evo===null ? '—' : (st.evo>0?'+':'')+st.evo+'%'}</text>
+        <text x="70" y="77" text-anchor="middle" font-size="26" font-weight="800" class="ring-txt">${st.objectif ? pct+'%' : '—'}</text>
       </svg>
-      <div class="meta" style="font-size:12px;color:var(--dash-muted)">${st.evo===null ? '' : eur(st.caAnnee)+' / '+eur(st.prevTotal)}</div>
+      <div class="meta" style="font-size:12px;color:var(--dash-muted)">${st.objectif ? eur(st.caAnnee)+' / '+eur(st.objectif) : ''}</div>
+      <button class="btn secondary small" data-dash-obj style="margin-top:.7rem">${st.objectif ? 'Modifier' : 'Définir un objectif'}</button>
     </div>
 
     <div class="dash-card dash-list"><h3>Meilleurs clients</h3>
@@ -1196,6 +1521,26 @@ function renderDashboardInner(){
   </div>`;
 }
 function bindDashboard(){
+  document.querySelectorAll('[data-dash-pay]').forEach(b=>{
+    b.onclick = async (e)=>{
+      e.stopPropagation();
+      const d = state.documents.find(x=>x.id===b.dataset.dashPay);
+      if(!d) return;
+      d.payee = true;
+      await sset('documents', state.documents);
+      render();
+    };
+  });
+  const obj = document.querySelector('[data-dash-obj]');
+  if(obj) obj.onclick = async ()=>{
+    const co = activeCo(); if(!co) return;
+    const v = prompt("Objectif de chiffre d'affaires HT pour l'année (en €). Laisse vide pour l'enlever.", co.objectif || '');
+    if(v===null) return;
+    const n = parseNum(v);
+    co.objectif = n > 0 ? n : 0;
+    await sset('companies', state.companies);
+    render();
+  };
   document.querySelectorAll('[data-dash-go]').forEach(b=>{ b.onclick = ()=>{ state.tab = b.dataset.dashGo; render(); }; });
   document.querySelectorAll('[data-dash-open]').forEach(b=>{ b.onclick = ()=>{ state.viewingDoc = b.dataset.dashOpen; render(); }; });
 }
@@ -1266,6 +1611,9 @@ function render(){
   app.innerHTML = renderShell();
   bindShell();
   restoreFocus(focusInfo);
+  const main = document.querySelector('.main');
+  const cle = state.tab+'|'+(state.viewingDoc||state.viewingCommande||state.viewingTravaux||'');
+  if(main && window.__pageKey!==cle){ main.classList.add('page-enter'); window.__pageKey = cle; }
 }
 
 function renderLogin(){
@@ -1368,6 +1716,7 @@ function bindLanding(){
 function renderShell(){
   const draftCount = countActiveDrafts();
   const tabs = [
+    ['nouveautes','Nouveautés'],
     ['dashboard','Tableau de bord'],
     ['clients','Clients'],
     ['articles','Articles'],
@@ -1386,10 +1735,13 @@ function renderShell(){
   <div class="shell">
     <div class="sidebar">
       <div class="brand">Dashboard Devis<small>${activeCo() ? activeCo().name : 'Espace \u00e9quipe'}</small></div>
-      ${tabs.map(([k,l])=>`<button class="nav-item ${state.tab===k?'active':''}" data-tab="${k}">${navIcon(k)}<span>${l}</span></button>`).join('')}
+      <button class="menu-toggle" id="menu-toggle">Menu</button>
+      <button class="qs-btn" id="qs-open"><span>Rechercher</span><kbd>\u2318K</kbd></button>
+      ${tabs.map(([k,l])=>`<button class="nav-item ${state.tab===k?'active':''}" data-tab="${k}">${navIcon(k)}<span>${l}</span>${k==='nouveautes' && !nouveautesVues() ? '<i class="nv-dot"></i>' : ''}</button>`).join('')}
       <div class="sidebar-footer">
         Connect\u00e9 en tant que <strong style="color:#fff">${state.currentUser}</strong><br>
         <button id="switch-co">Changer d'entreprise</button><br>
+        <button class="mode-btn" id="mode-btn">${modeSombre() ? 'Mode clair' : 'Mode sombre'}</button><br>
         <button id="switch-user">Changer d'utilisateur</button>
         <br><button id="logout-btn" style="margin-top:.4rem">Se d\u00e9connecter</button>
       </div>
@@ -1430,6 +1782,10 @@ function bindShell(){
     };
   });
   document.getElementById('switch-user').onclick = ()=>{ state.currentUser=null; render(); };
+  const qsOpen = document.getElementById('qs-open'); if(qsOpen) qsOpen.onclick = openQuickSearch;
+  const menuT = document.getElementById('menu-toggle'); if(menuT) menuT.onclick = ()=>document.querySelector('.sidebar').classList.toggle('open');
+  const modeB = document.getElementById('mode-btn');
+  if(modeB) modeB.onclick = ()=>{ try{ localStorage.setItem('mode', modeSombre() ? 'light' : 'dark'); }catch(e){} appliquerMode(); render(); };
   const swCo = document.getElementById('switch-co');
   if(swCo) swCo.onclick = ()=>{ state.activeCompanyId = null; try{ sessionStorage.removeItem('activeCo'); }catch(e){} state.viewingDoc=null; state.viewingCommande=null; state.viewingTravaux=null; render(); };
   const logoutBtn = document.getElementById('logout-btn');
@@ -1446,6 +1802,7 @@ function renderTab(){
   if(state.viewingDoc) return renderDocView(state.viewingDoc);
   if(state.viewingCommande) return renderCommandeView(state.viewingCommande);
   if(state.viewingTravaux) return renderTravauxView(state.viewingTravaux);
+  if(state.tab==='nouveautes') return renderNouveautes();
   if(state.tab==='dashboard') return renderDashboard();
   if(state.tab==='clients') return renderClients();
   if(state.tab==='articles') return renderArticles();
@@ -1463,9 +1820,11 @@ function renderTab(){
   return '';
 }
 function bindTab(){
+  addListSearch();
   if(state.viewingDoc){ bindDocView(); return; }
   if(state.viewingCommande){ bindCommandeView(); return; }
   if(state.viewingTravaux){ bindTravauxView(); return; }
+  if(state.tab==='nouveautes') return bindNouveautes();
   if(state.tab==='dashboard') return bindDashboard();
   if(state.tab==='clients') return bindClients();
   if(state.tab==='articles') return bindArticles();
@@ -1850,6 +2209,9 @@ function calcTotals(b){
   return {htBrut, remiseType, remiseValeur, remise, ht, tva, ttc, eco};
 }
 function renderBuilder(){
+  return `<div class="builder-grid"><div class="builder-form">${renderBuilderForm()}</div><aside class="builder-preview"><div class="bp-scale" id="live-preview">${previewDevisHtml(state.builder)}</div></aside></div>`;
+}
+function renderBuilderForm(){
   const b = state.builder;
   const t = calcTotals(b);
   if(state.activeCompanyId && !b.editingDocId && !b.editingId) b.companyId = state.activeCompanyId;
@@ -2177,17 +2539,16 @@ function renderDevisListe(){
   <h1 class="page-title">Devis</h1>
   <p class="page-sub">Tous les devis cr\u00e9\u00e9s par l'\u00e9quipe.</p>
   <table>
-    <tr><th>N\u00b0</th><th>Entreprise</th><th>Client</th><th>Date</th><th>Total TTC</th><th>Auteur</th><th></th></tr>
+    <tr><th>N\u00b0</th><th>Client</th><th>Date</th><th>Total TTC</th><th>Statut</th><th>Auteur</th><th></th></tr>
     ${docs.length ? docs.map(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
-      const co = state.companies.find(co=>co.id===d.companyId);
       const t = calcTotals(d);
-      return `<tr>
+      return `<tr data-st="${statutDe(d)}">
         <td class="num">${d.numero}</td>
-        <td>${co? co.name : ''}</td>
         <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
         <td>${d.date}</td>
         <td class="num">${eur(t.ttc)}</td>
+        <td><select class="statut-sel st-${statutDe(d)}" data-statut="${d.id}">${STATUTS_DEVIS.map(([k,l])=>`<option value="${k}" ${statutDe(d)===k?'selected':''}>${l}</option>`).join('')}</select></td>
         <td>${d.auteur}</td>
         <td style="white-space:nowrap">
           <button class="btn secondary small" data-view="${d.id}">Voir</button>
@@ -2325,17 +2686,16 @@ function renderFacturesListe(){
   <h1 class="page-title">Factures</h1>
   <p class="page-sub">Toutes les factures \u00e9mises par l'\u00e9quipe.</p>
   <table>
-    <tr><th>N\u00b0</th><th>Entreprise</th><th>Client</th><th>Date</th><th>Total TTC</th><th>Auteur</th><th></th></tr>
+    <tr><th>N\u00b0</th><th>Client</th><th>Date</th><th>Total TTC</th><th>Paiement</th><th>Auteur</th><th></th></tr>
     ${docs.length ? docs.map(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
-      const co = state.companies.find(co=>co.id===d.companyId);
       const t = calcTotals(d);
-      return `<tr>
+      return `<tr data-st="${resteAPayer(d)?'due':'paid'}">
         <td class="num">${d.numero}</td>
-        <td>${co? co.name : ''}</td>
         <td>${c? clientFullName(c) : '(client supprim\u00e9)'}</td>
         <td>${d.date}</td>
         <td class="num">${eur(t.ttc)}</td>
+        <td>${resteAPayer(d) ? `<button class="pay-btn due" data-pay="${d.id}" title="Marquer comme payée">À encaisser</button>` : `<button class="pay-btn paid" data-pay="${d.id}" title="Remettre à encaisser">Payée</button>`}</td>
         <td>${d.auteur}</td>
         <td style="white-space:nowrap">
           <button class="btn secondary small" data-view="${d.id}">Voir</button>
@@ -2343,10 +2703,19 @@ function renderFacturesListe(){
         </td>
       </tr>`;
     }).join('') : `<tr><td colspan="7" class="empty">Aucune facture pour l'instant.</td></tr>`}
-    ${docs.length ? `<tr><td colspan="4" style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totTTC)}</td><td colspan="2"></td></tr>` : ''}
+    ${docs.length ? `<tr><td colspan="3" style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totTTC)}</td><td colspan="3"></td></tr>` : ''}
   </table>`;
 }
 function bindDevisListe(){
+  document.querySelectorAll('[data-statut]').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const d = state.documents.find(x=>x.id===sel.dataset.statut);
+      if(!d) return;
+      d.statut = sel.value; d.statutDate = todayStr();
+      await sset('documents', state.documents);
+      render();
+    };
+  });
   document.querySelectorAll('[data-view]').forEach(b=>{
     b.onclick = ()=>{ state.viewingDoc = b.dataset.view; render(); };
   });
@@ -2368,7 +2737,6 @@ function bindDevisListe(){
     const docs = forCo(state.documents.filter(d=>d.type==='devis' && !d.deleted)).reverse();
     const rows = docs.map(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
-      const co = state.companies.find(co=>co.id===d.companyId);
       const idx = c ? state.clients.indexOf(c)+1 : '';
       const t = calcTotals(d);
       return {
@@ -2428,6 +2796,15 @@ function bindDevisListe(){
   };
 }
 function bindFacturesListe(){
+  document.querySelectorAll('[data-pay]').forEach(b=>{
+    b.onclick = async ()=>{
+      const d = state.documents.find(x=>x.id===b.dataset.pay);
+      if(!d) return;
+      d.payee = !d.payee;
+      await sset('documents', state.documents);
+      render();
+    };
+  });
   document.querySelectorAll('[data-view]').forEach(b=>{
     b.onclick = ()=>{ state.viewingDoc = b.dataset.view; render(); };
   });
@@ -4714,8 +5091,8 @@ function renderBilan(){
 }
 
 
-function renderDocView(id){
-  const d = state.documents.find(x=>x.id===id);
+function renderDocView(id, override){
+  const d = override || state.documents.find(x=>x.id===id);
   if(!d) return `<p class="empty">Document introuvable.</p>`;
   const c = state.clients.find(c=>c.id===d.clientId);
   const co = state.companies.find(co=>co.id===d.companyId) || state.companies[0] || {};
@@ -5100,6 +5477,7 @@ function bindDocView(){
           btn.disabled = false;
           btn.textContent = original;
           await navigator.share({ files:[file], title: subject, text: body });
+          await marquerEnvoye(d);
           return;
         }
       }
@@ -5112,6 +5490,7 @@ function bindDocView(){
 
     showToast("Ton navigateur ne permet pas la pi\u00e8ce jointe automatique ici \u2014 le PDF va se t\u00e9l\u00e9charger, joins-le \u00e0 l'email qui s'ouvre juste apr\u00e8s");
     await downloadDocAsPdf(filename);
+    await marquerEnvoye(d);
     const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     let mailAppOpened = false;
     const onBlur = ()=>{ mailAppOpened = true; };
@@ -5199,7 +5578,9 @@ function bindDocView(){
   if(tfb) tfb.onclick = async ()=>{
     const d = state.documents.find(x=>x.id===state.viewingDoc);
     const numero = nextNumero('facture');
+    d.statut = 'accepte'; d.statutDate = todayStr();
     const facture = Object.assign(JSON.parse(JSON.stringify(d)), { id: uid(), type:'facture', numero, date: todayStr(), parentDevisId: d.id });
+    delete facture.statut; delete facture.statutDate;
     await pushAndSave('documents', facture);
     await sset('counters', state.counters);
     showToast('Facture ' + numero + ' cr\u00e9\u00e9e');
@@ -5221,6 +5602,8 @@ function bindDocView(){
       auteur: state.currentUser,
       commentaire: `Il est joignable au ${client && client.tel ? client.tel : '[num\u00e9ro de t\u00e9l\u00e9phone]'} pour d\u00e9finir l'horaire de livraison.`,
     };
+    d.statut = 'accepte'; d.statutDate = todayStr();
+    await sset('documents', state.documents);
     await pushAndSave('commandes', commande);
     await sset('counters', state.counters);
     showToast('Commande Toshiba ' + numero + ' cr\u00e9\u00e9e');
