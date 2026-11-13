@@ -145,7 +145,6 @@
   .p2-tagline .s{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin-top:4px;opacity:.9;}
   .p2-legal-footer{text-align:center;font-size:9.5px;color:var(--muted);line-height:1.6;padding:10px 20px;border-top:1px solid var(--line);}
 
-  /* Devis travaux — mise en page sobre type "devis estimatif" papier, sans bandeau coloré */
   .paper2.travaux-doc{font-size:13px;}
   .paper2.travaux-doc .tv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:30px 32px 18px;}
   .paper2.travaux-doc .tv-logo-img{max-height:70px;max-width:220px;object-fit:contain;margin-bottom:8px;}
@@ -192,10 +191,6 @@
   .bilan-print-titleblock{text-align:right;}
   .bilan-print-title{font-family:var(--font-display);font-size:19px;color:var(--ink);}
   .bilan-print-date{font-size:11px;color:var(--muted);margin-top:.1rem;}
-  /* Ni `transform:scale()` ni `zoom` ne sont utilisés ici : les deux ont provoqué un
-     chevauchement de texte chez des utilisateurs réels (Chromium/WebKit pour l'un,
-     Firefox pour l'autre). #bilan-scale-inner n'a donc plus aucune règle de mise à
-     l'échelle — le contenu s'affiche toujours à taille réelle. */
   .bilan-print-tables{display:flex;gap:1rem;align-items:stretch;}
   .bilan-print-col{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:.5rem .65rem .6rem;background:#fff;}
   .bilan-print-subhead{font-family:var(--font-display);font-size:12.5px;color:var(--ink);margin:0 0 .35rem;border-bottom:1px solid var(--line);padding-bottom:.25rem;}
@@ -206,28 +201,14 @@
   .bilan-print-table td, .bilan-print-table th{padding:.16rem .3rem;vertical-align:top;}
   .bilan-print-table td:not(:first-child), .bilan-print-table th:not(:first-child){white-space:nowrap;text-align:right;}
   .bilan-print-footer{margin-top:.7rem;border-top:1px solid var(--line);padding-top:.35rem;font-size:9px;color:var(--muted);text-align:center;}
-  /* Une fois générée, l'image figée remplace le tableau HTML/CSS « vivant » à l'écran :
-     plus aucun texte n'est mis en page en direct par le navigateur à ce moment-là, ce qui
-     évite tout bug de rendu (espacement, chevauchement) propre à certains navigateurs. */
-  #bilan-render-img{display:none;width:100%;max-width:1000px;margin:0 auto;background:#fff;border-radius:8px;}
   @media print{
-    /* Page dédiée avec marges (contrairement à la règle @page globale en margin:0) :
-       on retrouve l'espace nécessaire pour un document propre à envoyer à la banque. */
     .bilan-print-sheet{ padding:0; max-width:none; }
-    /* L'en-t\u00ete (logo, titre, date) est fixe : si le contenu déborde sur une 2e page,
-       il se réaffiche en haut de CHAQUE page imprimée, jamais une page « nue ». */
-    /* Tout sur UNE page A4 : en-tête normal (non fixe), texte et espacements resserrés
-       (tailles de police réelles, sans zoom ni transform), jamais de coupure au milieu. */
-    /* Feuille = exactement une page A4 (marge d'impression 0, marges internes à la feuille) :
-       le Bilan remplit toute la page, et il n'y a plus de 2e page ni d'en-têtes/pieds du navigateur. */
     body.bilan-printing{ height:0 !important; overflow:hidden !important; }
     body.bilan-printing #print-area{ position:fixed !important; top:0; left:0; right:0; bottom:0; width:auto !important; height:auto !important; }
     .bilan-print-sheet{ box-sizing:border-box; width:100%; height:100%; padding:12mm 11mm 10mm !important; margin:0 !important; display:flex; flex-direction:column; overflow:hidden; break-inside:avoid; page-break-inside:avoid; }
     .bilan-print-body{ flex:1; display:flex; flex-direction:column; min-height:0; }
     #bilan-scale-inner{ flex:1; display:flex; flex-direction:column; min-height:0; }
     .bilan-print-tables{ flex:1; min-height:0; }
-    /* Le tableau s'étire pour remplir la colonne ; le passif (plus court) a un texte un peu plus grand
-       pour que l'écart reste léger et que les deux colonnes se ressemblent. */
     .bilan-print-col > .bilan-print-table{ flex:1 1 auto; }
     .bilan-print-col:nth-child(2) > .bilan-print-table{ font-size:9.6px; line-height:1.3; }
     .bilan-print-col:nth-child(2) > .bilan-print-table td, .bilan-print-col:nth-child(2) > .bilan-print-table th{ padding:.17rem .2rem; }
@@ -240,11 +221,6 @@
     .bilan-print-table td, .bilan-print-table th{ padding:.07rem .2rem; }
     .bilan-print-table td[colspan]{ padding-top:.3rem !important; }
     .bilan-print-footer{ margin-top:.4rem; font-size:8px; }
-    /* À l'impression : uniquement l'image (le tableau vivant reste hors-écran, il ne sert
-       qu'à la capture html2canvas) — sauf en secours (.live-fallback) si la génération a
-       échoué, où le tableau redevient le seul contenu à imprimer. */
-    #bilan-live-sheet:not(.live-fallback){ display:none !important; }
-    #bilan-render-img{ max-width:none; }
   }
   @media print{
     .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
@@ -253,10 +229,6 @@
     @page devis-print-page{ size:A4; margin:14mm; }
     .paper2.multi-page{ page:devis-print-page; }
     .paper2.multi-page .p2-body{ padding:0; }
-    /* transform:scale() est purement visuel et n'est pas pris en compte par la pagination
-       d'impression : le navigateur continue de compter le nombre de pages comme si le
-       contenu n'\u00e9tait pas r\u00e9duit, ce qui donnait des impressions sur 5-6 pages vides.
-       zoom, lui, modifie vraiment la mise en page, donc la pagination le prend en compte. */
     .paper2:not(.multi-page) #p2-scale-inner{
       transform:none !important;
       width:100% !important;
@@ -298,8 +270,6 @@
     .p2-tagline .s{font-size:9px;}
     .p2-legal-footer{padding:6px 20px;font-size:8.5px;}
     tr{break-inside:avoid;page-break-inside:avoid;}
-    /* Le reste de l'appli (menu, fond beige, hauteur 100vh) restait « invisible » mais gardait
-       sa place : il fabriquait une 2e page vide et imprimait le fond beige. On le retire du flux. */
     html, body{ background:#fff !important; height:auto !important; min-height:0 !important; }
     .shell{ display:block !important; min-height:0 !important; height:auto !important; }
     .sidebar{ display:none !important; }
@@ -315,7 +285,6 @@
   }
 
 
-  /* ===== Nouvelle D.A « dashboard » — écran uniquement (documents et impressions inchangés) ===== */
   @media screen{
     :root{ --dash-violet:#5B47FB; --dash-violet-d:#4A38E6; --dash-violet-l:#EEEBFF; --dash-bg:#F2F4FA; --dash-ink:#1E2140; --dash-muted:#8A8FA8; --dash-line:#E8EAF4; --dash-green:#2FBF8F; --dash-orange:#F5A524; --dash-shadow:0 8px 28px rgba(70,60,180,.07); }
     body{ background:var(--dash-bg); }
@@ -395,7 +364,6 @@
   }
 
 
-  /* ===== Affinage : look sobre « entreprise » (à plat, sans dégradés ni halos) ===== */
   @media screen{
     :root{ --dash-violet:#3F33C4; --dash-violet-d:#32289F; --dash-violet-l:#EEEDFB; --dash-bg:#F5F6FA; --dash-line:#E6E8F0; --dash-shadow:none; }
     body, .shell{ background:var(--dash-bg); }
@@ -443,7 +411,6 @@
   }
 
 
-  /* ===== Thèmes par entreprise + choix de l'entreprise + centrage ===== */
   @media screen{
     :root{ --dash-side:#2F2891; }
     :root[data-co="baws"]{ --dash-violet:#C8102E; --dash-violet-d:#A30D25; --dash-violet-l:#FCEBEE; --dash-side:#B50F2A; --dash-bg:#FAF6F6; --dash-line:#EEE3E4; }
@@ -470,7 +437,6 @@
     .co-link{ background:none; border:none; padding:0; color:var(--dash-muted); text-decoration:underline; cursor:pointer; font-size:13px; font-family:inherit; }
   }
 
-  /* Éditeur de texte enrichi (gras, italique, souligné, surligné, liste) */
   .rte{border:1px solid var(--line-strong);border-radius:3px;background:#fff;}
   .rte:focus-within{outline:2px solid var(--ink-light);outline-offset:1px;}
   .rte-bar{display:flex;flex-wrap:wrap;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:var(--paper);border-radius:3px 3px 0 0;}
@@ -506,8 +472,6 @@ const CLIENT_CATS = ['PROFESSIONNEL','PARTICULIER','AMI'];
 const LS_PREFIX = 'atelier-devis:';
 
 // --- Configuration Firebase ---
-// Colle ici la config donnée par la console Firebase (Param\u00e8tres du projet > Vos applications > Web).
-// Tant que apiKey vaut "REMPLACE_MOI", l'appli utilise le stockage local du navigateur (non partag\u00e9).
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCFni0sGiwM3EpNyZdNYt3UQGw6_ef0nYk",
   authDomain: "baws-db7ed.firebaseapp.com",
@@ -527,10 +491,6 @@ async function initFirebase(){
     firebase.initializeApp(FIREBASE_CONFIG);
     fbDb = firebase.firestore();
     fbAuth = firebase.auth();
-    // Active le mode hors-ligne : les donn\u00e9es sont gard\u00e9es en cache local (IndexedDB) sur l'appareil.
-    // Les lectures deviennent instantan\u00e9es m\u00eame sans r\u00e9seau, et les \u00e9critures faites hors-ligne
-    // sont mises en file d'attente et envoy\u00e9es automatiquement d\u00e8s qu'une connexion revient \u2014
-    // beaucoup plus fiable qu'un simple d\u00e9lai d'attente sur une connexion faible/instable.
     try{
       await fbDb.enablePersistence({synchronizeTabs:true});
     }catch(err){
@@ -573,14 +533,13 @@ async function sset(key, value){
     for(let attempt=1; attempt<=2; attempt++){
       try{
         await withTimeout(fbDb.collection(FIREBASE_COLLECTION).doc(key).set({value: value}), 15000);
-        return true; // bien envoy\u00e9 \u00e0 la base partag\u00e9e
+        return true;
       }catch(e){
         console.error(`Firestore set error (tentative ${attempt}/2)`, e);
         if(attempt===2){
-          // \u00c9chec confirm\u00e9 apr\u00e8s 2 essais : on pr\u00e9vient clairement, ce n'est jamais silencieux
           try{ localStorage.setItem(LS_PREFIX+key, JSON.stringify(value)); }catch(e2){}
           if(typeof showConnectionWarning === 'function') showConnectionWarning();
-          return false; // sauvegard\u00e9 seulement en local, PAS sur la base partag\u00e9e
+          return false;
         }
       }
     }
@@ -596,9 +555,6 @@ async function sset(key, value){
 function uid(){ return Math.random().toString(36).slice(2,10); }
 async function sgetMerged(key, fallback){
   const remote = await sget(key, fallback);
-  // V\u00e9rifie s'il existe une copie locale sur CET appareil (par exemple suite \u00e0 une sauvegarde
-  // qui avait \u00e9chou\u00e9 vers la base partag\u00e9e \u00e0 cause d'une connexion faible) et qui contiendrait
-  // des \u00e9l\u00e9ments absents de la base partag\u00e9e \u2014 pour ne plus jamais les perdre silencieusement.
   let local = null;
   try{
     const raw = localStorage.getItem(LS_PREFIX+key);
@@ -623,8 +579,6 @@ async function sgetMerged(key, fallback){
   return merged;
 }
 async function pushAndSave(key, newItem){
-  // Recharge la version la plus \u00e0 jour juste avant d'ajouter et de sauvegarder,
-  // pour ne jamais \u00e9craser ce qu'une autre personne/appareil vient de cr\u00e9er entre-temps.
   let fresh;
   try{
     fresh = await sget(key, state[key]);
@@ -658,7 +612,7 @@ function nextNumero(kind){
     if(m){ const n = parseInt(m[1],10); if(n>maxExisting) maxExisting = n; }
   });
   const next = Math.max(state.counters[kind]||0, maxExisting) + 1;
-  state.counters[kind] = next; // garde le compteur align\u00e9, au cas o\u00f9 on le consulte ailleurs
+  state.counters[kind] = next;
   return prefix + new Date().getFullYear() + '-' + String(next).padStart(pad,'0');
 }
 function frDateToIso(s){
@@ -688,9 +642,6 @@ function shadeColor(hex, percent){
 
 const DEFAULT_TRAVAUX_CONDITIONS = "Estimation à confirmer après vérification des dimensions, de l'état des supports et des conditions d'accès. Échafaudage ou moyen d'accès spécifique non compris. Seules les surfaces indiquées sont incluses. Teinte à valider sur place. TVA et total TTC à compléter avant acceptation définitive.";
 
-// Clés de brouillon (DOIVENT être déclarées avant `state`, qui les utilise dès sa construction
-// pour restaurer un brouillon au chargement — sinon erreur de zone morte temporelle, avalée
-// silencieusement par le try/catch de loadXDraft(), qui retournait alors toujours vide).
 const BUILDER_DRAFT_KEY = 'atelier-devis-devis-draft-v1';
 const TRAVAUX_DRAFT_KEY = 'atelier-devis-travaux-draft-v1';
 const ENTRY_DRAFT_KEY = 'atelier-devis-ecriture-draft-v1';
@@ -839,8 +790,6 @@ async function loadAll(){
   }else{
     state.companies = JSON.parse(JSON.stringify(DEFAULT_COMPANIES));
   }
-  // Force BAWS au bleu marine du modèle "Devis estimatif" (#12253B), quelle que soit la couleur
-  // actuellement enregistrée (certaines bases partagées avaient encore l'ancien rouge/bordeaux).
   let companiesColorFixed = false;
   state.companies.forEach(c=>{
     if(c.id==='baws' && (c.color!=='#12253B' || c.color2!=='#12253B')){
@@ -868,15 +817,12 @@ async function loadAll(){
   }
   state.entries = await sgetMerged('entries', []);
 
-  // R\u00e9pare automatiquement les \u00e9critures dont le journal ne correspond plus \u00e0 rien
-  // (arriv\u00e9 par le pass\u00e9 si le plan comptable/journaux \u00e9taient r\u00e9g\u00e9n\u00e9r\u00e9s avec de nouveaux identifiants).
-  // Se base sur la plage du num\u00e9ro de pi\u00e8ce, qui est fiable et stable (100001=AC, 200001=CM, 300001=OD, 400001=VE, 900001=AN).
   let journalRepaired = 0;
   const journalCodeRanges = [
     ['AN', 900000], ['VE', 400000], ['OD', 300000], ['CM', 200000], ['AC', 100000],
   ];
   state.entries.forEach(en=>{
-    if(state.journals.some(j=>j.id===en.journalId)) return; // d\u00e9j\u00e0 valide
+    if(state.journals.some(j=>j.id===en.journalId)) return;
     const guess = journalCodeRanges.find(([code,min])=> en.pieceNum >= min);
     const journal = guess ? state.journals.find(j=>j.code===guess[0]) : null;
     if(journal){ en.journalId = journal.id; journalRepaired++; }
@@ -890,13 +836,15 @@ async function loadAll(){
 }
 
 
-// ===== Texte enrichi (devis + devis travaux) =====
+// texte enrichi (devis et devis travaux)
 const RICH_COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/i;
+// ancien texte brut -> html
 function plainToHtml(v){
   v = v==null ? '' : String(v);
   if(/<\/?(b|i|u|strong|em|mark|span|div|p|br|ul|ol|li)\b[^>]*>/i.test(v)) return v;
   return v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\r?\n/g,'<br>');
 }
+// enlève tout sauf gras, italique, souligné, surligné, liste
 function sanitizeRich(html){
   const doc = new DOMParser().parseFromString('<body>'+html+'</body>','text/html');
   const walk = (node)=>{
@@ -907,7 +855,6 @@ function sanitizeRich(html){
       const tag = n.tagName.toLowerCase();
       if(tag==='script'||tag==='style') return;
       const inner = walk(n);
-      // Surlignage posé directement sur une balise (ex. <u style="background-color:…">) : on le conserve.
       const bgOf = (r)=>{ const bg = n.style && n.style.backgroundColor; return (bg && RICH_COLOR_RE.test(bg) && !/transparent|rgba\(0,\s*0,\s*0,\s*0\)/.test(bg)) ? '<span style="background-color:'+bg+'">'+r+'</span>' : r; };
       if(tag==='b'||tag==='strong') out += bgOf('<b>'+inner+'</b>');
       else if(tag==='i'||tag==='em') out += bgOf('<i>'+inner+'</i>');
@@ -941,6 +888,7 @@ function stripRich(v){
   const d = document.createElement('div'); d.innerHTML = sanitizeRich(plainToHtml(v)).replace(/<br>|<\/div>|<\/li>/g,'$&\n');
   return d.textContent.trim();
 }
+// champ de texte avec sa barre d'outils
 function rteField(id, value, opts){
   const o = opts||{};
   const ph = String(o.placeholder||'').replace(/"/g,'&quot;');
@@ -957,6 +905,7 @@ function rteField(id, value, opts){
     <div class="rte-area${o.single?' single':''}" contenteditable="true" data-placeholder="${ph}" style="min-height:${o.min||60}px">${sanitizeRich(plainToHtml(value))}</div>
   </div>`;
 }
+// fait marcher les boutons de la barre
 function bindRte(handlers){
   document.querySelectorAll('.rte').forEach(box=>{
     const id = box.dataset.rte, area = box.querySelector('.rte-area');
@@ -1000,17 +949,19 @@ document.addEventListener('selectionchange', refreshRteState);
 
 
 
-// ===== Entreprise active (BAWS / CVC MÉTHODES) : thème, devis et chiffres propres à chacune =====
+// l'entreprise choisie au début
 function activeCo(){ return (state.companies||[]).find(c=>c.id===state.activeCompanyId) || null; }
+// garde seulement les documents de l'entreprise choisie
 function forCo(list){ const id = state.activeCompanyId; return id ? list.filter(x=> !x.companyId || x.companyId===id) : list; }
+// rouge pour BAWS, bleu pour CVC
 function coTheme(){
   const n = String((activeCo()||{}).name||'').toUpperCase();
   return n.includes('BAWS') ? 'baws' : (n.includes('CVC') ? 'cvc' : '');
 }
+// quand on clique sur une entreprise
 function pickCompany(id){
   state.activeCompanyId = id;
   try{ sessionStorage.setItem('activeCo', id); }catch(e){}
-  // Les nouveaux devis démarrent avec l'entreprise choisie (sans toucher à un travail déjà commencé).
   try{
     if(!state.builder.editingDocId && !builderDraftHasContent(state.builder)) state.builder.companyId = id;
     if(!state.travauxBuilder.editingId && !state.travauxBuilder.clientId && !state.travauxBuilder.dureePrevisionnelle) state.travauxBuilder.companyId = id;
@@ -1018,12 +969,13 @@ function pickCompany(id){
   state.tab = 'dashboard'; state.viewingDoc = null; state.viewingCommande = null; state.viewingTravaux = null;
   render();
 }
+// écran avec les 2 boutons
 function renderCompanyPicker(){
   return `
   <div class="landing co-landing">
     <div class="co-pick-wrap">
       <h1>Quelle entreprise ?</h1>
-      <p class="co-sub">Choisissez l'entreprise pour laquelle vous travaillez. Chacune a ses propres devis et chiffres.</p>
+      <p class="co-sub">Choisissez une entreprise.</p>
       <div class="co-pick-grid">
         ${state.companies.map(c=>{
           const t = String(c.name||'').toUpperCase().includes('BAWS') ? 'baws' : (String(c.name||'').toUpperCase().includes('CVC') ? 'cvc' : '');
@@ -1043,7 +995,7 @@ function bindCompanyPicker(){
   const su = document.getElementById('co-switch-user'); if(su) su.onclick = ()=>{ state.currentUser = null; render(); };
 }
 
-// ===== Tableau de bord (lecture seule : ne modifie ni ne sauvegarde aucune donnée) =====
+// petites icônes du menu
 function navIcon(k){
   const P = {
     dashboard:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
@@ -1062,12 +1014,14 @@ function navIcon(k){
   };
   return '<svg viewBox="0 0 24 24" aria-hidden="true">'+(P[k]||P.dashboard)+'</svg>';
 }
+// transforme 12/03/2026 en vraie date
 function dashDate(s){
   const p = String(s||'').split('/');
   if(p.length!==3) return null;
   const d = new Date(+p[2], +p[1]-1, +p[0]);
   return isNaN(d) ? null : d;
 }
+// trace la courbe du graphique
 function dashSmoothPath(pts){
   if(pts.length<2) return '';
   let d = 'M'+pts[0][0].toFixed(1)+' '+pts[0][1].toFixed(1);
@@ -1079,6 +1033,7 @@ function dashSmoothPath(pts){
   }
   return d;
 }
+// calcule les chiffres du tableau de bord
 function dashStats(){
   const now = new Date(), y = now.getFullYear(), m = now.getMonth();
   const docs = forCo((state.documents||[]).filter(d=>!d.deleted));
@@ -1100,6 +1055,7 @@ function dashStats(){
   const recents = devis.concat(facts).map(d=>({ d, dt: dashDate(d.date) })).sort((a,b)=> (b.dt||0)-(a.dt||0)).slice(0,6);
   return { y, m, nbDevis: devis.length, nbFactures: facts.length, devisHT: devis.reduce((s,d)=>s+ht(d),0), travHT: trav.reduce((s,t)=>s+calcTotalsTravaux(t).ht,0), nbTrav: trav.length, cur, prev, caAnnee, caMois, top, recents, prevTotal: prev.reduce((a,b)=>a+b,0), evo: prev.reduce((a,b)=>a+b,0) > 0 ? Math.round((caAnnee/prev.reduce((a,b)=>a+b,0)-1)*100) : null, nbCmd: (state.commandes||[]).filter(c=>!c.deleted).length };
 }
+// dessine le graphique
 function dashChartSvg(cur, prev){
   const W=640, H=240, L=44, R=16, T=14, B=30, max = Math.max(1, ...cur, ...prev) * 1.12;
   const x = i => L + (W-L-R) * i/11, y = v => T + (H-T-B) * (1 - v/max);
@@ -1117,7 +1073,7 @@ function dashChartSvg(cur, prev){
     ${lastIdx>=0 ? `<circle cx="${x(lastIdx).toFixed(1)}" cy="${y(cur[lastIdx]).toFixed(1)}" r="4.5" fill="#fff" style="stroke:var(--dash-violet)" stroke-width="2.5"/>` : ''}
   </svg>`;
 }
-// Filet de sécurité : si le tableau de bord rencontre un souci (donnée inattendue), l'appli reste utilisable.
+// si ça plante, le reste du site marche quand même
 function renderDashboard(){
   try{ return renderDashboardInner(); }
   catch(err){
@@ -1134,7 +1090,7 @@ function renderDashboardInner(){
   <div class="dash-head">
     <div>
       <h1 class="page-title" style="margin-bottom:.15rem">Tableau de bord</h1>
-      <p class="page-sub" style="margin:0">${activeCo()?activeCo().name+' — ':''}${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).replace(/^./,c=>c.toUpperCase())}</p>
+      
     </div>
     <div class="dash-actions">
       <button class="btn" data-dash-go="nouveau">+ Nouveau devis</button>
@@ -1142,33 +1098,33 @@ function renderDashboardInner(){
     </div>
   </div>
   <div class="dash-grid">
-    <div class="dash-card dash-kpi"><div class="lbl"><span class="ico">${ico('factures-liste')}</span>CA facturé ${st.y} (HT)</div><div class="val">${eur(st.caAnnee)}</div><div class="meta">Ce mois-ci : ${eur(st.caMois)}</div></div>
-    <div class="dash-card dash-kpi o"><div class="lbl"><span class="ico">${ico('devis-liste')}</span>Devis</div><div class="val">${st.nbDevis}</div><div class="meta">${eur(st.devisHT)} HT au total</div></div>
-    <div class="dash-card dash-kpi g"><div class="lbl"><span class="ico">${ico('factures-liste')}</span>Factures</div><div class="val">${st.nbFactures}</div><div class="meta">émises au total</div></div>
-    <div class="dash-card dash-kpi b"><div class="lbl"><span class="ico">${ico('travaux-liste')}</span>Devis travaux</div><div class="val">${st.nbTrav}</div><div class="meta">${eur(st.travHT)} HT estimé</div></div>
+    <div class="dash-card dash-kpi"><div class="lbl"><span class="ico">${ico('factures-liste')}</span>CA facturé ${st.y} (HT)</div><div class="val">${eur(st.caAnnee)}</div><div class="meta">Ce mois : ${eur(st.caMois)}</div></div>
+    <div class="dash-card dash-kpi o"><div class="lbl"><span class="ico">${ico('devis-liste')}</span>Devis</div><div class="val">${st.nbDevis}</div><div class="meta">${eur(st.devisHT)} HT</div></div>
+    <div class="dash-card dash-kpi g"><div class="lbl"><span class="ico">${ico('factures-liste')}</span>Factures</div><div class="val">${st.nbFactures}</div></div>
+    <div class="dash-card dash-kpi b"><div class="lbl"><span class="ico">${ico('travaux-liste')}</span>Devis travaux</div><div class="val">${st.nbTrav}</div><div class="meta">${eur(st.travHT)} HT</div></div>
 
     <div class="dash-card dash-chart">
-      <h3>Chiffre d'affaires</h3><p class="sub">Factures HT, mois par mois</p>
-      <div class="dash-legend"><span><i style="background:var(--dash-violet)"></i>${st.y}</span><span><i style="background:#C9CDDF"></i>${st.y-1} (pointillé)</span></div>
+      <h3>Chiffre d'affaires</h3>
+      <div class="dash-legend"><span><i style="background:var(--dash-violet)"></i>${st.y}</span><span><i style="background:#C9CDDF"></i>${st.y-1}</span></div>
       ${dashChartSvg(st.cur, st.prev)}
     </div>
     <div class="dash-card dash-ring">
-      <h3 style="align-self:flex-start">Évolution du CA</h3><p class="sub" style="align-self:flex-start">${st.y} comparé à ${st.y-1} (factures HT)</p>
+      <h3 style="align-self:flex-start">Évolution</h3>
       <svg viewBox="0 0 140 140" width="170" height="170" style="margin:.4rem 0">
         <circle cx="70" cy="70" r="${R}" fill="none" stroke="#ECEDF5" stroke-width="8"/>
         <circle cx="70" cy="70" r="${R}" fill="none" style="stroke:var(--dash-violet)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 70 70)"/>
         <text x="70" y="77" text-anchor="middle" font-size="${st.evo===null?24:26}" font-weight="800" fill="#1E2140">${st.evo===null ? '—' : (st.evo>0?'+':'')+st.evo+'%'}</text>
       </svg>
-      <div class="meta" style="font-size:12px;color:var(--dash-muted)">${st.evo===null ? 'Pas de factures en '+(st.y-1)+' pour comparer' : eur(st.caAnnee)+' contre '+eur(st.prevTotal)}</div>
+      <div class="meta" style="font-size:12px;color:var(--dash-muted)">${st.evo===null ? '' : eur(st.caAnnee)+' / '+eur(st.prevTotal)}</div>
     </div>
 
-    <div class="dash-card dash-list"><h3>Meilleurs clients</h3><p class="sub">Selon le CA facturé HT</p>
-      ${st.top.length ? st.top.map((c,i)=>`<div class="dash-row"><span class="n">${i+1}.</span><span class="t">${c.nom}</span><span class="v">${eur(c.v)}</span></div>`).join('') : '<div class="dash-empty">Aucune facture pour l\'instant.</div>'}
+    <div class="dash-card dash-list"><h3>Meilleurs clients</h3>
+      ${st.top.length ? st.top.map((c,i)=>`<div class="dash-row"><span class="n">${i+1}.</span><span class="t">${c.nom}</span><span class="v">${eur(c.v)}</span></div>`).join('') : '<div class="dash-empty">Aucune facture</div>'}
     </div>
-    <div class="dash-card dash-list wide"><h3>Derniers documents</h3><p class="sub">Devis et factures récents</p>
-      ${st.recents.length ? st.recents.map(({d})=>{ let t=0; try{ t=calcTotals(d).ht; }catch(e){} const c=(state.clients||[]).find(c=>c.id===d.clientId); return `<div class="dash-row" data-dash-open="${d.id}"><span class="t"><span class="badge ${d.type==='facture'?'facture':''}" style="margin-right:.5rem">${d.type==='facture'?'Facture':'Devis'}</span>${d.numero} — ${c?clientFullName(c):''}</span><span class="v">${eur(t)}</span></div>`; }).join('') : '<div class="dash-empty">Aucun document pour l\'instant.</div>'}
+    <div class="dash-card dash-list wide"><h3>Derniers documents</h3>
+      ${st.recents.length ? st.recents.map(({d})=>{ let t=0; try{ t=calcTotals(d).ht; }catch(e){} const c=(state.clients||[]).find(c=>c.id===d.clientId); return `<div class="dash-row" data-dash-open="${d.id}"><span class="t"><span class="badge ${d.type==='facture'?'facture':''}" style="margin-right:.5rem">${d.type==='facture'?'Facture':'Devis'}</span>${d.numero} — ${c?clientFullName(c):''}</span><span class="v">${eur(t)}</span></div>`; }).join('') : '<div class="dash-empty">Aucun document</div>'}
     </div>
-    <div class="dash-card dash-list narrow"><h3>Activité</h3><p class="sub">En un coup d'œil</p>
+    <div class="dash-card dash-list narrow"><h3>Activité</h3>
       <div class="dash-row"><span class="t">Commandes Toshiba</span><span class="v">${st.nbCmd}</span></div>
       <div class="dash-row"><span class="t">Brouillons en cours</span><span class="v">${countActiveDrafts()}</span></div>
       <div class="dash-row"><span class="t">Clients</span><span class="v">${(state.clients||[]).length}</span></div>
@@ -1266,16 +1222,13 @@ function renderLogin(){
         <div class="lb-mark">BAWS</div>
         <div class="lb-sub">Dashboard Devis</div>
       </div>
-      <div class="lb-mid">
-        <h2>Devis, factures et comptabilité,<br>au même endroit.</h2>
-        <p>Un seul espace pour toute l'équipe : on prépare, on envoie, on suit.</p>
-      </div>
-      <div class="lb-bot">Espace réservé à l'équipe</div>
+      <div class="lb-mid"></div>
+      <div class="lb-bot"></div>
     </aside>
     <main class="login-form">
       <div class="lf-inner">
         <h1>Connexion</h1>
-        <p class="lf-sub">Entrez vos identifiants pour accéder à l'espace de l'équipe.</p>
+        <p class="lf-sub">Connectez-vous pour continuer.</p>
         <div class="field">
           <label>Email</label>
           <input type="email" id="login-user" autocomplete="username">
@@ -1310,7 +1263,6 @@ function bindLogin(){
       const remember = document.getElementById('login-remember').checked;
       await fbAuth.setPersistence(remember ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
       await fbAuth.signInWithEmailAndPassword(u, p);
-      // onAuthStateChanged prend le relais et d\u00e9clenche le render()
     }catch(e){
       console.error('Erreur de connexion', e.code);
       errEl.style.display = 'block';
@@ -1362,7 +1314,7 @@ function renderShell(){
     ['travaux-liste','Travaux'],
     ['brouillons','Brouillons' + (draftCount? ` (${draftCount})` : '')],
     ['commandes','Commandes Toshiba'],
-    ['entreprise','Entreprises'],
+    ['entreprise','Entreprise'],
     ['compta','Comptabilit\u00e9'],
     ['corbeille','Corbeille'],
     ['sauvegarde','Sauvegarde'],
@@ -2037,7 +1989,6 @@ function bindBuilder(){
     filterClientRows();
     if(clientDropdown) clientDropdown.style.display = 'block';
   };
-  // Un seul gestionnaire d\u00e9l\u00e9gu\u00e9 sur le conteneur, plut\u00f4t qu'un par client (bien plus l\u00e9ger si la liste est longue)
   if(clientDropdown) clientDropdown.onmousedown = (e)=>{
     const row = e.target.closest('[data-pick-client]');
     if(!row) return;
@@ -2474,16 +2425,9 @@ function renderTravauxListe(){
 function bindTravauxListe(){
   const newBtn = document.getElementById('new-travaux-btn');
   if(newBtn) newBtn.onclick = ()=>{
-    // « Nouveau » doit toujours repartir d'une feuille vierge — sinon on retombe sur
-    // l'ancien document en cours de modification au lieu d'un formulaire vide.
     if(state.travauxBuilder.editingId){
-      // On quitte une modification en cours sans avoir cliqué « Annuler » : le document
-      // d'origine est déjà enregistré tel quel, rien n'est perdu à effacer ce brouillon-là.
       clearTravauxDraft();
     }
-    // Si c'était un brouillon de NOUVEAU devis (jamais encore enregistré), on ne le supprime
-    // pas du stockage — il reste récupérable depuis l'onglet « Brouillons » tant qu'on n'a
-    // rien retapé ici par-dessus.
     state.travauxBuilder = emptyTravauxBuilder(state.travauxBuilder.companyId);
     state.tab = 'travaux-nouveau';
     render();
@@ -3113,18 +3057,11 @@ function bindSauvegarde(){
         else { state.viewingCommande = it.id; container.innerHTML = renderCommandeView(it.id); }
         state.viewingDoc = savedViewingDoc; state.viewingCommande = savedViewingCmd; state.viewingTravaux = savedViewingTrav;
 
-        // Retire les pages CGV avant capture : elles sont identiques \u00e0 chaque document,
-        // les recalculer/recapturer \u00e0 chaque fois multiplie \u00e9norm\u00e9ment le travail pour rien
-        // et sature vite la m\u00e9moire du navigateur en g\u00e9n\u00e9ration en masse.
         container.querySelectorAll('.cgv-page').forEach(el=>el.remove());
 
-        // Attend que le logo et toute autre image soient r\u00e9ellement charg\u00e9s avant de capturer,
-        // sinon la capture peut \u00e9chouer silencieusement si elle part trop t\u00f4t.
         await waitForImages(container, 4000);
-        // Laisse le navigateur souffler un instant entre deux documents (\u00e9vite de le saturer)
         await new Promise(r=>setTimeout(r, 120));
         if(i>0 && i % 5 === 0){
-          // Pause plus longue tous les 5 documents pour laisser le navigateur lib\u00e9rer la m\u00e9moire
           if(progressEl) progressEl.textContent = `Pause m\u00e9moire\u2026 (${i}/${items.length})`;
           await new Promise(r=>setTimeout(r, 500));
         }
@@ -3410,7 +3347,6 @@ function renderCommandeView(id){
   const co = state.companies.find(co=>co.id===cmd.companyId) || state.companies[0] || {};
   const devis = cmd.devisId ? state.documents.find(d=>d.id===cmd.devisId) : null;
 
-  // Adresse de livraison : celle des travaux du devis d'origine si renseign\u00e9e, sinon celle du client
   let livraisonNom = c ? clientFullName(c) : '(client supprim\u00e9)';
   let livraisonLignes = c ? `${c.adresse||''}${c.comp? ', '+c.comp:''}<br>${c.cp||''} ${c.ville||''}` : '';
   if(devis && devis.travauxSameAsClient===false){
@@ -3590,15 +3526,10 @@ function bindCommandeView(){
   fitDocToOnePage();
 }
 function renderEntreprise(){
-  if(!state.editingCompanyId && state.companies.length) state.editingCompanyId = state.companies[0].id;
-  const co = state.companies.find(c=>c.id===state.editingCompanyId) || state.companies[0];
+  const co = activeCo() || state.companies[0];
+  if(co) state.editingCompanyId = co.id;
   return `
-  <h1 class="page-title">Entreprises</h1>
-  <p class="page-sub">G\u00e8re les diff\u00e9rentes soci\u00e9t\u00e9s pour lesquelles tu \u00e9mets des devis. M\u00eame mod\u00e8le, couleurs et coordonn\u00e9es propres \u00e0 chacune.</p>
-  <div style="margin-bottom:1rem">
-    ${state.companies.map(c=>`<button class="company-pill ${co && co.id===c.id?'active':''}" data-edit-company="${c.id}"><span class="dot" style="background:${c.color}"></span>${c.name}</button>`).join('')}
-    <button class="btn secondary small" id="add-company">+ Nouvelle entreprise</button>
-  </div>
+  <h1 class="page-title">Entreprise</h1>
   ${co ? `
   <div class="card">
     <div class="row">
@@ -3663,23 +3594,6 @@ function renderEntreprise(){
   `;
 }
 function bindEntreprise(){
-  document.querySelectorAll('[data-edit-company]').forEach(b=>{
-    b.onclick = ()=>{ state.editingCompanyId = b.dataset.editCompany; render(); };
-  });
-  document.getElementById('add-company').onclick = async ()=>{
-    const nc = {
-      id: uid(), name:'Nouvelle entreprise', tagline:'', subtagline:'', color:'#1B2A4A', logo:'',
-      street:'', cp:'', ville:'', phone:'', email:'',
-      capital:'', siret:'', rcs:'', tva:'',
-      conditions:['Prix valables pour la dur\u00e9e de validit\u00e9 du devis'],
-      validityText:'Ce devis est valable 1 mois \u00e0 compter de la date d\'\u00e9mission.',
-      interventionText:'', paymentText:'',
-      footerTagline:'', footerSub:'', disclaimerText:'Cette offre de prix est \u00e9tablie \u00e0 titre informatif. Elle ne constitue pas une proposition technique susceptible d\'engager notre responsabilit\u00e9.',
-    };
-    await pushAndSave('companies', nc);
-    state.editingCompanyId = nc.id;
-    render();
-  };
   const co = state.companies.find(c=>c.id===state.editingCompanyId);
   if(!co) return;
   const logoInput = document.getElementById('co-logo');
@@ -3720,6 +3634,8 @@ function bindEntreprise(){
   if(delBtn) delBtn.onclick = async ()=>{
     state.companies = state.companies.filter(c=>c.id!==co.id);
     state.editingCompanyId = state.companies.length? state.companies[0].id : null;
+    state.activeCompanyId = null;
+    try{ sessionStorage.removeItem('activeCo'); }catch(e){}
     await sset('companies', state.companies);
     render();
   };
@@ -3761,31 +3677,21 @@ function bindCompta(){
   if(state.comptaTab==='bilan') return bindBilan();
 }
 
-let bilanImgCache = null;
 function bindBilan(){
   if(state.bilanPrintMode){
     const backBtn = document.getElementById('bilan-print-back');
     if(backBtn) backBtn.onclick = ()=>{ state.bilanPrintMode = false; render(); };
     const goBtn = document.getElementById('bilan-print-go');
-    // Impression native du navigateur (plus de capture html2canvas : c'est elle qui
-    // écrasait les espaces et superposait les lettres). Pour un PDF : destination « Enregistrer en PDF ».
     if(goBtn) goBtn.onclick = ()=>{ printBilanFrame(); };
     document.body.classList.add('bilan-printing');
-    fitBilanToOnePage();
-    // Retour à l'affichage direct du tableau (plus d'image figée html2canvas).
-    const live = document.getElementById('bilan-live-sheet');
-    if(live){ live.classList.add('live-fallback'); live.style.position=''; live.style.left=''; live.style.top=''; }
-    const ld = document.getElementById('bilan-img-loading'); if(ld) ld.style.display='none';
     return;
   }
   const dateInput = document.getElementById('bilan-date-input');
   if(dateInput) dateInput.onchange = ()=>{ state.bilanDate = isoDateToFr(dateInput.value); render(); };
   const printBtn = document.getElementById('bilan-print-btn');
-  if(printBtn) printBtn.onclick = ()=>{ if(!state.bilanDate) state.bilanDate = todayFr(); bilanImgCache = null; state.bilanPrintMode = true; render(); };
+  if(printBtn) printBtn.onclick = ()=>{ if(!state.bilanDate) state.bilanDate = todayFr(); state.bilanPrintMode = true; render(); };
 }
 
-// Impression du Bilan dans un mini-document isolé (iframe) : mise en page A4 indépendante du reste
-// de l'appli (pas de menu, pas de 2e page, pas de contenu coupé) et impression beaucoup plus rapide.
 const BILAN_PRINT_CSS = `
 @page{ size:A4; margin:8mm; }
 *{ box-sizing:border-box; }
@@ -3815,6 +3721,7 @@ td[colspan]{ padding-top:.3rem !important; }
 .hint{ font-size:9px; color:var(--danger); margin:.4rem 0 0; }
 .bilan-print-footer{ margin-top:.4rem; border-top:1px solid var(--line); padding-top:.35rem; font-size:8px; color:var(--muted); text-align:center; }
 `;
+// imprime le bilan dans une page à part
 function printBilanFrame(){
   const sheet = document.getElementById('bilan-live-sheet');
   if(!sheet){ window.print(); return; }
@@ -3829,8 +3736,6 @@ function printBilanFrame(){
       const d = fr.contentDocument, w = fr.contentWindow;
       await Promise.all([...d.images].map(im=> im.complete ? 0 : new Promise(r=>{ im.onload = im.onerror = r; })));
       const sh = d.querySelector('.bilan-print-sheet');
-      // Ajuste la taille du texte (jamais de zoom) pour remplir la page au mieux sans rien couper :
-      // on grossit tant que ça tient, puis on recule d'un cran si ça déborde.
       const cols = [...d.querySelectorAll('.bilan-print-col')];
       const fits = ()=> cols.every(c=> c.scrollHeight <= c.clientHeight + 1);
       let fs = 7.4;
@@ -3848,45 +3753,6 @@ function printBilanFrame(){
   fr.srcdoc = html;
   document.body.appendChild(fr);
 }
-async function showBilanImage(){
-  // Remplace le tableau "vivant" (HTML/CSS) par une image figée dès qu'elle est prête : plus
-  // aucun texte n'est mis en page par le navigateur à l'écran, ce qui évite tout bug de rendu
-  // (espacement, chevauchement) propre à certains navigateurs. Le tableau vivant reste TOUJOURS
-  // hors-écran (jamais vu par l'utilisateur, même le temps de générer) pour que le bouton
-  // Imprimer (buildBilanPdf) puisse toujours le capturer normalement.
-  const liveSheet = document.getElementById('bilan-live-sheet');
-  const imgEl = document.getElementById('bilan-render-img');
-  const hint = document.getElementById('bilan-img-hint');
-  const loading = document.getElementById('bilan-img-loading');
-  if(!liveSheet || !imgEl) return;
-  const applyImg = (url)=>{
-    if(!document.getElementById('bilan-live-sheet')) return; // on a quitté l'écran entre-temps
-    imgEl.src = url;
-    imgEl.style.display = 'block';
-    if(hint) hint.style.display = 'block';
-    if(loading) loading.style.display = 'none';
-  };
-  const fallbackToLive = ()=>{
-    // html2canvas indisponible ou échec : on montre quand même le tableau, mieux que rien.
-    if(!document.getElementById('bilan-live-sheet')) return;
-    liveSheet.classList.add('live-fallback');
-    liveSheet.style.position = '';
-    liveSheet.style.left = '';
-    liveSheet.style.top = '';
-    if(loading) loading.style.display = 'none';
-  };
-  if(bilanImgCache){ applyImg(bilanImgCache); return; }
-  if(!window.html2canvas){ fallbackToLive(); return; }
-  try{
-    const canvas = await html2canvas(liveSheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
-    bilanImgCache = canvas.toDataURL('image/png');
-    applyImg(bilanImgCache);
-  }catch(err){
-    console.error('Génération image bilan échouée:', err);
-    fallbackToLive();
-  }
-}
-
 function renderPlanComptable(){
   const sortKey = state.accountsSort.key, sortDir = state.accountsSort.dir;
   const arrow = (key)=> sortKey===key ? (sortDir==='asc' ? ' \u25b2' : ' \u25bc') : '';
@@ -4188,10 +4054,7 @@ function computeOrphanAccounts(){
   const orphanMap = {};
   state.entries.forEach(en=>{
     en.lignes.forEach(l=>{
-      if(state.accounts.some(a=>a.id===l.compte)) return; // compte valide, rien \u00e0 faire
-      // Compte cass\u00e9 (identifiant qui ne correspond plus \u00e0 rien) OU compte totalement vide :
-      // dans les deux cas on regroupe par libell\u00e9 pour ne pas m\u00e9langer des lignes diff\u00e9rentes
-      // qui auraient toutes un compte vide.
+      if(state.accounts.some(a=>a.id===l.compte)) return;
       const key = l.compte ? l.compte : ('vide:'+normalizeText(l.libelle||'')+':'+parseNum(l.debit)+':'+parseNum(l.credit));
       if(!orphanMap[key]) orphanMap[key] = { count:0, exemple: l.libelle||'', debit: parseNum(l.debit), credit: parseNum(l.credit) };
       orphanMap[key].count++;
@@ -4203,14 +4066,11 @@ function normalizeText(s){
   return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').trim();
 }
 function suggestAccountId(o){
-  // 1) Correspondance exacte par montant, pour l'\u00e9criture d'ouverture connue
   const match = KNOWN_RAN.find(([d,c])=> Math.abs(d-o.debit)<0.01 && Math.abs(c-o.credit)<0.01);
   if(match){
     const acc = state.accounts.find(a=>a.code===match[2]);
     if(acc) return acc.id;
   }
-  // 2) Sinon, reconnaissance par mots du libell\u00e9 compar\u00e9s au nom des comptes
-  // (ex\u00a0: "FRAIS BANCAIRES 01/26" \u2192 compte "Frais bancaires")
   const words = normalizeText(o.exemple).split(' ').filter(w=>w.length>=4 && !/^\d+$/.test(w));
   if(!words.length) return '';
   const startsWithEither = (a,b)=> a.length>=4 && b.length>=4 && (a.startsWith(b.slice(0,Math.min(a.length,b.length))) || b.startsWith(a.slice(0,Math.min(a.length,b.length))));
@@ -4536,10 +4396,6 @@ function classifyBilanAccount(code){
   if(code.startsWith('274')) return {group:'actif', section:'immoFin', sub:'prets', label:'Pr\u00eats'};
   if(code.startsWith('26') || code.startsWith('27')) return {group:'actif', section:'immoFin', sub:'autres', label:'Autres'};
   if(code.startsWith('28') || code.startsWith('29')){
-    // Comptes d'amortissements/dépréciations : convention PCG, le compte 28xx (ou 29xx)
-    // amortit le compte d'immobilisation 2xx obtenu en retirant le "8"/"9" (ex. 2805 → 205,
-    // 2813 → 213). On retrouve ainsi la ligne d'origine pour y rattacher précisément le
-    // montant d'amortissement, au lieu de ne l'afficher qu'au sous-total.
     const baseCode = '2' + code.slice(2);
     const base = classifyBilanAccount(baseCode);
     if(base && base.group==='actif' && (base.section==='immoIncorp' || base.section==='immoCorp' || base.section==='immoFin')){
@@ -4580,7 +4436,7 @@ function renderBilan(){
   const rows = computeAccountBalances();
   const { net } = computeResultatNet(rows);
 
-  const A = { // actif : brut par sous-poste
+  const A = {
     immoIncorp:{frais_etab:0,frais_rd:0,concessions:0,fonds_commercial:0,autres:0},
     immoIncorpEnCours:{en_cours:0}, immoIncorpAvances:{avances:0},
     immoCorp:{terrains:0,constructions:0,installations:0,autres:0},
@@ -4595,7 +4451,7 @@ function renderBilan(){
     immoCorp:{terrains:0,constructions:0,installations:0,autres:0},
     immoFin:{participations:0,creances_part:0,titres:0,prets:0,autres:0},
   };
-  const P = { // passif : montant par sous-poste
+  const P = {
     capitaux:{capital:0,reserve:0,report:0,resultatCompte:0,subvention:0,prov_reglement:0,autres_capitaux:0},
     provisions:{risques:0,charges:0},
     dettes:{etablissements:0,divers:0,avances_recues:0,fournisseurs:0,sur_immo:0,fiscal_social:0,autres:0,produits_av:0},
@@ -4735,7 +4591,6 @@ function renderBilan(){
   const coBilan = state.companies.find(c=>c.id===state.selectedCompanyId) || state.companies[0] || {};
   const bilanDateDisplay = state.bilanDate || todayFr();
 
-  // Sépare la dernière ligne (TOTAL GÉNÉRAL) du reste pour l'aligner en bas des deux colonnes.
   const splitTotal = h => { const i = h.lastIndexOf('<tr>'); return [h.slice(0,i), h.slice(i)]; };
   const [actifBody, actifTotal] = splitTotal(actifRowsHtml);
   const [passifBody, passifTotal] = splitTotal(passifRowsHtml);
@@ -4748,11 +4603,7 @@ function renderBilan(){
       <button class="btn small" id="bilan-print-go">Imprimer</button>
     </div>
     <div id="print-area">
-      <div id="bilan-img-loading" class="card" style="${bilanImgCache?'display:none;':''}text-align:center;padding:3rem 1rem;color:var(--muted)">G\u00e9n\u00e9ration de l'aper\u00e7u\u2026</div>
-      <!-- Le tableau ci-dessous n'est jamais affich\u00e9 \u00e0 l'\u00e9cran : il sert uniquement de
-           source \u00e0 html2canvas pour produire l'image fig\u00e9e ci-dessous, ce qui \u00e9vite tout
-           risque de mise en page de texte en direct par le navigateur. -->
-      <div class="bilan-print-sheet" id="bilan-live-sheet" style="position:absolute;left:-10000px;top:0;">
+      <div class="bilan-print-sheet" id="bilan-live-sheet">
         <div class="bilan-print-header">
           ${coBilan.logo ? `<img class="bilan-print-logo" src="${coBilan.logo}" alt="${coBilan.name||''}">` : `<div class="bilan-print-logo-text">${coBilan.name||''}</div>`}
           <div class="bilan-print-titleblock">
@@ -4779,9 +4630,7 @@ function renderBilan(){
           <div class="bilan-print-footer">${coBilan.name||''}${coBilan.siret ? ' \u2014 SIRET '+coBilan.siret : ''}</div>
         </div>
       </div>
-      <img id="bilan-render-img" alt="Bilan ${coBilan.name||''}" style="${bilanImgCache?'display:block;':''}" ${bilanImgCache?`src="${bilanImgCache}"`:''}>
-    </div>
-    <p class="hint" id="bilan-img-hint" style="${bilanImgCache?'':'display:none;'}margin-top:.6rem">Image g\u00e9n\u00e9r\u00e9e \u2014 clic droit dessus pour l'enregistrer ou l'imprimer directement.</p>`;
+    </div>`;
   }
 
   return `
@@ -4974,22 +4823,17 @@ async function buildDocPdf(root, captureScale){
   const { jsPDF } = window.jspdf;
   const pageW = 210, pageH = 297;
 
-  // 1) Capture chaque feuille, d\u00e9coupe celles qui sont trop hautes pour une seule page A4
-  const pages = []; // { imgData, x, y, w, h, sheetIndex, multi }
+  const pages = [];
   for(let i=0;i<sheets.length;i++){
     const canvas = await html2canvas(sheets[i], { scale:captureScale, useCORS:true, backgroundColor:'#ffffff', logging:false });
     const pxPerMm = canvas.width / pageW;
     const singlePageHeightPx = Math.floor(pageH * pxPerMm);
 
     if(canvas.height <= singlePageHeightPx){
-      // Tient sur une seule page : on remplit la feuille enti\u00e8re, sans marge ajout\u00e9e (mise en page du devis d\u00e9j\u00e0 con\u00e7ue pour \u00e7a)
       const imgData = canvas.toDataURL('image/jpeg', 0.92);
       const imgH = canvas.height / pxPerMm;
       pages.push({ imgData, x:0, y:0, w:pageW, h:imgH, sheetIndex:i, multi:false });
     } else {
-      // Contenu trop long : d\u00e9coupage en plusieurs pages A4, avec une marge propre sur chaque feuille.
-      // Rep\u00e8re d'abord les limites de chaque ligne du tableau (et des autres blocs) pour ne JAMAIS
-      // couper au milieu d'une ligne \u2014 on ajuste chaque point de coupure pour tomber juste avant.
       const sheetRect = sheets[i].getBoundingClientRect();
       const domToCanvasRatio = canvas.width / sheetRect.width;
       const breakPoints = Array.from(sheets[i].querySelectorAll('.p2-table tr, .p2-bottom-row, .p2-icons-row, .p2-objet, .p2-parties'))
@@ -5004,8 +4848,6 @@ async function buildDocPdf(root, captureScale){
       const usableWmm = pageW - marginMm*2;
       const maxSliceHeightPx = Math.floor(usableHmm * pxPerMm);
 
-      // Calcule les points de coupure : avance par pas de taille maximale, mais recule
-      // jusqu'au d\u00e9but du bloc si le point tombe en plein milieu d'une ligne/bloc.
       const cuts = [0];
       let cursor = 0;
       while(cursor < canvas.height){
@@ -5014,7 +4856,7 @@ async function buildDocPdf(root, captureScale){
           const collision = breakPoints.find(b=> b.top < target && b.bottom > target && b.top > cursor);
           if(collision && collision.top > cursor) target = collision.top;
         }
-        if(target <= cursor) target = Math.min(cursor + maxSliceHeightPx, canvas.height); // s\u00e9curit\u00e9 anti-boucle infinie
+        if(target <= cursor) target = Math.min(cursor + maxSliceHeightPx, canvas.height);
         cuts.push(target);
         cursor = target;
       }
@@ -5035,14 +4877,10 @@ async function buildDocPdf(root, captureScale){
         pages.push({ imgData, x:marginMm, y:marginMm, w:usableWmm, h:imgHmm, sheetIndex:i, multi:true });
       }
     }
-    // Lib\u00e8re explicitement la m\u00e9moire du canvas d\u00e8s qu'on n'en a plus besoin
-    // (important en g\u00e9n\u00e9ration en masse, sinon la m\u00e9moire s'accumule et le navigateur peut planter silencieusement)
     canvas.width = 0;
     canvas.height = 0;
   }
 
-  // 2) Construit le PDF ; ajoute \u00ab Page X / Y \u00bb en bas de chaque page,
-  // uniquement pour les feuilles qui ont \u00e9t\u00e9 d\u00e9coup\u00e9es en plusieurs pages (comme un vrai devis fournisseur multi-pages).
   const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
   const countsBySheet = {};
   pages.forEach(p=>{ countsBySheet[p.sheetIndex] = (countsBySheet[p.sheetIndex]||0)+1; });
@@ -5081,7 +4919,7 @@ function mmToPxRatio(){
   document.body.appendChild(probe);
   const ratio = probe.offsetHeight / 100;
   document.body.removeChild(probe);
-  return ratio || 3.78; // ~96dpi fallback
+  return ratio || 3.78;
 }
 function fitDocToOnePage(root){
   root = root || document;
@@ -5100,10 +4938,6 @@ function fitDocToOnePage(root){
   const naturalHeight = inner.scrollHeight;
   if(naturalHeight <= 0) return;
 
-  // Si le contenu est vraiment trop long pour tenir de fa\u00e7on lisible sur une page,
-  // on pr\u00e9f\u00e8re plusieurs pages (comme un vrai devis fournisseur) plut\u00f4t qu'un texte minuscule.
-  // Seuil \u00e9lev\u00e9 volontairement : la r\u00e9duction automatique descend jusqu'\u00e0 35% et reste lisible,
-  // donc on privil\u00e9gie une seule page tant que c'est raisonnablement possible.
   const MULTI_PAGE_THRESHOLD = 2.7;
   if(naturalHeight > pageHeightPx * MULTI_PAGE_THRESHOLD){
     mainSheet.style.height = 'auto';
@@ -5119,9 +4953,6 @@ function fitDocToOnePage(root){
     return inner.scrollHeight * s; // hauteur r\u00e9elle qu'occuperait le contenu \u00e0 cette \u00e9chelle
   };
 
-  // Recherche par dichotomie du plus grand facteur d'\u00e9chelle qui tient encore sur une page.
-  // Plus fiable qu'un calcul direct : la largeur change le nombre de retours \u00e0 la ligne du texte,
-  // donc la relation entre \u00e9chelle et hauteur finale n'est pas parfaitement lin\u00e9aire.
   let low = 0.35, high = 1.3;
   for(let i=0;i<10;i++){
     const mid = (low+high)/2;
@@ -5133,127 +4964,17 @@ function fitDocToOnePage(root){
   inner.style.transform = `scale(${scale})`;
   inner.style.setProperty('--fit-scale', scale);
   if(mainSheet.classList.contains('travaux-doc')){
-    // Devis travaux : le contenu est agrandi comme un devis classique (texte à bonne taille,
-    // pas minuscule), mais la feuille s'arrête pile après le pied de page — jamais de grand
-    // blanc en dessous, même quand il n'y a qu'une seule ligne de prestation.
     mainSheet.style.height = (finalHeightPx / pxPerMm) + 'mm';
   }else{
     mainSheet.style.height = '297mm';
   }
   mainSheet.style.overflow = 'hidden';
 }
-function fitBilanToOnePage(){
-  // Toute réduction du texte à l'écran (`transform`, et même `zoom`) s'est avérée provoquer
-  // un chevauchement de texte chez certains utilisateurs (Chromium pour l'un, Firefox pour
-  // l'autre). On ne touche donc plus du tout à l'échelle : le contenu s'affiche à taille
-  // normale (l'en-t\u00ete reste correctement répété à l'impression, voir le CSS @media print).
-  // Le bouton Imprimer, lui, continue de produire un PDF tenant sur une page en réduisant
-  // l'IMAGE finale (jamais le texte en direct), ce qui est sans risque et déjà vérifié propre.
-  const sheet = document.querySelector('.bilan-print-sheet');
-  const header = document.querySelector('.bilan-print-header');
-  if(!sheet) return;
-  const headerH = header ? header.offsetHeight : 0;
-  sheet.style.setProperty('--bilan-header-h', (headerH + 20) + 'px');
-}
-function cropCanvas(src, sx, sy, sw, sh){
-  const c = document.createElement('canvas');
-  c.width = sw; c.height = sh;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0,0,sw,sh);
-  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
-  return c;
-}
-async function buildBilanPdf(){
-  const sheet = document.querySelector('.bilan-print-sheet');
-  const header = document.querySelector('.bilan-print-header');
-  if(!sheet || !window.html2canvas || !window.jspdf) return null;
-  const { jsPDF } = window.jspdf;
-  const pageW = 210, pageH = 297;
-  // Le DOM n'a plus aucune réduction d'échelle (ni transform, ni zoom) : la capture se fait
-  // sur le contenu à taille réelle, et tout le redimensionnement se fait ensuite sur
-  // l'IMAGE (pixels) via jsPDF, jamais sur le DOM.
-  const sheetRect = sheet.getBoundingClientRect();
-  const headerRect = header ? header.getBoundingClientRect() : null;
-  const canvas = await html2canvas(sheet, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
-  const domToCanvasRatio = canvas.width / sheetRect.width;
-  const pxPerMm = canvas.width / pageW;
-  const naturalHeightMm = canvas.height / pxPerMm;
-  const pdf = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-
-  if(naturalHeightMm <= pageH){
-    // Tient tel quel, à taille naturelle — cas le plus courant.
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, naturalHeightMm);
-  }else{
-    const FLOOR = 0.55; // en dessous, les chiffres deviendraient illisibles : on préfère alors plusieurs pages
-    const scaleToFit = pageH / naturalHeightMm;
-    if(scaleToFit >= FLOOR){
-      // Réduit l'IMAGE finale (jamais le DOM pendant la capture) pour tenir sur une seule page propre.
-      const w = pageW * scaleToFit, h = pageH;
-      const x = (pageW - w) / 2;
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, 0, w, h);
-    }else{
-      // Vraiment trop long pour une page lisible : plusieurs pages, avec l'en-t\u00ete (logo, titre,
-      // date) découpé une fois puis recollé en haut de CHAQUE page générée.
-      const headerTopPx = headerRect ? (headerRect.top - sheetRect.top) * domToCanvasRatio : 0;
-      const headerBottomPx = headerRect ? (headerRect.bottom - sheetRect.top) * domToCanvasRatio : 0;
-      const headerHeightPx = Math.round(headerBottomPx - headerTopPx);
-      const headerCanvas = headerHeightPx>0 ? cropCanvas(canvas, 0, Math.round(headerTopPx), canvas.width, headerHeightPx) : null;
-      const bodyStartPx = Math.round(headerBottomPx);
-      const breakPoints = Array.from(sheet.querySelectorAll('.bilan-print-table tr'))
-        .map(el=>{
-          const r = el.getBoundingClientRect();
-          return { top:(r.top-sheetRect.top)*domToCanvasRatio - bodyStartPx, bottom:(r.bottom-sheetRect.top)*domToCanvasRatio - bodyStartPx };
-        })
-        .filter(b=> b.bottom > b.top && b.top >= 0);
-      const marginMm = 8; // marge basse seulement ; l'en-t\u00ete gère déjà le haut de page
-      const headerHmm = headerHeightPx / pxPerMm;
-      const maxBodySliceHeightPx = Math.floor((pageH - headerHmm - marginMm) * pxPerMm);
-      const bodyTotalPx = canvas.height - bodyStartPx;
-      const cuts = [0];
-      let cursor = 0;
-      while(cursor < bodyTotalPx){
-        let target = Math.min(cursor + maxBodySliceHeightPx, bodyTotalPx);
-        if(target < bodyTotalPx){
-          const collision = breakPoints.find(b=> b.top < target && b.bottom > target && b.top > cursor);
-          if(collision && collision.top > cursor) target = collision.top;
-        }
-        if(target <= cursor) target = Math.min(cursor + maxBodySliceHeightPx, bodyTotalPx);
-        cuts.push(target);
-        cursor = target;
-      }
-      for(let p=0; p<cuts.length-1; p++){
-        const sliceH = cuts[p+1] - cuts[p];
-        if(sliceH<=0) continue;
-        if(p>0) pdf.addPage();
-        const bodySlice = cropCanvas(canvas, 0, bodyStartPx + cuts[p], canvas.width, sliceH);
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = headerHeightPx + sliceH;
-        const pctx = pageCanvas.getContext('2d');
-        pctx.fillStyle = '#ffffff';
-        pctx.fillRect(0,0,pageCanvas.width,pageCanvas.height);
-        if(headerCanvas) pctx.drawImage(headerCanvas, 0, 0);
-        pctx.drawImage(bodySlice, 0, headerHeightPx);
-        const imgHmm = pageCanvas.height / pxPerMm;
-        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, imgHmm);
-        pageCanvas.width = 0; pageCanvas.height = 0;
-        bodySlice.width = 0; bodySlice.height = 0;
-      }
-      if(headerCanvas){ headerCanvas.width = 0; headerCanvas.height = 0; }
-    }
-  }
-  canvas.width = 0; canvas.height = 0;
-  return pdf;
-}
 function bindDocView(){
   document.getElementById('back-btn').onclick = ()=>{ state.viewingDoc=null; render(); };
   document.getElementById('print-btn').onclick = async (e)=>{
     const btn = e.currentTarget;
     const original = btn.textContent;
-    // Ouvre la fen\u00eatre TOUT DE SUITE (dans le m\u00eame geste que le clic) : si on attend la fin de la
-    // g\u00e9n\u00e9ration du PDF avant d'ouvrir, le navigateur ne consid\u00e8re plus \u00e7a comme un clic direct
-    // et bloque silencieusement la fen\u00eatre, sans aucun message.
     const win = window.open('', '_blank');
     if(win){
       win.document.write('<p style="font-family:sans-serif;padding:2rem">G\u00e9n\u00e9ration du PDF\u2026</p>');
@@ -5274,7 +4995,6 @@ function bindDocView(){
       const blob = pdf.output('blob');
       const blobUrl = URL.createObjectURL(blob);
       win.location.href = blobUrl;
-      // Lance l'impression une fois le PDF affich\u00e9 (le d\u00e9lai laisse le temps au visualiseur de charger)
       setTimeout(()=>{ try{ win.print(); }catch(e){} }, 800);
     }catch(err){
       console.error('Erreur g\u00e9n\u00e9ration PDF pour impression:', err);
@@ -5310,7 +5030,6 @@ function bindDocView(){
     const to = (c && c.email) ? c.email.trim() : '';
     const filename = `${title}_${d.numero}.pdf`.replace(/[^a-zA-Z0-9._-]/g,'_');
 
-    // 1) Tentative : partage natif avec le PDF d\u00e9j\u00e0 joint (fonctionne sur mobile et certains navigateurs de bureau r\u00e9cents)
     btn.disabled = true;
     btn.textContent = 'Pr\u00e9paration du PDF\u2026';
     try{
@@ -5332,7 +5051,6 @@ function bindDocView(){
     btn.disabled = false;
     btn.textContent = original;
 
-    // 2) Repli : le PDF ne peut pas \u00eatre joint automatiquement \u00e0 un mailto (limitation du web), on le t\u00e9l\u00e9charge et on ouvre l'email
     showToast("Ton navigateur ne permet pas la pi\u00e8ce jointe automatique ici \u2014 le PDF va se t\u00e9l\u00e9charger, joins-le \u00e0 l'email qui s'ouvre juste apr\u00e8s");
     await downloadDocAsPdf(filename);
     const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -5494,7 +5212,6 @@ function importFromExcel(file, cb){
         resolve();
       });
     });
-    // Garde l'app synchronis\u00e9e si la session expire ou change dans un autre onglet
     fbAuth.onAuthStateChanged(user=>{
       const wasAuth = state.authenticated;
       state.authenticated = !!user;
