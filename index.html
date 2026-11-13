@@ -287,6 +287,12 @@
     .p2-tagline .s{font-size:9px;}
     .p2-legal-footer{padding:6px 20px;font-size:8.5px;}
     tr{break-inside:avoid;page-break-inside:avoid;}
+    /* Le reste de l'appli (menu, fond beige, hauteur 100vh) restait « invisible » mais gardait
+       sa place : il fabriquait une 2e page vide et imprimait le fond beige. On le retire du flux. */
+    html, body{ background:#fff !important; height:auto !important; min-height:0 !important; }
+    .shell{ display:block !important; min-height:0 !important; height:auto !important; }
+    .sidebar{ display:none !important; }
+    .main{ padding:0 !important; max-width:none !important; max-height:0 !important; overflow:hidden !important; }
   }
   @media screen and (max-width: 720px){
     .shell{flex-direction:column;}
