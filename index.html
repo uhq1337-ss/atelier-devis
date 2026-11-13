@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Atelier Devis</title>
+<title>Dashboard Devis</title>
 <style>
   :root{
     --ink:#1B2A4A;
@@ -442,6 +442,34 @@
     @media (max-width:820px){ .landing.split{ grid-template-columns:1fr; } .login-brand{ padding:1.6rem; } .lb-mid, .lb-bot{ display:none; } }
   }
 
+
+  /* ===== Thèmes par entreprise + choix de l'entreprise + centrage ===== */
+  @media screen{
+    :root{ --dash-side:#2F2891; }
+    :root[data-co="baws"]{ --dash-violet:#C8102E; --dash-violet-d:#A30D25; --dash-violet-l:#FCEBEE; --dash-side:#B50F2A; --dash-bg:#FAF6F6; --dash-line:#EEE3E4; }
+    :root[data-co="cvc"]{ --dash-violet:#1F58C7; --dash-violet-d:#1844A0; --dash-violet-l:#E8F0FD; --dash-side:#17418F; --dash-bg:#F4F7FC; --dash-line:#E1E8F4; }
+    .sidebar{ background:var(--dash-side); }
+    .nav-item.active{ color:var(--dash-side); }
+    .main{ margin:0 auto; max-width:1380px; width:100%; }
+    .main .page-title{ color:var(--dash-ink); }
+    .sidebar-footer button{ display:inline-block; margin-top:.25rem; }
+    .co-landing{ display:flex; align-items:center; justify-content:center; background:#F5F6FA; padding:2rem; }
+    .co-pick-wrap{ width:100%; max-width:760px; text-align:center; }
+    .co-pick-wrap h1{ font-size:28px; font-weight:700; color:var(--dash-ink); margin:0 0 .5rem; letter-spacing:-.01em; }
+    .co-sub{ color:var(--dash-muted); font-size:14.5px; margin:0 0 2rem; }
+    .co-pick-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1.2rem; }
+    .co-pick{ background:#fff; border:1px solid #E3E5EE; border-top:4px solid #3F33C4; border-radius:12px; padding:2rem 1.5rem 1.4rem; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:1rem; font-family:inherit; transition:transform .15s, border-color .15s; }
+    .co-pick:hover{ transform:translateY(-2px); border-color:#C9CCDC; }
+    .co-pick.baws{ border-top-color:#C8102E; } .co-pick.cvc{ border-top-color:#1F58C7; }
+    .co-pick .co-logo{ height:70px; display:flex; align-items:center; justify-content:center; }
+    .co-pick .co-logo img{ max-height:70px; max-width:200px; object-fit:contain; }
+    .co-pick .co-name{ font-size:17px; font-weight:700; color:var(--dash-ink); letter-spacing:.02em; }
+    .co-pick .co-go{ font-size:13px; font-weight:600; color:#fff; background:#3F33C4; padding:.5rem 1.1rem; border-radius:8px; }
+    .co-pick.baws .co-go{ background:#C8102E; } .co-pick.cvc .co-go{ background:#1F58C7; }
+    .co-user{ margin-top:2rem; font-size:13px; color:var(--dash-muted); }
+    .co-link{ background:none; border:none; padding:0; color:var(--dash-muted); text-decoration:underline; cursor:pointer; font-size:13px; font-family:inherit; }
+  }
+
   /* Éditeur de texte enrichi (gras, italique, souligné, surligné, liste) */
   .rte{border:1px solid var(--line-strong);border-radius:3px;background:#fff;}
   .rte:focus-within{outline:2px solid var(--ink-light);outline-offset:1px;}
@@ -459,7 +487,7 @@
 </style>
 </head>
 <body>
-<div id="app"><div class="landing"><div class="landing-card"><h1>Atelier Devis</h1><p>Chargement en cours...</p></div></div></div>
+<div id="app"><div class="landing"><div class="landing-card"><h1>Dashboard Devis</h1><p>Chargement en cours...</p></div></div></div>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -690,6 +718,7 @@ let state = {
   editingAccountId: null,
   editingJournalId: null,
   tab: 'dashboard',
+  activeCompanyId: (()=>{ try{ return sessionStorage.getItem('activeCo') || null; }catch(e){ return null; } })(),
   comptaTab: 'plan',
   bilanDate: '',
   bilanPrintMode: false,
@@ -970,6 +999,50 @@ function refreshRteState(){
 document.addEventListener('selectionchange', refreshRteState);
 
 
+
+// ===== Entreprise active (BAWS / CVC MÉTHODES) : thème, devis et chiffres propres à chacune =====
+function activeCo(){ return (state.companies||[]).find(c=>c.id===state.activeCompanyId) || null; }
+function forCo(list){ const id = state.activeCompanyId; return id ? list.filter(x=> !x.companyId || x.companyId===id) : list; }
+function coTheme(){
+  const n = String((activeCo()||{}).name||'').toUpperCase();
+  return n.includes('BAWS') ? 'baws' : (n.includes('CVC') ? 'cvc' : '');
+}
+function pickCompany(id){
+  state.activeCompanyId = id;
+  try{ sessionStorage.setItem('activeCo', id); }catch(e){}
+  // Les nouveaux devis démarrent avec l'entreprise choisie (sans toucher à un travail déjà commencé).
+  try{
+    if(!state.builder.editingDocId && !builderDraftHasContent(state.builder)) state.builder.companyId = id;
+    if(!state.travauxBuilder.editingId && !state.travauxBuilder.clientId && !state.travauxBuilder.dureePrevisionnelle) state.travauxBuilder.companyId = id;
+  }catch(e){}
+  state.tab = 'dashboard'; state.viewingDoc = null; state.viewingCommande = null; state.viewingTravaux = null;
+  render();
+}
+function renderCompanyPicker(){
+  return `
+  <div class="landing co-landing">
+    <div class="co-pick-wrap">
+      <h1>Quelle entreprise ?</h1>
+      <p class="co-sub">Choisissez l'entreprise pour laquelle vous travaillez. Chacune a ses propres devis et chiffres.</p>
+      <div class="co-pick-grid">
+        ${state.companies.map(c=>{
+          const t = String(c.name||'').toUpperCase().includes('BAWS') ? 'baws' : (String(c.name||'').toUpperCase().includes('CVC') ? 'cvc' : '');
+          return `<button class="co-pick ${t}" data-pick-co="${c.id}">
+            <span class="co-logo">${c.logo ? `<img src="${c.logo}" alt="">` : ''}</span>
+            <span class="co-name">${c.name}</span>
+            <span class="co-go">Ouvrir &rarr;</span>
+          </button>`;
+        }).join('')}
+      </div>
+      <p class="co-user">Connecté en tant que <strong>${state.currentUser}</strong> · <button class="co-link" id="co-switch-user">Changer d'utilisateur</button></p>
+    </div>
+  </div>`;
+}
+function bindCompanyPicker(){
+  document.querySelectorAll('[data-pick-co]').forEach(b=>{ b.onclick = ()=> pickCompany(b.dataset.pickCo); });
+  const su = document.getElementById('co-switch-user'); if(su) su.onclick = ()=>{ state.currentUser = null; render(); };
+}
+
 // ===== Tableau de bord (lecture seule : ne modifie ni ne sauvegarde aucune donnée) =====
 function navIcon(k){
   const P = {
@@ -1008,9 +1081,9 @@ function dashSmoothPath(pts){
 }
 function dashStats(){
   const now = new Date(), y = now.getFullYear(), m = now.getMonth();
-  const docs = (state.documents||[]).filter(d=>!d.deleted);
+  const docs = forCo((state.documents||[]).filter(d=>!d.deleted));
   const devis = docs.filter(d=>d.type==='devis'), facts = docs.filter(d=>d.type==='facture');
-  const trav = (state.travaux||[]).filter(t=>!t.deleted);
+  const trav = forCo((state.travaux||[]).filter(t=>!t.deleted));
   const ht = d => { try{ return calcTotals(d).ht || 0; }catch(e){ return 0; } };
   const cur = Array(12).fill(0), prev = Array(12).fill(0);
   let caAnnee = 0, caMois = 0;
@@ -1040,8 +1113,8 @@ function dashChartSvg(cur, prev){
     ${ticks.map(t=>`<line x1="${L}" x2="${W-R}" y1="${t.y.toFixed(1)}" y2="${t.y.toFixed(1)}" stroke="#EEF0F7"/><text x="${L-8}" y="${(t.y+4).toFixed(1)}" text-anchor="end" font-size="10" fill="#8A8FA8">${fmt(t.v)}</text>`).join('')}
     ${mois.map((l,i)=>`<text x="${x(i).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#8A8FA8">${l}</text>`).join('')}
     <path d="${dashSmoothPath(prevPts)}" fill="none" stroke="#C9CDDF" stroke-width="1.8" stroke-dasharray="4 4" stroke-linecap="round"/>
-    <path d="${dashSmoothPath(curPts)}" fill="none" stroke="#3F33C4" stroke-width="2.5" stroke-linecap="round"/>
-    ${lastIdx>=0 ? `<circle cx="${x(lastIdx).toFixed(1)}" cy="${y(cur[lastIdx]).toFixed(1)}" r="4.5" fill="#fff" stroke="#3F33C4" stroke-width="2.5"/>` : ''}
+    <path d="${dashSmoothPath(curPts)}" fill="none" style="stroke:var(--dash-violet)" stroke-width="2.5" stroke-linecap="round"/>
+    ${lastIdx>=0 ? `<circle cx="${x(lastIdx).toFixed(1)}" cy="${y(cur[lastIdx]).toFixed(1)}" r="4.5" fill="#fff" style="stroke:var(--dash-violet)" stroke-width="2.5"/>` : ''}
   </svg>`;
 }
 // Filet de sécurité : si le tableau de bord rencontre un souci (donnée inattendue), l'appli reste utilisable.
@@ -1061,7 +1134,7 @@ function renderDashboardInner(){
   <div class="dash-head">
     <div>
       <h1 class="page-title" style="margin-bottom:.15rem">Tableau de bord</h1>
-      <p class="page-sub" style="margin:0">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).replace(/^./,c=>c.toUpperCase())}</p>
+      <p class="page-sub" style="margin:0">${activeCo()?activeCo().name+' — ':''}${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).replace(/^./,c=>c.toUpperCase())}</p>
     </div>
     <div class="dash-actions">
       <button class="btn" data-dash-go="nouveau">+ Nouveau devis</button>
@@ -1076,14 +1149,14 @@ function renderDashboardInner(){
 
     <div class="dash-card dash-chart">
       <h3>Chiffre d'affaires</h3><p class="sub">Factures HT, mois par mois</p>
-      <div class="dash-legend"><span><i style="background:#3F33C4"></i>${st.y}</span><span><i style="background:#C9CDDF"></i>${st.y-1} (pointillé)</span></div>
+      <div class="dash-legend"><span><i style="background:var(--dash-violet)"></i>${st.y}</span><span><i style="background:#C9CDDF"></i>${st.y-1} (pointillé)</span></div>
       ${dashChartSvg(st.cur, st.prev)}
     </div>
     <div class="dash-card dash-ring">
       <h3 style="align-self:flex-start">Évolution du CA</h3><p class="sub" style="align-self:flex-start">${st.y} comparé à ${st.y-1} (factures HT)</p>
       <svg viewBox="0 0 140 140" width="170" height="170" style="margin:.4rem 0">
         <circle cx="70" cy="70" r="${R}" fill="none" stroke="#ECEDF5" stroke-width="8"/>
-        <circle cx="70" cy="70" r="${R}" fill="none" stroke="#3F33C4" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 70 70)"/>
+        <circle cx="70" cy="70" r="${R}" fill="none" style="stroke:var(--dash-violet)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 70 70)"/>
         <text x="70" y="77" text-anchor="middle" font-size="${st.evo===null?24:26}" font-weight="800" fill="#1E2140">${st.evo===null ? '—' : (st.evo>0?'+':'')+st.evo+'%'}</text>
       </svg>
       <div class="meta" style="font-size:12px;color:var(--dash-muted)">${st.evo===null ? 'Pas de factures en '+(st.y-1)+' pour comparer' : eur(st.caAnnee)+' contre '+eur(st.prevTotal)}</div>
@@ -1148,17 +1221,29 @@ function render(){
   const focusInfo = captureFocus();
   const app = document.getElementById('app');
   if(!state.authenticated){
+    document.documentElement.setAttribute('data-co','');
     app.innerHTML = renderLogin();
     bindLogin();
     restoreFocus(focusInfo);
     return;
   }
   if(!state.currentUser){
+    document.documentElement.setAttribute('data-co','');
     app.innerHTML = renderLanding();
     bindLanding();
     restoreFocus(focusInfo);
     return;
   }
+  if((state.companies||[]).length && !activeCo()){
+    if(state.companies.length===1){ state.activeCompanyId = state.companies[0].id; }
+    else {
+      document.documentElement.setAttribute('data-co','');
+      app.innerHTML = renderCompanyPicker();
+      bindCompanyPicker();
+      return;
+    }
+  }
+  document.documentElement.setAttribute('data-co', coTheme());
   app.innerHTML = renderShell();
   bindShell();
   restoreFocus(focusInfo);
@@ -1169,7 +1254,7 @@ function renderLogin(){
     return `
     <div class="landing">
       <div class="landing-card">
-        <h1>Atelier Devis</h1>
+        <h1>Dashboard Devis</h1>
         <p style="color:var(--danger)">Firebase n'est pas configur\u00e9 \u2014 aucune connexion s\u00e9curis\u00e9e n'est disponible tant que la config Firebase n'est pas renseign\u00e9e.</p>
       </div>
     </div>`;
@@ -1179,7 +1264,7 @@ function renderLogin(){
     <aside class="login-brand">
       <div class="lb-top">
         <div class="lb-mark">BAWS</div>
-        <div class="lb-sub">Atelier Devis</div>
+        <div class="lb-sub">Dashboard Devis</div>
       </div>
       <div class="lb-mid">
         <h2>Devis, factures et comptabilité,<br>au même endroit.</h2>
@@ -1241,7 +1326,7 @@ function renderLanding(){
   return `
   <div class="landing">
     <div class="landing-card">
-      <h1>Atelier Devis</h1>
+      <h1>Dashboard Devis</h1>
       <p>Choisissez votre nom pour acc\u00e9der \u00e0 l'espace de l'\u00e9quipe.</p>
       ${state.team.length ? state.team.map(m=>`<button class="member-btn" data-pick="${m}">${m}</button>`).join('') : `<p class="empty">Personne pour l'instant, ajoutez-vous ci-dessous.</p>`}
       <div class="add-member-row">
@@ -1285,10 +1370,11 @@ function renderShell(){
   return `
   <div class="shell">
     <div class="sidebar">
-      <div class="brand">Atelier Devis<small>Espace \u00e9quipe</small></div>
+      <div class="brand">Dashboard Devis<small>${activeCo() ? activeCo().name : 'Espace \u00e9quipe'}</small></div>
       ${tabs.map(([k,l])=>`<button class="nav-item ${state.tab===k?'active':''}" data-tab="${k}">${navIcon(k)}<span>${l}</span></button>`).join('')}
       <div class="sidebar-footer">
         Connect\u00e9 en tant que <strong style="color:#fff">${state.currentUser}</strong><br>
+        <button id="switch-co">Changer d'entreprise</button><br>
         <button id="switch-user">Changer d'utilisateur</button>
         <br><button id="logout-btn" style="margin-top:.4rem">Se d\u00e9connecter</button>
       </div>
@@ -1333,6 +1419,8 @@ function bindShell(){
     };
   });
   document.getElementById('switch-user').onclick = ()=>{ state.currentUser=null; render(); };
+  const swCo = document.getElementById('switch-co');
+  if(swCo) swCo.onclick = ()=>{ state.activeCompanyId = null; try{ sessionStorage.removeItem('activeCo'); }catch(e){} state.viewingDoc=null; state.viewingCommande=null; state.viewingTravaux=null; render(); };
   const logoutBtn = document.getElementById('logout-btn');
   if(logoutBtn) logoutBtn.onclick = async ()=>{
     try{ if(fbAuth) await fbAuth.signOut(); }catch(e){ console.error(e); }
@@ -1753,7 +1841,7 @@ function calcTotals(b){
 function renderBuilder(){
   const b = state.builder;
   const t = calcTotals(b);
-  if(!b.companyId && state.companies.length) b.companyId = state.companies[0].id;
+  if(!b.companyId && state.companies.length) b.companyId = state.activeCompanyId || state.companies[0].id;
   const editingDoc = b.editingDocId ? state.documents.find(d=>d.id===b.editingDocId) : null;
   return `
   <h1 class="page-title">${editingDoc ? 'Modifier le devis '+editingDoc.numero : 'Nouveau devis'}</h1>
@@ -2079,7 +2167,7 @@ function bindBuilder(){
 }
 
 function renderDevisListe(){
-  const docs = state.documents.filter(d=>d.type==='devis' && !d.deleted).reverse();
+  const docs = forCo(state.documents.filter(d=>d.type==='devis' && !d.deleted)).reverse();
   return `
   <h1 class="page-title">Devis</h1>
   <p class="page-sub">Tous les devis cr\u00e9\u00e9s par l'\u00e9quipe.</p>
@@ -2226,7 +2314,7 @@ function renderDevisListe(){
   </table>`;
 }
 function renderFacturesListe(){
-  const docs = state.documents.filter(d=>d.type==='facture' && !d.deleted).reverse();
+  const docs = forCo(state.documents.filter(d=>d.type==='facture' && !d.deleted)).reverse();
   const totTTC = docs.reduce((s,d)=>s+calcTotals(d).ttc,0);
   return `
   <h1 class="page-title">Factures</h1>
@@ -2272,7 +2360,7 @@ function bindDevisListe(){
   });
   const exp = document.getElementById('export-overview');
   if(exp) exp.onclick = ()=>{
-    const docs = state.documents.filter(d=>d.type==='devis' && !d.deleted).reverse();
+    const docs = forCo(state.documents.filter(d=>d.type==='devis' && !d.deleted)).reverse();
     const rows = docs.map(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
       const co = state.companies.find(co=>co.id===d.companyId);
@@ -2298,7 +2386,7 @@ function bindDevisListe(){
   };
   const expSynth = document.getElementById('export-synthese');
   if(expSynth) expSynth.onclick = ()=>{
-    const docs2 = state.documents.filter(d=>d.type==='devis' && !d.deleted).reverse();
+    const docs2 = forCo(state.documents.filter(d=>d.type==='devis' && !d.deleted)).reverse();
     let rows = [];
     docs2.forEach(d=>{
       const c = state.clients.find(c=>c.id===d.clientId);
@@ -2363,7 +2451,7 @@ function calcTotalsTravaux(t){
 }
 
 function renderTravauxListe(){
-  const docs = state.travaux.filter(t=>!t.deleted).slice().reverse();
+  const docs = forCo(state.travaux.filter(t=>!t.deleted)).slice().reverse();
   return `
   <h1 class="page-title">Travaux</h1>
   <p class="page-sub">Devis estimatifs pour des travaux annexes (remise en \u00e9tat, ma\u00e7onnerie, peinture\u2026), s\u00e9par\u00e9s des devis climatisation.</p>
@@ -2566,7 +2654,7 @@ function loadTravauxDraft(){
 
 function renderTravauxBuilder(){
   const b = state.travauxBuilder;
-  if(!b.companyId && state.companies.length) b.companyId = state.companies[0].id;
+  if(!b.companyId && state.companies.length) b.companyId = state.activeCompanyId || state.companies[0].id;
   const tot = calcTotalsTravaux(b);
   const editing = b.editingId ? state.travaux.find(t=>t.id===b.editingId) : null;
   return `
