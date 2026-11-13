@@ -565,6 +565,21 @@
     html[data-mode="dark"] .nv-item{ background:#1A1C26; border-color:#2A2D3B; }
     @media (prefers-reduced-motion:reduce){ .nv-dot, .nav-item[data-tab="nouveautes"] svg, .nv-item{ animation:none; } }
   }
+
+  @media screen{
+    .ap{ position:absolute; z-index:300; width:min(540px,92vw); background:#fff; border:1px solid var(--dash-line); border-radius:12px; box-shadow:0 12px 36px rgba(0,0,0,.18); padding:12px; }
+    .ap-lbl{ font-size:11.5px; color:var(--dash-muted); margin:.2rem 0 .35rem; text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+    .ap-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:.6rem; }
+    .ap-list{ max-height:300px; overflow:auto; margin-top:.2rem; }
+    .ap-row{ display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.55rem .6rem; border-radius:8px; cursor:pointer; font-size:14px; color:var(--dash-ink); }
+    .ap-row:hover, .ap-row.on{ background:var(--dash-violet-l); }
+    .ap-ref{ font-size:12px; color:var(--dash-muted); }
+    .ap-prix{ font-size:13px; font-weight:600; white-space:nowrap; }
+    .ap-none{ padding:.8rem; color:var(--dash-muted); font-size:13.5px; }
+    .ap mark{ background:#FFF1B8; color:inherit; border-radius:3px; padding:0 1px; }
+    html[data-mode="dark"] .ap{ background:#1A1C26; border-color:#2A2D3B; }
+    html[data-mode="dark"] .ap mark{ background:#5C4B00; }
+  }
   .rte{border:1px solid var(--line-strong);border-radius:3px;background:#fff;}
   .rte:focus-within{outline:2px solid var(--ink-light);outline-offset:1px;}
   .rte-bar{display:flex;flex-wrap:wrap;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:var(--paper);border-radius:3px 3px 0 0;}
@@ -1353,6 +1368,88 @@ function bindNouveautes(){
   try{ localStorage.setItem('nouveautesVu', NOUVEAUTES_VERSION); }catch(e){}
   const dot = document.querySelector('[data-tab="nouveautes"] .nv-dot');
   if(dot) dot.remove();
+}
+
+// choix d'un article : familles, recherche et articles récents
+function sansAccent(t){ return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+function familleArticle(a){
+  const m = String(a.nom||'').trim().split(/\s+/)[0] || '';
+  return m ? m.charAt(0).toUpperCase()+m.slice(1).toLowerCase() : 'Autres';
+}
+function articlesRecents(){
+  try{ return JSON.parse(localStorage.getItem('articlesRecents')||'[]'); }catch(e){ return window.__recentsArt || []; }
+}
+function retenirArticle(id){
+  const l = [id].concat(articlesRecents().filter(x=>x!==id)).slice(0,6);
+  window.__recentsArt = l;
+  try{ localStorage.setItem('articlesRecents', JSON.stringify(l)); }catch(e){}
+}
+function surlignerTexte(t, mots){
+  const bas = sansAccent(t); const zones = [];
+  mots.forEach(w=>{ if(!w) return; const p = bas.indexOf(w); if(p>=0) zones.push([p,p+w.length]); });
+  zones.sort((a,b)=>a[0]-b[0]);
+  const fus = [];
+  zones.forEach(z=>{ if(fus.length && z[0]<=fus[fus.length-1][1]) fus[fus.length-1][1] = Math.max(fus[fus.length-1][1], z[1]); else fus.push(z.slice()); });
+  const esc = s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  let out = '', i = 0;
+  fus.forEach(z=>{ out += esc(t.slice(i,z[0]))+'<mark>'+esc(t.slice(z[0],z[1]))+'</mark>'; i = z[1]; });
+  return out + esc(t.slice(i));
+}
+function bindArticlePicker(b){
+  let panneau = null, champ = null, ligne = -1, famille = 'Tous', pos = 0, trouves = [];
+  const fermer = ()=>{ if(panneau){ panneau.remove(); panneau = null; } champ = null; };
+  const choisir = (a)=>{
+    b.lignes[ligne].articleId = a.id; b.lignes[ligne].pu = a.vente;
+    retenirArticle(a.id); saveBuilderDraft(); fermer(); render();
+  };
+  const dessiner = ()=>{
+    if(!panneau) return;
+    const q = champ.value.trim(), mots = sansAccent(q).split(/\s+/).filter(Boolean);
+    const compte = {};
+    state.articles.forEach(a=>{ const f = familleArticle(a); compte[f] = (compte[f]||0)+1; });
+    const familles = ['Tous'].concat(Object.keys(compte).sort((x,y)=>compte[y]-compte[x]).slice(0,8));
+    trouves = state.articles.filter(a=>{
+      if(famille!=='Tous' && familleArticle(a)!==famille) return false;
+      const h = sansAccent(a.nom+' '+a.code+' '+(a.fournisseur||''));
+      return mots.every(w=>h.includes(w));
+    }).slice(0,40);
+    pos = 0;
+    const recents = articlesRecents().map(id=>state.articles.find(a=>a.id===id)).filter(Boolean);
+    panneau.innerHTML =
+      '<div class="ap-lbl">Type de produit</div><div class="ap-chips">'+familles.map(f=>'<button type="button" class="chip'+(f===famille?' on':'')+'" data-fam="'+f+'">'+f+'</button>').join('')+'</div>'
+      + (recents.length && !q ? '<div class="ap-lbl">Récemment utilisés</div><div class="ap-chips">'+recents.map(a=>'<button type="button" class="chip" data-rec="'+a.id+'">'+a.nom.replace(/</g,'&lt;')+'</button>').join('')+'</div>' : '')
+      + '<div class="ap-list">'+(trouves.length ? trouves.map((a,i)=>'<div class="ap-row'+(i===0?' on':'')+'" data-i="'+i+'"><div><div>'+surlignerTexte(a.nom,mots)+'</div><div class="ap-ref">'+surlignerTexte(a.code,mots)+'</div></div><div class="ap-prix">'+eur(a.vente)+'</div></div>').join('') : '<div class="ap-none">Aucun article</div>')+'</div>';
+    panneau.querySelectorAll('[data-fam]').forEach(c=>{ c.onmousedown = e=>e.preventDefault(); c.onclick = ()=>{ famille = c.dataset.fam; dessiner(); }; });
+    panneau.querySelectorAll('[data-rec]').forEach(c=>{ c.onmousedown = e=>e.preventDefault(); c.onclick = ()=>choisir(state.articles.find(a=>a.id===c.dataset.rec)); });
+    panneau.querySelectorAll('.ap-row').forEach(r=>{ r.onmousedown = e=>e.preventDefault(); r.onclick = ()=>choisir(trouves[+r.dataset.i]); });
+  };
+  const ouvrir = (inp, i)=>{
+    fermer(); champ = inp; ligne = i; famille = 'Tous';
+    panneau = document.createElement('div');
+    panneau.className = 'ap';
+    const r = inp.getBoundingClientRect();
+    panneau.style.left = (r.left + window.scrollX) + 'px';
+    panneau.style.top = (r.bottom + window.scrollY + 6) + 'px';
+    document.body.appendChild(panneau);
+    dessiner();
+    panneau.scrollIntoView({ block:'nearest' });
+  };
+  document.querySelectorAll('[data-line-name],[data-line-ref]').forEach(inp=>{
+    const i = +(inp.dataset.lineName ?? inp.dataset.lineRef);
+    inp.onfocus = ()=>ouvrir(inp, i);
+    inp.addEventListener('input', dessiner);
+    inp.onblur = ()=>setTimeout(()=>{ if(champ===inp) fermer(); }, 150);
+    inp.onkeydown = (e)=>{
+      if(!panneau) return;
+      if(e.key==='Escape'){ fermer(); return; }
+      if(e.key==='ArrowDown' || e.key==='ArrowUp'){
+        e.preventDefault();
+        pos = Math.max(0, Math.min(trouves.length-1, pos + (e.key==='ArrowDown' ? 1 : -1)));
+        panneau.querySelectorAll('.ap-row').forEach((r,n)=>{ r.classList.toggle('on', n===pos); if(n===pos) r.scrollIntoView({block:'nearest'}); });
+      }
+      if(e.key==='Enter' && trouves[pos]){ e.preventDefault(); choisir(trouves[pos]); }
+    };
+  });
 }
 
 // petites icônes du menu
@@ -2273,18 +2370,12 @@ function renderBuilderForm(){
     <div class="row" style="margin-bottom:.4rem;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.03em">
       <div style="width:120px">R\u00e9f\u00e9rence</div><div style="flex:2;min-width:150px">Article</div><div style="width:90px">Qt\u00e9</div><div style="width:90px">Unit\u00e9</div><div style="width:100px">PU HT</div><div style="width:100px">Total HT</div><div style="width:32px"></div>
     </div>
-    <datalist id="articles-datalist-ref">
-      ${state.articles.map(a=>`<option value="${a.code}" label="${a.nom}">`).join('')}
-    </datalist>
-    <datalist id="articles-datalist-nom">
-      ${state.articles.map(a=>`<option value="${a.nom}" label="${a.code}">`).join('')}
-    </datalist>
     ${b.lignes.map((l,i)=>{
       const art = state.articles.find(a=>a.id===l.articleId);
       return `
       <div class="line-row" style="grid-template-columns:120px 2fr 90px 90px 100px 100px 32px">
-        <input type="text" list="articles-datalist-ref" data-line-ref="${i}" value="${art?art.code:''}" placeholder="R\u00e9f." autocomplete="off">
-        <input type="text" list="articles-datalist-nom" data-line-name="${i}" value="${art?art.nom:''}" placeholder="Nom de l'article" autocomplete="off">
+        <input type="text" data-line-ref="${i}" value="${art?art.code:''}" placeholder="R\u00e9f." autocomplete="off">
+        <input type="text" data-line-name="${i}" value="${art?art.nom:''}" placeholder="Nom de l'article" autocomplete="off">
         <input type="text" inputmode="decimal" value="${l.qty}" data-line-qty="${i}">
         <select data-line-unite="${i}">${UNIT_OPTIONS.map(u=>`<option value="${u}" ${l.unite===u?'selected':''}>${u}</option>`).join('')}</select>
         <input type="text" inputmode="decimal" value="${l.pu}" data-line-pu="${i}">
@@ -2458,6 +2549,7 @@ function bindBuilder(){
       if(art){ b.lignes[i].articleId = art.id; b.lignes[i].pu = art.vente; saveBuilderDraft(); render(); }
     };
   });
+  bindArticlePicker(b);
   document.querySelectorAll('[data-line-qty]').forEach(inp=>{
     inp.oninput = (e)=>{ b.lignes[+inp.dataset.lineQty].qty = e.target.value; saveBuilderDraft(); render(); };
   });
