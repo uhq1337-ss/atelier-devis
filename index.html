@@ -580,6 +580,27 @@
     html[data-mode="dark"] .ap{ background:#1A1C26; border-color:#2A2D3B; }
     html[data-mode="dark"] .ap mark{ background:#5C4B00; }
   }
+
+  @media screen{
+    .sec-title{ font-size:15px; font-weight:700; margin:0 0 1rem; color:var(--dash-ink); }
+    .form-2col{ display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:1.2rem; }
+    .line-head{ display:grid; grid-template-columns:120px 2fr 90px 90px 100px 100px 32px; gap:.6rem; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--dash-muted); font-weight:600; margin:0 0 .4rem; padding:0 .6rem; }
+    .main .line-row{ background:#F8F9FD; border-radius:10px; padding:.5rem .6rem; margin-bottom:.45rem; }
+    .main .line-row .lt{ font-weight:600; }
+    .lines-empty{ border:1.5px dashed var(--dash-line); border-radius:10px; padding:1.4rem; text-align:center; color:var(--dash-muted); font-size:14px; }
+    .totals-grid{ display:grid; grid-template-columns:1fr minmax(260px,380px); gap:2rem; align-items:start; margin-top:1.4rem; padding-top:1.4rem; border-top:1px dashed var(--dash-line); }
+    .totals-card{ background:#F8F9FD; border-radius:12px; padding:.9rem 1.2rem; }
+    .totals-card .totals-row{ font-size:14px; padding:.3rem 0; }
+    .totals-card .totals-row.ttc{ font-size:20px; border-top:1px solid var(--dash-line); margin-top:.4rem; padding-top:.7rem; }
+    .save-bar{ position:sticky; bottom:0; display:flex; gap:.6rem; justify-content:flex-end; align-items:center; padding:.9rem 0 .2rem; margin-top:1.2rem; background:#fff; border-top:1px solid var(--dash-line); }
+    html[data-mode="dark"] .main .line-row, html[data-mode="dark"] .totals-card{ background:#20222E; }
+    html[data-mode="dark"] .save-bar{ background:#1A1C26; }
+    @media (max-width:860px){
+      .form-2col, .totals-grid{ grid-template-columns:1fr; gap:1rem; }
+      .line-head{ display:none; }
+      .main .line-row{ grid-template-columns:1fr 1fr !important; }
+    }
+  }
   .rte{border:1px solid var(--line-strong);border-radius:3px;background:#fff;}
   .rte:focus-within{outline:2px solid var(--ink-light);outline-offset:1px;}
   .rte-bar{display:flex;flex-wrap:wrap;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:var(--paper);border-radius:3px 3px 0 0;}
@@ -2316,9 +2337,10 @@ function renderBuilderForm(){
   const editingDoc = b.editingDocId ? state.documents.find(d=>d.id===b.editingDocId) : null;
   return `
   <h1 class="page-title">${editingDoc ? 'Modifier le devis '+editingDoc.numero : 'Nouveau devis'}</h1>
-  <p class="page-sub">S\u00e9lectionnez l'entreprise \u00e9mettrice, un client, ajoutez des articles.</p>
   <div class="card">
-    <div class="field" style="max-width:360px;position:relative">
+    <h2 class="sec-title">Informations du devis</h2>
+    <div class="form-2col">
+    <div class="field" style="position:relative">
       <label>Client</label>
       <input type="text" id="b-client-search" placeholder="Taper pour rechercher un client..." autocomplete="off"
         value="${clientFullName(state.clients.find(c=>c.id===b.clientId))}">
@@ -2335,11 +2357,12 @@ function renderBuilderForm(){
         return selected ? `<p class="hint" id="client-selected-hint" style="margin-top:.35rem">\u2713 S\u00e9lectionn\u00e9\u00a0: ${selected.adresse||''}${selected.comp? ', '+selected.comp:''}, ${selected.cp||''} ${selected.ville||''}</p>` : '';
       })() : ''}
     </div>
-    ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
-    <div class="field" style="max-width:200px">
+    <div class="field">
       <label>Date${editingDoc? ' ('+editingDoc.type+')' : ''}</label>
       <input type="date" id="b-date" value="${frDateToIso(b.date||todayStr())}">
     </div>
+    </div>
+    ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
     <div class="field">
       <label>Objet du devis</label>
       ${rteField('b-objet', b.objet, {single:true, placeholder:'Ex : Devis pour prestations de maintenance CVC'})}
@@ -2367,9 +2390,8 @@ function renderBuilderForm(){
   </div>
 
   <div class="card">
-    <div class="row" style="margin-bottom:.4rem;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.03em">
-      <div style="width:120px">R\u00e9f\u00e9rence</div><div style="flex:2;min-width:150px">Article</div><div style="width:90px">Qt\u00e9</div><div style="width:90px">Unit\u00e9</div><div style="width:100px">PU HT</div><div style="width:100px">Total HT</div><div style="width:32px"></div>
-    </div>
+    <h2 class="sec-title">Lignes du devis</h2>
+    ${b.lignes.length ? `<div class="line-head"><div>R\u00e9f\u00e9rence</div><div>Article</div><div>Qt\u00e9</div><div>Unit\u00e9</div><div>PU HT</div><div style="text-align:right">Total HT</div><div></div></div>` : ''}
     ${b.lignes.map((l,i)=>{
       const art = state.articles.find(a=>a.id===l.articleId);
       return `
@@ -2383,39 +2405,42 @@ function renderBuilderForm(){
         <button class="rm-btn" data-line-del="${i}" aria-label="Retirer la ligne">&times;</button>
       </div>`;
     }).join('')}
-    <button class="btn secondary small" id="add-line" style="margin-top:.5rem">+ Ajouter une ligne</button>
+    ${b.lignes.length ? '' : '<div class="lines-empty">Aucune ligne pour l\'instant</div>'}
+    <button class="btn secondary small" id="add-line" style="margin-top:.6rem">+ Ajouter une ligne</button>
 
-    <div class="totals-box" style="border-top:1px dashed var(--line-strong);margin-top:1rem;padding-top:1rem">
-      <p class="subhead" style="margin-bottom:.5rem">Remise commerciale</p>
-      <div class="row" style="align-items:flex-end">
-        <div class="field" style="width:120px">
-          <label>Type</label>
-          <select id="b-remise-type">
-            <option value="percent" ${(b.remiseType||'percent')==='percent'?'selected':''}>%</option>
-            <option value="montant" ${b.remiseType==='montant'?'selected':''}>\u20ac</option>
-          </select>
+    <div class="totals-grid">
+      <div>
+        <h2 class="sec-title">Remise et TVA</h2>
+        <div class="row" style="align-items:flex-end">
+          <div class="field" style="width:110px">
+            <label>Remise</label>
+            <select id="b-remise-type">
+              <option value="percent" ${(b.remiseType||'percent')==='percent'?'selected':''}>%</option>
+              <option value="montant" ${b.remiseType==='montant'?'selected':''}>\u20ac</option>
+            </select>
+          </div>
+          <div class="field" style="width:120px">
+            <label>Valeur</label>
+            <input type="text" inputmode="decimal" id="b-remise-valeur" value="${b.remiseValeur||''}" placeholder="0">
+          </div>
+          <div class="field" style="width:110px">
+            <label>TVA (%)</label>
+            <input type="text" inputmode="decimal" id="b-tva" value="${b.tva}">
+          </div>
         </div>
-        <div class="field" style="width:140px">
-          <label>Valeur</label>
-          <input type="text" inputmode="decimal" id="b-remise-valeur" value="${b.remiseValeur||''}" placeholder="0">
-        </div>
-        <p class="hint" style="margin:0 0 .5rem">Remise\u00a0: -${eur(t.remise)} \u2014 Total HT apr\u00e8s remise\u00a0: ${eur(t.ht)}</p>
+      </div>
+      <div class="totals-card">
+        <div class="totals-row"><span>Total HT</span><span class="num">${eur(t.htBrut)}</span></div>
+        ${t.remise ? `<div class="totals-row"><span>Remise</span><span class="num">-${eur(t.remise)}</span></div>
+        <div class="totals-row"><span>HT apr\u00e8s remise</span><span class="num">${eur(t.ht)}</span></div>` : ''}
+        <div class="totals-row"><span>TVA (${b.tva}%)</span><span class="num">${eur(t.tva)}</span></div>
+        <div class="totals-row ttc"><span>Total TTC</span><span class="num">${eur(t.ttc)}</span></div>
       </div>
     </div>
-
-    <div class="totals-box">
-      <div class="field" style="max-width:160px;margin-bottom:.75rem">
-        <label>Taux de TVA (%)</label>
-        <input type="text" inputmode="decimal" id="b-tva" value="${b.tva}">
-      </div>
-      <div class="totals-row"><span>Total HT brut</span><span class="num">${eur(t.htBrut)}</span></div>
-      ${t.remise ? `<div class="totals-row"><span>Remise commerciale</span><span class="num">-${eur(t.remise)}</span></div>
-      <div class="totals-row"><span>Total HT apr\u00e8s remise</span><span class="num">${eur(t.ht)}</span></div>` : ''}
-      <div class="totals-row"><span>TVA (${b.tva}%)</span><span class="num">${eur(t.tva)}</span></div>
-      <div class="totals-row ttc"><span>Total TTC</span><span class="num">${eur(t.ttc)}</span></div>
+    <div class="save-bar">
+      ${editingDoc ? `<button class="btn secondary" id="cancel-edit-devis">Annuler la modification</button>` : ''}
+      <button class="btn" id="save-devis">${editingDoc ? 'Enregistrer les modifications' : 'Enregistrer le devis'}</button>
     </div>
-    <button class="btn" id="save-devis" style="margin-top:.5rem">${editingDoc ? 'Enregistrer les modifications' : 'Enregistrer le devis'}</button>
-    ${editingDoc ? `<button class="btn secondary" id="cancel-edit-devis" style="margin-top:.5rem">Annuler la modification</button>` : ''}
   </div>`;
 }
 function builderDraftHasContent(b){
