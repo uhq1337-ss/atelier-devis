@@ -3248,39 +3248,9 @@ function bindBilan(){
     const backBtn = document.getElementById('bilan-print-back');
     if(backBtn) backBtn.onclick = ()=>{ state.bilanPrintMode = false; render(); };
     const goBtn = document.getElementById('bilan-print-go');
-    if(goBtn) goBtn.onclick = async (e)=>{
-      const btn = e.currentTarget;
-      const original = btn.textContent;
-      // Ouvre l'onglet TOUT DE SUITE, dans le même geste que le clic (sinon le navigateur ne
-      // considère plus ça comme une ouverture directe et bloque silencieusement la fenêtre).
-      const win = window.open('', '_blank');
-      if(win) win.document.write('<p style="font-family:sans-serif;padding:2rem">Génération du PDF…</p>');
-      btn.disabled = true;
-      btn.textContent = 'Préparation…';
-      try{
-        const pdf = await buildBilanPdf();
-        if(!pdf){
-          if(win) win.close();
-          showToast("La génération a échoué — vérifie ta connexion internet et réessaie, ou utilise Ctrl+P.");
-          return;
-        }
-        if(!win){
-          showToast("Le navigateur a bloqué l'ouverture — autorise les fenêtres pop-up pour ce site puis réessaie.");
-          return;
-        }
-        const blob = pdf.output('blob');
-        const blobUrl = URL.createObjectURL(blob);
-        win.location.href = blobUrl;
-        setTimeout(()=>{ try{ win.print(); }catch(err){} }, 800);
-      }catch(err){
-        console.error('Erreur génération PDF bilan:', err);
-        if(win) win.close();
-        showToast("La génération du PDF a échoué — utilise Ctrl+P puis « Enregistrer en PDF » comme destination.");
-      }finally{
-        btn.disabled = false;
-        btn.textContent = original;
-      }
-    };
+    // Impression native du navigateur (plus de capture html2canvas : c'est elle qui
+    // écrasait les espaces et superposait les lettres). Pour un PDF : destination « Enregistrer en PDF ».
+    if(goBtn) goBtn.onclick = ()=>{ window.print(); };
     fitBilanToOnePage();
     // Retour à l'affichage direct du tableau (plus d'image figée html2canvas).
     const live = document.getElementById('bilan-live-sheet');
