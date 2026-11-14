@@ -662,8 +662,8 @@
 
   @media screen{
     .main .builder-form{ counter-reset:sec; }
-    .main .builder-form .page-title{ font-size:26px; letter-spacing:-.03em; padding-bottom:.55rem; margin-bottom:1.3rem; border-bottom:3px solid currentColor; }
-    .main .builder-form .card{ background:none; border:none; border-radius:0; box-shadow:none; padding:0; margin:0 0 1.9rem; counter-increment:sec; }
+    .main .builder-form .page-title{ font-size:26px; letter-spacing:-.03em; padding-bottom:.45rem; margin-bottom:1rem; border-bottom:3px solid currentColor; }
+    .main .builder-form .card{ background:none; border:none; border-radius:0; box-shadow:none; padding:0; margin:0 0 1.2rem; counter-increment:sec; }
     .main .builder-form .card > .sec-title:first-child, .main .builder-form .card > .subhead:first-child{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--dash-muted); margin:0 0 .8rem; }
     .main .builder-form .card > .sec-title:first-child::before, .main .builder-form .card > .subhead:first-child::before{ content:counter(sec,decimal-leading-zero) ' \00b7  '; }
     .main .builder-form .line-head{ padding:.4rem .6rem; border-top:1.5px solid currentColor; border-bottom:.5px solid currentColor; margin:0; }
@@ -675,6 +675,21 @@
     .main .builder-form .totals-card{ background:none; border-radius:0; padding:0; }
     .main .builder-form .totals-card .totals-row.ttc{ border-top:3px solid currentColor; color:inherit; }
     .main .builder-form .totals-card .totals-row.ttc .num{ color:inherit; }
+    .main .builder-form .field{ margin-bottom:.55rem; }
+    .form-pair{ display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+    .main .builder-form .card > .sec-title:first-child, .main .builder-form .card > .subhead:first-child{ margin-bottom:.5rem; }
+    .main .builder-form .card:nth-child(3){ display:flex; align-items:center; gap:.3rem 1.5rem; flex-wrap:wrap; }
+    .main .builder-form .card:nth-child(3) > .subhead{ margin:0 !important; }
+    .main .builder-form .card:nth-child(3) > .hint{ display:none; }
+    .main .builder-form .card:nth-child(3) > label{ margin:0 !important; }
+    .main .builder-form .card:nth-child(3) > .row{ flex-basis:100%; }
+    .main .builder-form .lines-empty{ padding:.5rem .6rem; text-align:left; font-size:13px; }
+    .main .builder-form #add-line{ margin-top:.4rem; border:none; background:none; padding:.3rem .6rem; color:var(--dash-violet); }
+    .main .builder-form .totals-grid{ margin-top:.8rem; }
+    .main .builder-form .totals-grid .sec-title{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--dash-muted); margin:0 0 .4rem; }
+    .main .builder-form .save-bar{ position:static; background:none; border-top:.5px solid var(--dash-line); margin-top:.8rem; padding-top:.8rem; }
+    html[data-mode="dark"] .main .builder-form .save-bar{ background:none; }
+    @media (max-width:860px){ .form-pair{ grid-template-columns:1fr; gap:0; } }
     html[data-mode="dark"] .main .builder-form .totals-card{ background:none; }
     html[data-mode="dark"] .main .builder-form .line-row input:hover, html[data-mode="dark"] .main .builder-form .line-row input:focus, html[data-mode="dark"] .main .builder-form .line-row select:hover, html[data-mode="dark"] .main .builder-form .line-row select:focus{ background:#20222E; }
   }
@@ -2492,13 +2507,15 @@ function renderBuilderForm(){
     </div>
     </div>
     ${!state.clients.length ? `<p class="empty" style="text-align:left">Aucun client enregistr\u00e9. Ajoutez-en un dans l'onglet Clients.</p>` : ''}
+    <div class="form-pair">
     <div class="field">
       <label>Objet du devis</label>
       ${rteField('b-objet', b.objet, {single:true, placeholder:'Ex : Devis pour prestations de maintenance CVC'})}
     </div>
     <div class="field">
       <label>Informations compl\u00e9mentaires (optionnel)</label>
-      ${rteField('b-infocomp', b.infoComp, {min:80, placeholder:"Ne s'affiche sur le devis que si tu \u00e9cris quelque chose ici"})}
+      ${rteField('b-infocomp', b.infoComp, {min:50, placeholder:"Ne s'affiche sur le devis que si tu \u00e9cris quelque chose ici"})}
+    </div>
     </div>
   </div>
 
