@@ -661,6 +661,24 @@
   }
 
   @media screen{
+    .rte{ position:relative; }
+    .rte .rte-area{ padding-right:46px; }
+    .rte .rte-pen{ position:absolute; top:5px; right:6px; width:28px; height:28px; border:none; border-radius:8px; background:transparent; color:#8a8fa3; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:3; transition:background .15s,color .15s; padding:0; }
+    .rte .rte-pen:hover{ background:rgba(0,0,0,.06); color:#22262B; }
+    .rte.open .rte-pen{ background:var(--dash-violet); color:#fff; }
+    .rte .rte-bar{ position:absolute; top:4px; right:40px; z-index:2; display:flex; flex-wrap:nowrap; align-items:center; gap:2px; background:#fff; border:0 solid #DDE0EE; border-radius:10px; padding:0; max-width:0; opacity:0; overflow:hidden; pointer-events:none; white-space:nowrap; transition:max-width .3s ease, opacity .2s ease, padding .3s ease; }
+    .rte.open .rte-bar{ max-width:320px; opacity:1; padding:3px 6px; border-width:.5px; pointer-events:auto; box-shadow:0 2px 10px rgba(20,24,40,.10); }
+    .rte .rte-btn{ min-width:28px; width:28px; height:28px; padding:0; border:none; border-radius:7px; font-size:14px; color:#22262B; background:transparent; }
+    .rte .rte-btn:hover{ background:#F1F2F8; border:none; }
+    .rte .rte-btn.on{ background:var(--dash-violet); color:#fff; }
+    .rte .rte-sep{ width:.5px; height:16px; background:#DDE0EE; margin:0 4px; align-self:center; }
+    .rte .rte-swatch{ width:16px; height:16px; border-radius:50%; border:none; background:#fff176; }
+    html[data-mode="dark"] .rte .rte-bar{ background:#1A1C26; border-color:#3B3F52; }
+    html[data-mode="dark"] .rte .rte-btn{ color:#D9DBEA; }
+    html[data-mode="dark"] .rte .rte-btn:hover{ background:#2A2D3C; }
+    html[data-mode="dark"] .rte .rte-pen:hover{ background:rgba(255,255,255,.08); color:#E6E7F0; }
+  }
+  @media screen{
     .main .builder-form{ counter-reset:sec; }
     .main .builder-form .page-title{ font-size:26px; letter-spacing:-.03em; padding-bottom:.45rem; margin-bottom:1rem; border-bottom:3px solid currentColor; }
     .main .builder-form .card{ background:none; border:none; border-radius:0; box-shadow:none; padding:0; margin:0 0 1.2rem; counter-increment:sec; }
@@ -676,6 +694,8 @@
     .main .builder-form .totals-card .totals-row.ttc{ border-top:3px solid currentColor; color:inherit; }
     .main .builder-form .totals-card .totals-row.ttc .num{ color:inherit; }
     .main .builder-form .field{ margin-bottom:.55rem; }
+    .draft-status{ float:right; font-size:12px; font-weight:400; letter-spacing:0; color:var(--dash-muted); margin-top:.9rem; }
+    .cs-recent{ font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--dash-muted); border:.5px solid var(--dash-line); border-radius:99px; padding:0 .45rem; margin-left:.4rem; }
     .form-pair{ display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
     .main .builder-form .card > .sec-title:first-child, .main .builder-form .card > .subhead:first-child{ margin-bottom:.5rem; }
     .main .builder-form .card:nth-child(3){ display:flex; align-items:center; gap:.3rem 1.5rem; flex-wrap:wrap; }
@@ -1183,15 +1203,17 @@ function stripRich(v){
 function rteField(id, value, opts){
   const o = opts||{};
   const ph = String(o.placeholder||'').replace(/"/g,'&quot;');
+  const svg = d => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   return `<div class="rte" data-rte="${id}">
+    <button type="button" class="rte-pen" title="Mise en forme" aria-label="Mise en forme">${svg('<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M13.5 6.5l3 3"/>')}</button>
     <div class="rte-bar">
-      <button type="button" class="rte-btn" data-cmd="bold" title="Gras (Cmd+B)"><b>G</b></button>
+      <button type="button" class="rte-btn" data-cmd="bold" title="Gras (Cmd+B)"><b>B</b></button>
       <button type="button" class="rte-btn" data-cmd="italic" title="Italique (Cmd+I)"><i>I</i></button>
-      <button type="button" class="rte-btn" data-cmd="underline" title="Souligné (Cmd+U)"><u>S</u></button>
-      <button type="button" class="rte-btn" data-cmd="hilite" title="Surligner"><span class="rte-swatch"></span>Surligner</button>
-      ${o.single ? '' : '<span class="rte-sep"></span><button type="button" class="rte-btn" data-cmd="insertUnorderedList" title="Liste à puces">&bull; Liste</button>'}
+      <button type="button" class="rte-btn" data-cmd="underline" title="Souligné (Cmd+U)"><u>U</u></button>
       <span class="rte-sep"></span>
-      <button type="button" class="rte-btn" data-cmd="removeFormat" title="Effacer la mise en forme">Effacer</button>
+      <button type="button" class="rte-btn" data-cmd="hilite" title="Surligner"><span class="rte-swatch"></span></button>
+      ${o.single ? '' : `<button type="button" class="rte-btn" data-cmd="insertUnorderedList" title="Liste à puces">${svg('<path d="M9 6h11M9 12h11M9 18h11M5 6h.01M5 12h.01M5 18h.01"/>')}</button>`}
+      <button type="button" class="rte-btn" data-cmd="removeFormat" title="Effacer la mise en forme">${svg('<path d="M19 20H8.5l-4.2-4.2a1 1 0 0 1 0-1.4l10-10a1 1 0 0 1 1.4 0l5.2 5.2a1 1 0 0 1 0 1.4L11.5 20"/><path d="M18 13.3L11.7 7"/>')}</button>
     </div>
     <div class="rte-area${o.single?' single':''}" contenteditable="true" data-placeholder="${ph}" style="min-height:${o.min||60}px">${sanitizeRich(plainToHtml(value))}</div>
   </div>`;
@@ -1202,6 +1224,9 @@ function bindRte(handlers){
     const id = box.dataset.rte, area = box.querySelector('.rte-area');
     const push = ()=>{ if(handlers[id]) handlers[id](cleanRich(area.innerHTML)); };
     area.addEventListener('input', push);
+    const pen = box.querySelector('.rte-pen');
+    pen.onclick = ()=>{ box.classList.toggle('open'); if(box.classList.contains('open')) area.focus(); };
+    box.addEventListener('focusout', e=>{ if(!box.contains(e.relatedTarget)) box.classList.remove('open'); });
     area.addEventListener('paste', e=>{ e.preventDefault(); const t=(e.clipboardData||window.clipboardData).getData('text/plain'); document.execCommand('insertText', false, t); });
     if(area.classList.contains('single')) area.addEventListener('keydown', e=>{ if(e.key==='Enter') e.preventDefault(); });
     box.querySelectorAll('.rte-btn').forEach(btn=>{
@@ -2474,6 +2499,19 @@ function calcTotals(b){
 function renderBuilder(){
   return `<div class="builder-grid"><div class="builder-form">${renderBuilderForm()}</div><aside class="builder-preview"><div class="bp-scale" id="live-preview">${previewDevisHtml(state.builder)}</div></aside></div>`;
 }
+// clients triés : les derniers utilisés dans un devis ou une facture en premier
+function clientsParRecence(){
+  const dernier = {};
+  state.documents.forEach(d=>{
+    if(!d.clientId) return;
+    const iso = frDateToIso(d.date) || '';
+    if(iso > (dernier[d.clientId]||'')) dernier[d.clientId] = iso;
+  });
+  const liste = state.clients.map(c=> Object.assign({}, c, { _dernier: dernier[c.id]||'', _recent:false }));
+  liste.sort((a,b)=> a._dernier < b._dernier ? 1 : a._dernier > b._dernier ? -1 : 0);
+  liste.slice(0,3).forEach(c=>{ if(c._dernier) c._recent = true; });
+  return liste;
+}
 function renderBuilderForm(){
   const b = state.builder;
   const t = calcTotals(b);
@@ -2481,7 +2519,7 @@ function renderBuilderForm(){
   if(!b.companyId && state.companies.length) b.companyId = state.activeCompanyId || state.companies[0].id;
   const editingDoc = b.editingDocId ? state.documents.find(d=>d.id===b.editingDocId) : null;
   return `
-  <h1 class="page-title">${editingDoc ? 'Modifier le devis '+editingDoc.numero : 'Nouveau devis'}</h1>
+  <h1 class="page-title">${editingDoc ? 'Modifier le devis '+editingDoc.numero : 'Nouveau devis'}<span id="draft-status" class="draft-status">${texteBrouillon()}</span></h1>
   <div class="card">
     <h2 class="sec-title">Informations du devis</h2>
     <div class="form-2col">
@@ -2490,9 +2528,9 @@ function renderBuilderForm(){
       <input type="text" id="b-client-search" placeholder="Taper pour rechercher un client..." autocomplete="off"
         value="${clientFullName(state.clients.find(c=>c.id===b.clientId))}">
       <div id="client-dropdown" class="client-dropdown">
-        ${state.clients.map(c=>`
+        ${clientsParRecence().map((c,i)=>`
           <div class="client-suggestion" data-pick-client="${c.id}" data-search="${(clientFullName(c)+' '+(c.ville||'')+' '+(c.cp||'')).toLowerCase()}">
-            <div class="cs-name">${clientFullName(c)}</div>
+            <div class="cs-name">${clientFullName(c)}${c._recent ? ' <span class="cs-recent">récent</span>' : ''}</div>
             <div class="cs-addr">${c.cp||''} ${c.ville||''}${c.adresse? ' \u2014 '+c.adresse : ''}</div>
           </div>`).join('')}
         <div id="client-no-match" class="client-no-match">Aucun client trouv\u00e9.</div>
@@ -2595,11 +2633,20 @@ function builderDraftHasContent(b){
   if(b.editingDocId) return true;
   return !!(b.clientId || b.objet || b.infoComp || (b.lignes && b.lignes.some(l=>l.articleId || (l.qty && l.qty!==1) || l.pu)));
 }
+// petit texte à côté du titre : le brouillon est enregistré tout seul
+function texteBrouillon(){
+  if(!state.draftSavedAt) return builderDraftHasContent(state.builder) && !state.builder.editingDocId ? '\u2713 Brouillon retrouvé' : '';
+  const h = state.draftSavedAt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  return '\u2713 Brouillon enregistré à '+h;
+}
 function saveBuilderDraft(){
   try{
     const b = state.builder;
     if(builderDraftHasContent(b)){
       localStorage.setItem(BUILDER_DRAFT_KEY, JSON.stringify(b));
+      state.draftSavedAt = new Date();
+      const el = document.getElementById('draft-status');
+      if(el) el.textContent = texteBrouillon();
     } else {
       localStorage.removeItem(BUILDER_DRAFT_KEY);
     }
