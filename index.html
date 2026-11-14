@@ -261,6 +261,25 @@
     .bilan-print-table td[colspan]{ padding-top:.3rem !important; }
     .bilan-print-footer{ margin-top:.4rem; font-size:8px; }
   }
+
+  .bilan-print-header{ border-bottom:3px solid #1c1c1c !important; align-items:flex-end !important; }
+  .bilan-print-title{ font-family:var(--font-body) !important; font-size:30px !important; font-weight:600; letter-spacing:-.03em; line-height:1; color:#1c1c1c !important; }
+  .bilan-print-date{ color:var(--bilan-color,#1c1c1c) !important; font-size:13px !important; font-weight:500; margin-top:5px !important; }
+  .bilan-strip{ display:flex; gap:34px; margin:10px 0 12px; font-size:12px; color:#1c1c1c; }
+  .bilan-strip span{ display:block; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:#9ca3af; margin-bottom:2px; }
+  .bilan-strip b{ color:var(--bilan-color,#1c1c1c); font-weight:600; }
+  .bilan-print-col{ border:none !important; border-radius:0 !important; padding:0 !important; }
+  .bilan-print-subhead{ font-family:var(--font-body) !important; font-size:10px !important; letter-spacing:.08em; text-transform:uppercase; color:#9ca3af !important; border-bottom:none !important; padding-bottom:0 !important; margin:0 0 .3rem !important; }
+  .bilan-print-table th{ color:#6b7280 !important; border-top:1.5px solid #1c1c1c; border-bottom:.5px solid #1c1c1c !important; }
+  .bilan-print-table td{ border-bottom:.5px solid #d7d9de !important; }
+  .bilan-print-table td[colspan]{ background:none !important; color:var(--bilan-color,#1c1c1c); }
+  .bilan-print-total .bilan-print-table td{ border-bottom:none !important; border-top:3px solid #1c1c1c !important; color:#1c1c1c; }
+  .bilan-print-footer{ border-top:none !important; color:#9ca3af !important; }
+  .bilan-print-sheet.res .bilan-print-table{ font-size:12px; }
+  .bilan-print-sheet.res .bilan-print-table .lib{ text-align:left; }
+  .bilan-print-sheet.res .bilan-print-tables{ flex:0 0 auto; }
+  .res-net{ display:flex; justify-content:space-between; margin-top:14px; padding-top:8px; border-top:3px solid #1c1c1c; font-size:15px; font-weight:600; }
+.bilan-print-logo-text{ font-family:var(--font-body) !important; font-size:20px !important; font-weight:700; letter-spacing:.02em; color:#1c1c1c !important; }
   @media print{
     .cgv-page{margin-top:0;break-before:page;page-break-before:always;}
     @page cgv-print-page{ size:A4; margin:16mm; }
@@ -909,6 +928,7 @@ let state = {
   comptaTab: 'plan',
   bilanDate: '',
   bilanPrintMode: false,
+  resultatPrintMode: false,
   articlesSearch: '',
   articlesFournisseurFilter: '',
   articlesSort: { key:'code', dir:'asc' },
@@ -4348,6 +4368,7 @@ function bindCompta(){
   if(state.comptaTab==='saisie') return bindSaisieEcriture();
   if(state.comptaTab==='ecritures') return bindEcritures();
   if(state.comptaTab==='bilan') return bindBilan();
+  if(state.comptaTab==='resultat') return bindResultat();
 }
 
 function bindBilan(){
@@ -4393,6 +4414,24 @@ td[colspan]{ padding-top:.3rem !important; }
 .bilan-print-total td{ height:3.1em; vertical-align:middle; border-bottom:none; border-top:1.5px solid var(--line-strong); }
 .hint{ font-size:9px; color:var(--danger); margin:.4rem 0 0; }
 .bilan-print-footer{ margin-top:.4rem; border-top:1px solid var(--line); padding-top:.35rem; font-size:8px; color:var(--muted); text-align:center; }
+.bilan-print-header{ border-bottom:3px solid #1c1c1c !important; align-items:flex-end !important; }
+.bilan-print-title{ font-family:var(--font-body) !important; font-size:30px !important; font-weight:600; letter-spacing:-.03em; line-height:1; color:#1c1c1c !important; }
+.bilan-print-date{ color:var(--bilan-color,#1c1c1c) !important; font-size:12px !important; font-weight:500; margin-top:5px !important; }
+.bilan-strip{ display:flex; gap:30px; margin:8px 0 8px; font-size:11px; color:#1c1c1c; }
+.bilan-strip span{ display:block; font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:#9ca3af; margin-bottom:1px; }
+.bilan-strip b{ color:var(--bilan-color,#1c1c1c); font-weight:600; }
+.bilan-print-col{ border:none !important; border-radius:0 !important; padding:0 !important; }
+.bilan-print-subhead{ font-family:var(--font-body) !important; font-size:9px !important; letter-spacing:.08em; text-transform:uppercase; color:#9ca3af !important; border-bottom:none !important; padding-bottom:0 !important; margin:0 0 .2rem !important; }
+th{ color:#6b7280 !important; border-top:1.5px solid #1c1c1c; border-bottom:.5px solid #1c1c1c !important; }
+td{ border-bottom:.5px solid #d7d9de !important; }
+td[colspan]{ background:none !important; color:var(--bilan-color,#1c1c1c); }
+.bilan-print-total td{ border-bottom:none !important; border-top:3px solid #1c1c1c !important; color:#1c1c1c; }
+.bilan-print-footer{ border-top:none !important; color:#9ca3af !important; }
+.bilan-print-sheet.res table{ font-size:calc(var(--fs) + 2.5px); }
+.bilan-print-sheet.res table .lib{ text-align:left !important; }
+.bilan-print-sheet.res .bilan-print-tables{ flex:0 0 auto; }
+.res-net{ display:flex; justify-content:space-between; margin-top:14px; padding-top:8px; border-top:3px solid #1c1c1c; font-size:15px; font-weight:600; }
+.bilan-print-logo-text{ font-family:var(--font-body) !important; font-size:20px !important; font-weight:700; letter-spacing:.02em; color:#1c1c1c !important; }
 `;
 // imprime le bilan dans une page à part
 function printBilanFrame(){
@@ -5014,7 +5053,52 @@ function renderCompteResultat(){
   const charges = rows.filter(r=>r.code.startsWith('6') && r.solde!==0);
   const produits = rows.filter(r=>r.code.startsWith('7') && r.solde!==0);
   const { produits: totProduits, charges: totCharges, net } = computeResultatNet(rows);
+  if(state.resultatPrintMode){
+    const co = state.companies.find(c=>c.id===state.selectedCompanyId) || state.companies[0] || {};
+    const dateTxt = state.bilanDate || todayFr();
+    const cols = '<colgroup><col style="width:17%"><col style="width:51%"><col style="width:32%"></colgroup>';
+    const lignes = (liste, f)=> liste.length ? liste.map(r=>`<tr><td class="num">${r.code}</td><td class="lib">${r.label}</td><td class="num">${eur(f(r))}</td></tr>`).join('') : '<tr><td colspan="3">Aucune ligne.</td></tr>';
+    const bloc = (titre, liste, f, total, lib)=> `<div class="bilan-print-col"><div class="bilan-print-subhead">${titre}</div>
+      <table class="bilan-print-table">${cols}<tr><th>Code</th><th class="lib">Libellé</th><th>Montant</th></tr>${lignes(liste,f)}</table>
+      <div class="bilan-print-total"><table class="bilan-print-table">${cols}<tr><td colspan="2"><b>${lib}</b></td><td class="num"><b>${eur(total)}</b></td></tr></table></div></div>`;
+    return `
+    <div class="row" style="margin-bottom:1.1rem;gap:.6rem">
+      <button class="btn secondary small" id="bilan-print-back">&larr; Retour</button>
+      <button class="btn small" id="bilan-print-go">Imprimer</button>
+    </div>
+    <div id="print-area">
+      <div class="bilan-print-sheet res" id="bilan-live-sheet" style="--bilan-color:#1c1c1c">
+        <div class="bilan-print-header">
+          ${co.logo ? `<img class="bilan-print-logo" src="${co.logo}" alt="${co.name||''}">` : `<div class="bilan-print-logo-text">${co.name||''}</div>`}
+          <div class="bilan-print-titleblock">
+            <div class="bilan-print-title">Compte de résultat</div>
+            <div class="bilan-print-date">${co.name||''}</div>
+          </div>
+        </div>
+        <div class="bilan-strip">
+          <div><span>Date</span>${dateTxt}</div>
+          <div><span>Produits</span>${eur(totProduits)}</div>
+          <div><span>Charges</span>${eur(totCharges)}</div>
+          <div><span>${net>=0?'Bénéfice':'Perte'}</span><b>${eur(net)}</b></div>
+        </div>
+        <div class="bilan-print-body">
+          <div class="bilan-print-tables">
+            ${bloc('Charges', charges, r=>r.debit-r.credit, totCharges, 'Total charges')}
+            ${bloc('Produits', produits, r=>r.credit-r.debit, totProduits, 'Total produits')}
+          </div>
+          <div class="res-net"><span>${net>=0?'Résultat net (bénéfice)':'Résultat net (perte)'}</span><span>${eur(net)}</span></div>
+        </div>
+        <div class="bilan-print-footer">${co.name||''}${co.siret ? ' \u2014 SIRET '+co.siret : ''}</div>
+      </div>
+    </div>`;
+  }
   return `
+  <div class="row" style="margin-bottom:1.1rem;gap:1rem;align-items:center">
+    <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:.5rem">Date
+      <input type="date" id="res-date-input" value="${frDateToIso(state.bilanDate || todayFr())}">
+    </label>
+    <button class="btn small" id="res-print-btn">Imprimer</button>
+  </div>
   <p class="page-sub">Charges (classe 6) et produits (classe 7) cumul\u00e9s, toutes \u00e9critures confondues.</p>
   <div class="row" style="align-items:flex-start;gap:1.25rem">
     <div class="card" style="flex:1;min-width:280px">
@@ -5045,6 +5129,19 @@ function renderCompteResultat(){
   <div class="card" style="margin-top:1.25rem">
     <div class="totals-row ttc"><span>${net>=0 ? 'R\u00e9sultat net (b\u00e9n\u00e9fice)' : 'R\u00e9sultat net (perte)'}</span><span class="num">${eur(net)}</span></div>
   </div>`;
+}
+
+function bindResultat(){
+  if(state.resultatPrintMode){
+    document.getElementById('bilan-print-back').onclick = ()=>{ state.resultatPrintMode = false; render(); };
+    document.getElementById('bilan-print-go').onclick = ()=>{ printBilanFrame(); };
+    document.body.classList.add('bilan-printing');
+    return;
+  }
+  const dateInput = document.getElementById('res-date-input');
+  if(dateInput) dateInput.onchange = ()=>{ state.bilanDate = isoDateToFr(dateInput.value); render(); };
+  const btn = document.getElementById('res-print-btn');
+  if(btn) btn.onclick = ()=>{ if(!state.bilanDate) state.bilanDate = todayFr(); state.resultatPrintMode = true; render(); };
 }
 
 function classifyBilanAccount(code){
@@ -5276,13 +5373,19 @@ function renderBilan(){
       <button class="btn small" id="bilan-print-go">Imprimer</button>
     </div>
     <div id="print-area">
-      <div class="bilan-print-sheet" id="bilan-live-sheet">
+      <div class="bilan-print-sheet" id="bilan-live-sheet" style="--bilan-color:#1c1c1c">
         <div class="bilan-print-header">
           ${coBilan.logo ? `<img class="bilan-print-logo" src="${coBilan.logo}" alt="${coBilan.name||''}">` : `<div class="bilan-print-logo-text">${coBilan.name||''}</div>`}
           <div class="bilan-print-titleblock">
-            <div class="bilan-print-title">Bilan ${coBilan.name||''}</div>
-            <div class="bilan-print-date">Au ${bilanDateDisplay}</div>
+            <div class="bilan-print-title">Bilan</div>
+            <div class="bilan-print-date">${coBilan.name||''}</div>
           </div>
+        </div>
+        <div class="bilan-strip">
+          <div><span>Date</span>${bilanDateDisplay}</div>
+          <div><span>Total actif</span><b>${eur(totalActifGeneral)}</b></div>
+          <div><span>${resultatExercice<0?'Perte':'Résultat'}</span>${eur(resultatExercice)}</div>
+          <div><span>Capitaux propres</span>${eur(totalCapitaux)}</div>
         </div>
         <div class="bilan-print-body">
           <div id="bilan-scale-inner">
