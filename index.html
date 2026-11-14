@@ -154,8 +154,7 @@
   .ed .p2-logo-img{ max-height:62px; max-width:210px; }
   .ed .p2-logo-text .nm{ font-family:var(--font-body); font-weight:700; letter-spacing:.14em; }
   .ed .p2-devis-box{ color:#1c1c1c; }
-  .ed .p2-devis-box .ttl{ font-family:var(--font-body); font-size:34px; font-weight:600; letter-spacing:-.03em; line-height:1; text-transform:lowercase; }
-  .ed .p2-devis-box .ttl::first-letter{ text-transform:uppercase; }
+  .ed .p2-devis-box .ttl{ font-family:var(--font-body); font-size:34px; font-weight:600; letter-spacing:0; line-height:1.2; }
   .ed .p2-devis-box .num{ font-size:15px; font-weight:500; color:var(--p2-color); opacity:1; margin-top:6px; }
   .ed .p2-devis-box .dt{ display:none; }
   .ed .p2-body{ padding:16px 36px 20px; }
@@ -5532,7 +5531,7 @@ function renderDocView(id, override){
     <div class="p2-banner" style="--p2-color:${color};border-bottom:3px solid ${color}">
       ${co.logo ? `<img class="p2-logo-img" src="${co.logo}" alt="${co.name}">` : `<div class="p2-logo-text"><div class="nm">${co.name}</div><div class="tg">${co.tagline||''}</div></div>`}
       <div class="p2-devis-box">
-        <div class="ttl">${title}</div>
+        <div class="ttl">${modeleDe(co)==='classique' ? title : title.charAt(0)+title.slice(1).toLowerCase()}</div>
         <div class="num">N\u00b0 ${d.numero}</div>
         <div class="dt">Date : ${d.date}</div>
       </div>
