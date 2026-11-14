@@ -145,6 +145,45 @@
   .p2-tagline .s{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin-top:4px;opacity:.9;}
   .p2-legal-footer{text-align:center;font-size:9.5px;color:var(--muted);line-height:1.6;padding:10px 20px;border-top:1px solid var(--line);}
 
+
+  /* modèle éditorial des devis et factures (ajouté à côté de l'ancien) */
+  .ed-strip{ display:none; }
+  .paper2.ed{ font-size:13px; color:#1c1c1c; }
+  .ed .p2-banner{ padding:26px 36px 12px; align-items:flex-end; border-bottom:3px solid #1c1c1c !important; background:#fff; }
+  .ed .p2-banner::after{ display:none; }
+  .ed .p2-logo-img{ max-height:62px; max-width:210px; }
+  .ed .p2-logo-text .nm{ font-family:var(--font-body); font-weight:700; letter-spacing:.14em; }
+  .ed .p2-devis-box{ color:#1c1c1c; }
+  .ed .p2-devis-box .ttl{ font-family:var(--font-body); font-size:34px; font-weight:600; letter-spacing:-.03em; line-height:1; text-transform:lowercase; }
+  .ed .p2-devis-box .ttl::first-letter{ text-transform:uppercase; }
+  .ed .p2-devis-box .num{ font-size:15px; font-weight:500; color:var(--p2-color); opacity:1; margin-top:6px; }
+  .ed .p2-devis-box .dt{ display:none; }
+  .ed .p2-body{ padding:16px 36px 20px; }
+  .ed .ed-strip{ display:flex; gap:34px; margin:2px 0 20px; font-size:12px; }
+  .ed-strip span{ display:block; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:#9ca3af; margin-bottom:2px; }
+  .ed-strip b{ color:var(--p2-color); }
+  .ed .p2-parties{ gap:36px; margin-bottom:18px; }
+  .ed .p2-party{ background:none; border:none; border-radius:0; padding:0; }
+  .ed .p2-party .lbl{ color:#1c1c1c; font-weight:600; }
+  .ed .p2-objet{ background:none; border:none; border-left:3px solid var(--p2-color); border-radius:0; padding:2px 0 2px 12px; }
+  .ed .p2-objet .tag{ color:#9ca3af; }
+  .ed .p2-section-title{ background:none !important; color:#1c1c1c; font-size:10.5px; letter-spacing:.08em; padding:0 0 6px; border-radius:0; text-transform:uppercase; }
+  .ed .p2-table{ background:#fff; }
+  .ed .p2-table th{ background:#fff; color:#6b7280; border:none; border-top:1.5px solid #1c1c1c; border-bottom:.5px solid #1c1c1c; }
+  .ed .p2-table td{ border:none; border-bottom:.5px solid #d7d9de; background:#fff; }
+  .ed .p2-table tr:last-child td{ border-bottom:.5px solid #d7d9de; }
+  .ed .p2-conditions{ background:none; border:none; border-top:.5px solid #d7d9de; border-radius:0; padding:12px 0 0; }
+  .ed .p2-conditions .lbl{ color:#1c1c1c !important; font-weight:600; }
+  .ed .p2-totals{ background:none; border:none; border-radius:0; }
+  .ed .p2-totals .r{ border-bottom:none; padding:.35rem 0; }
+  .ed .p2-totals .r.ttc{ background:none !important; color:#1c1c1c; border-top:3px solid #1c1c1c; font-size:14px; margin-top:6px; padding-top:.55rem; }
+  .ed .p2-totals .r.ttc .num{ color:var(--p2-color); }
+  .ed .p2-signbox{ border:.5px dashed #9ca3af; border-radius:0; }
+  .ed .p2-icons-row > div{ border-top:.5px solid #d7d9de; }
+  .ed .p2-tagline{ background:none !important; color:var(--p2-color); border-top:.5px solid #d7d9de; padding:12px 36px; }
+  .ed .p2-tagline .q{ font-size:13px; }
+  .ed .p2-legal-footer{ border-top:none; color:#6b7280; }
+
   .paper2.travaux-doc{font-size:13px;}
   .paper2.travaux-doc .tv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:30px 32px 18px;}
   .paper2.travaux-doc .tv-logo-img{max-height:70px;max-width:220px;object-fit:contain;margin-bottom:8px;}
@@ -1358,6 +1397,8 @@ function majApercu(){
 }
 ['input','change','click'].forEach(ev=>document.addEventListener(ev, majApercu));
 
+// modèle des devis et factures : 'editorial' (nouveau) ou 'classique' (ancien)
+function modeleDe(co){ return (co && co.modele==='classique') ? 'classique' : 'editorial'; }
 // l'entreprise choisie au début
 function activeCo(){ return (state.companies||[]).find(c=>c.id===state.activeCompanyId) || null; }
 // garde seulement les documents de l'entreprise choisie
@@ -4194,6 +4235,13 @@ function renderEntreprise(){
   </div>
   <div class="card">
     <h2 class="sec-title">Textes du devis</h2>
+    <div class="field" style="max-width:320px">
+      <label>Mod\u00e8le des devis et factures</label>
+      <select id="co-modele">
+        <option value="editorial" ${modeleDe(co)==='editorial'?'selected':''}>\u00c9ditorial (nouveau)</option>
+        <option value="classique" ${modeleDe(co)==='classique'?'selected':''}>Classique (ancien)</option>
+      </select>
+    </div>
     <div class="field">
       <label>Conditions (une par ligne, section "2. CONDITIONS" du devis)</label>
       <textarea id="co-conditions" rows="5">${co.conditions.join('\n')}</textarea>
@@ -4231,6 +4279,7 @@ function bindEntreprise(){
   };
   const saveBtn = document.getElementById('co-save');
   if(saveBtn) saveBtn.onclick = async ()=>{
+    co.modele = document.getElementById('co-modele').value;
     co.name = document.getElementById('co-name').value;
     co.tagline = document.getElementById('co-tagline').value;
     co.color = document.getElementById('co-color').value;
@@ -5292,7 +5341,7 @@ function renderDocView(id, override){
   return `
   <button class="btn secondary small" id="back-btn" style="margin-bottom:1rem">&larr; Retour</button>
   <div id="print-area">
-  <div class="paper-wrap"><div class="paper2" style="--p2-color:${color}"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
+  <div class="paper-wrap"><div class="paper2${modeleDe(co)==='classique' ? '' : ' ed'}" style="--p2-color:${color}"><div id="p2-scale-inner" style="display:flex;flex-direction:column;">
     <div class="p2-banner" style="--p2-color:${color};border-bottom:3px solid ${color}">
       ${co.logo ? `<img class="p2-logo-img" src="${co.logo}" alt="${co.name}">` : `<div class="p2-logo-text"><div class="nm">${co.name}</div><div class="tg">${co.tagline||''}</div></div>`}
       <div class="p2-devis-box">
@@ -5302,6 +5351,12 @@ function renderDocView(id, override){
       </div>
     </div>
     <div class="p2-body">
+      <div class="ed-strip">
+        <div><span>Date</span>${d.date}</div>
+        <div><span>R\u00e9f\u00e9rence</span>${d.numero}</div>
+        ${d.type==='facture' ? '<div><span>\u00c9ch\u00e9ance</span>\u00c0 r\u00e9ception</div>' : ''}
+        <div><span>Total TTC</span><b>${eur(t.ttc)}</b></div>
+      </div>
       <div class="p2-parties">
         <div class="p2-party" style="--p2-color:${color2}">
           <div class="lbl">\u00c9metteur</div>
