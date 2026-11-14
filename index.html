@@ -661,6 +661,25 @@
   }
 
   @media screen{
+    .main .builder-form{ counter-reset:sec; }
+    .main .builder-form .page-title{ font-size:26px; letter-spacing:-.03em; padding-bottom:.55rem; margin-bottom:1.3rem; border-bottom:3px solid currentColor; }
+    .main .builder-form .card{ background:none; border:none; border-radius:0; box-shadow:none; padding:0; margin:0 0 1.9rem; counter-increment:sec; }
+    .main .builder-form .card > .sec-title:first-child, .main .builder-form .card > .subhead:first-child{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--dash-muted); margin:0 0 .8rem; }
+    .main .builder-form .card > .sec-title:first-child::before, .main .builder-form .card > .subhead:first-child::before{ content:counter(sec,decimal-leading-zero) ' \00b7  '; }
+    .main .builder-form .line-head{ padding:.4rem .6rem; border-top:1.5px solid currentColor; border-bottom:.5px solid currentColor; margin:0; }
+    .main .builder-form .line-row{ background:none; border-radius:0; border-bottom:.5px solid var(--dash-line); margin:0; padding:.35rem .6rem; }
+    .main .builder-form .line-row input, .main .builder-form .line-row select{ border-color:transparent; background:transparent; }
+    .main .builder-form .line-row input:hover, .main .builder-form .line-row select:hover, .main .builder-form .line-row input:focus, .main .builder-form .line-row select:focus{ border-color:var(--dash-line); background:#fff; }
+    .main .builder-form .lines-empty{ border:none; border-bottom:.5px solid var(--dash-line); border-radius:0; padding:1rem; }
+    .main .builder-form .totals-grid{ border-top:none; margin-top:1.2rem; padding-top:0; }
+    .main .builder-form .totals-card{ background:none; border-radius:0; padding:0; }
+    .main .builder-form .totals-card .totals-row.ttc{ border-top:3px solid currentColor; color:inherit; }
+    .main .builder-form .totals-card .totals-row.ttc .num{ color:inherit; }
+    html[data-mode="dark"] .main .builder-form .totals-card{ background:none; }
+    html[data-mode="dark"] .main .builder-form .line-row input:hover, html[data-mode="dark"] .main .builder-form .line-row input:focus, html[data-mode="dark"] .main .builder-form .line-row select:hover, html[data-mode="dark"] .main .builder-form .line-row select:focus{ background:#20222E; }
+  }
+
+  @media screen{
     .main .trav-line{ background:#F8F9FD; border-radius:10px; padding:.8rem .9rem; margin-bottom:.6rem; }
     .doc-actions{ display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin-top:1.25rem; }
     .doc-spacer{ flex:1; }
