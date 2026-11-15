@@ -908,6 +908,17 @@ function parseNum(v){
   return isNaN(n) ? 0 : n;
 }
 function todayStr(){ const d=new Date(); return d.toLocaleDateString('fr-FR'); }
+// plus grand numéro déjà utilisé (devis, facture...) ou le compteur s'il est plus grand
+function dernierNumero(kind){
+  const prefixes = { devis:'D-', facture:'F-', commande:'CT-', travaux:'TR-' };
+  const source = kind==='commande' ? state.commandes : kind==='travaux' ? state.travaux : state.documents.filter(d=>d.type===kind);
+  let max = 0;
+  source.forEach(item=>{
+    const m = (item.numero||'').match(new RegExp('^'+prefixes[kind]+'\\d{4}-(\\d+)$'));
+    if(m) max = Math.max(max, parseInt(m[1],10));
+  });
+  return Math.max(max, state.counters[kind]||0);
+}
 function nextNumero(kind){
   // kind: 'devis' | 'facture' | 'commande'
   const prefixes = { devis:'D-', facture:'F-', commande:'CT-', travaux:'TR-' };
@@ -917,7 +928,7 @@ function nextNumero(kind){
   const source = kind==='commande' ? state.commandes : kind==='travaux' ? state.travaux : state.documents.filter(d=>d.type===kind);
   source.forEach(item=>{
     if(!item.numero) return;
-    const m = item.numero.match(new RegExp('^'+prefix+'\\\\d{4}-(\\\\d+)$'));
+    const m = item.numero.match(new RegExp('^'+prefix+'\\d{4}-(\\d+)$'));
     if(m){ const n = parseInt(m[1],10); if(n>maxExisting) maxExisting = n; }
   });
   const next = Math.max(state.counters[kind]||0, maxExisting) + 1;
@@ -2987,7 +2998,19 @@ function renderDevisListe(){
       out2 += `<tr><td style="font-weight:bold">Total g\u00e9n\u00e9ral</td><td class="num" style="font-weight:bold">${eur(totV-totRemise)}</td><td class="num" style="font-weight:bold">${eur(totA)}</td><td class="num" style="font-weight:bold">${eur(totV-totRemise-totA)}</td></tr>`;
       return out2;
     })()}
-  </table>`;
+  </table>
+
+  <hr class="divider">
+  <h1 class="page-title" style="font-size:20px">Num\u00e9rotation des devis</h1>
+  <div class="row" style="align-items:flex-end;gap:1rem">
+    <div class="field" style="width:220px">
+      <label>Num\u00e9ro du prochain devis</label>
+      <input type="text" inputmode="numeric" id="next-devis-num" value="${dernierNumero('devis')+1}">
+    </div>
+    <button class="btn small" id="save-next-devis">Enregistrer</button>
+    <button class="btn secondary small" id="renum-devis">Renum\u00e9roter tous les devis \u00e0 la suite</button>
+  </div>
+  <p class="hint">Le prochain devis sera D-${new Date().getFullYear()}-${String(dernierNumero('devis')+1).padStart(4,'0')}.</p>`;
 }
 function renderFacturesListe(){
   const docs = forCo(state.documents.filter(d=>d.type==='facture' && !d.deleted)).reverse();
@@ -3017,6 +3040,41 @@ function renderFacturesListe(){
   </table>`;
 }
 function bindDevisListe(){
+  const saveNext = document.getElementById('save-next-devis');
+  if(saveNext) saveNext.onclick = async ()=>{
+    const n = parseInt(document.getElementById('next-devis-num').value, 10);
+    const dernier = dernierNumero('devis');
+    if(isNaN(n) || n < 1){ showToast('Entre un num\u00e9ro, par exemple 36'); return; }
+    if(n <= dernier){ alert('Le devis n\u00b0 '+dernier+' existe d\u00e9j\u00e0. Le prochain doit \u00eatre au moins '+(dernier+1)+'.'); return; }
+    state.counters.devis = n - 1;
+    await sset('counters', state.counters);
+    showToast('Le prochain devis aura le num\u00e9ro '+n);
+    render();
+  };
+  const renum = document.getElementById('renum-devis');
+  if(renum) renum.onclick = async ()=>{
+    const liste = state.documents.filter(d=>d.type==='devis' && !d.deleted);
+    if(!liste.length) return;
+    if(!confirm('Renum\u00e9roter les '+liste.length+' devis \u00e0 la suite (0001, 0002...) dans l\'ordre de cr\u00e9ation ? Les num\u00e9ros changent aussi sur les devis d\u00e9j\u00e0 envoy\u00e9s. Pense \u00e0 faire une sauvegarde avant.')) return;
+    const parAnnee = {};
+    liste.forEach(d=>{
+      const m = (d.numero||'').match(/^D-(\d{4})-/);
+      const annee = m ? m[1] : String(new Date().getFullYear());
+      parAnnee[annee] = (parAnnee[annee]||0) + 1;
+      d.numero = 'D-'+annee+'-'+String(parAnnee[annee]).padStart(4,'0');
+    });
+    state.commandes.forEach(cmd=>{
+      const d = cmd.devisId ? state.documents.find(x=>x.id===cmd.devisId) : null;
+      if(d) cmd.devisNumero = d.numero;
+    });
+    const annee = String(new Date().getFullYear());
+    state.counters.devis = parAnnee[annee] || 0;
+    await sset('documents', state.documents);
+    await sset('commandes', state.commandes);
+    await sset('counters', state.counters);
+    showToast('Devis renum\u00e9rot\u00e9s \u00e0 la suite');
+    render();
+  };
   document.querySelectorAll('[data-statut]').forEach(sel=>{
     sel.onchange = async ()=>{
       const d = state.documents.find(x=>x.id===sel.dataset.statut);
