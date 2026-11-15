@@ -5725,6 +5725,7 @@ function renderDocView(id, override){
     ${d.type==='devis' ? `<button class="btn secondary" id="to-facture-btn">Transformer en facture</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-commande-btn">Transformer en commande Toshiba</button>` : ''}
     <button class="btn secondary" id="duplicate-doc-btn">${d.type==='devis' ? 'Dupliquer ce devis' : 'Dupliquer cette facture'}</button>
+    <button class="btn secondary" id="change-num-btn">Changer le N\u00b0</button>
     <span class="doc-spacer"></span>
     ${d.type==='devis' ? `<select class="statut-sel st-${statutDe(d)}" id="statut-view" title="Statut du devis">${STATUTS_DEVIS.map(([k,l])=>`<option value="${k}" ${statutDe(d)===k?'selected':''}>${l}</option>`).join('')}</select>` : `<button class="pay-btn ${resteAPayer(d)?'due':'paid'}" id="pay-view">${resteAPayer(d)?'\u00c0 encaisser':'Pay\u00e9e'}</button>`}
     <details class="more-menu">
@@ -6029,6 +6030,32 @@ function bindDocView(){
     saveBuilderDraft();
     state.viewingDoc = null;
     state.tab = 'nouveau';
+    render();
+  };
+  const changeNum = document.getElementById('change-num-btn');
+  if(changeNum) changeNum.onclick = async ()=>{
+    const d = state.documents.find(x=>x.id===state.viewingDoc);
+    if(!d) return;
+    let saisie = prompt('Nouveau num\u00e9ro pour ce document (ex : 36 ou '+d.numero+')', d.numero);
+    if(saisie === null) return;
+    saisie = saisie.trim();
+    if(/^\d+$/.test(saisie)){
+      const prefixe = d.type==='facture' ? 'F-' : 'D-';
+      const m = (d.numero||'').match(/^[A-Z]+-(\d{4})-/);
+      const annee = m ? m[1] : String(new Date().getFullYear());
+      saisie = prefixe + annee + '-' + saisie.padStart(d.type==='facture' ? 3 : 4, '0');
+    }
+    if(!saisie || saisie === d.numero) return;
+    if(state.documents.some(x=>x.id!==d.id && x.type===d.type && x.numero===saisie)){
+      alert('Le num\u00e9ro '+saisie+' est d\u00e9j\u00e0 utilis\u00e9. Choisis-en un autre.');
+      return;
+    }
+    const ancien = d.numero;
+    d.numero = saisie;
+    state.commandes.forEach(cmd=>{ if(cmd.devisId===d.id) cmd.devisNumero = saisie; });
+    await sset('documents', state.documents);
+    await sset('commandes', state.commandes);
+    showToast(ancien+' devient '+saisie);
     render();
   };
   const duplicateBtn = document.getElementById('duplicate-doc-btn');
