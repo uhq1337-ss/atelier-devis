@@ -5722,6 +5722,7 @@ function renderDocView(id, override){
     <button class="btn" id="print-btn">Imprimer</button>
     <button class="btn" id="pdf-btn">Enregistrer en PDF</button>
     <button class="btn secondary" id="email-btn">Envoyer par email</button>
+    ${d.type==='devis' ? `<button class="btn secondary" id="edit-devis-btn">Modifier ce devis</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-facture-btn">Transformer en facture</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-commande-btn">Transformer en commande Toshiba</button>` : ''}
     <button class="btn secondary" id="duplicate-doc-btn">${d.type==='devis' ? 'Dupliquer ce devis' : 'Dupliquer cette facture'}</button>
@@ -5731,7 +5732,6 @@ function renderDocView(id, override){
     <details class="more-menu">
       <summary class="btn secondary">Plus</summary>
       <div class="more-pop">
-        ${d.type==='devis' ? `<button id="edit-devis-btn">Modifier ce devis</button>` : ''}
         <button id="delete-doc-btn" class="danger">Supprimer</button>
       </div>
     </details>
