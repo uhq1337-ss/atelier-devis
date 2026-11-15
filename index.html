@@ -5724,6 +5724,7 @@ function renderDocView(id, override){
     <button class="btn secondary" id="email-btn">Envoyer par email</button>
     ${d.type==='devis' ? `<button class="btn secondary" id="edit-devis-btn">Modifier ce devis</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-facture-btn">Transformer en facture</button>` : ''}
+    ${d.type==='facture' ? `<button class="btn secondary" id="to-devis-btn">Mettre en devis</button>` : ''}
     ${d.type==='devis' ? `<button class="btn secondary" id="to-commande-btn">Transformer en commande Toshiba</button>` : ''}
     <button class="btn secondary" id="duplicate-doc-btn">${d.type==='devis' ? 'Dupliquer ce devis' : 'Dupliquer cette facture'}</button>
     <button class="btn secondary" id="change-num-btn">Changer le N\u00b0</button>
@@ -6122,6 +6123,26 @@ function bindDocView(){
     await sset('counters', state.counters);
     showToast('Facture ' + numero + ' cr\u00e9\u00e9e');
     state.viewingDoc = facture.id;
+    render();
+  };
+  const tdb = document.getElementById('to-devis-btn');
+  if(tdb) tdb.onclick = async ()=>{
+    const f = state.documents.find(x=>x.id===state.viewingDoc);
+    if(!f) return;
+    const origine = f.parentDevisId ? state.documents.find(x=>x.id===f.parentDevisId && !x.deleted) : null;
+    if(origine){
+      showToast('Le devis d\u00e9j\u00e0 existe : ' + origine.numero);
+      state.viewingDoc = origine.id;
+      render();
+      return;
+    }
+    const numero = nextNumero('devis');
+    const devis = Object.assign(JSON.parse(JSON.stringify(f)), { id: uid(), type:'devis', numero, date: todayStr(), montantPaye: 0 });
+    delete devis.parentDevisId; delete devis.statut; delete devis.statutDate; delete devis.payee;
+    await pushAndSave('documents', devis);
+    await sset('counters', state.counters);
+    showToast('Devis ' + numero + ' cr\u00e9\u00e9 \u00e0 partir de ' + f.numero);
+    state.viewingDoc = devis.id;
     render();
   };
   const tcb = document.getElementById('to-commande-btn');
