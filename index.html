@@ -6279,29 +6279,35 @@ function importFromExcel(file, cb){
 
 (async function init(){
   await initFirebase();
+  let dataLoaded = false;
+  async function loadWhenAuth(){
+    if(dataLoaded) return;
+    dataLoaded = true;
+    try{
+      await withTimeout(loadAll(), 10000);
+    }catch(e){
+      console.error('Chargement trop long, d\u00e9marrage avec les donn\u00e9es disponibles', e);
+    }
+    if(window._draftsRestored && window._draftsRestored.length){
+      state.draftsRestoredNotice = window._draftsRestored;
+    }
+  }
   if(fbAuth){
+    // les donn\u00e9es ne sont charg\u00e9es qu'une fois connect\u00e9 (la base exige un compte)
     await new Promise(resolve=>{
-      const unsub = fbAuth.onAuthStateChanged(user=>{
+      let first = true;
+      fbAuth.onAuthStateChanged(async user=>{
         state.authenticated = !!user;
+        if(user){ await loadWhenAuth(); }
+        else { state.currentUser = null; dataLoaded = false; }
         render();
-        resolve();
+        if(first){ first = false; resolve(); }
       });
     });
-    fbAuth.onAuthStateChanged(user=>{
-      const wasAuth = state.authenticated;
-      state.authenticated = !!user;
-      if(wasAuth !== state.authenticated){ if(!user) state.currentUser=null; render(); }
-    });
+  }else{
+    await loadWhenAuth();
+    render();
   }
-  try{
-    await withTimeout(loadAll(), 10000);
-  }catch(e){
-    console.error('Chargement trop long, d\u00e9marrage avec les donn\u00e9es disponibles', e);
-  }
-  if(window._draftsRestored && window._draftsRestored.length){
-    state.draftsRestoredNotice = window._draftsRestored;
-  }
-  render();
 })();
 </script>
 </body>
